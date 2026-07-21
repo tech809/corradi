@@ -1,0 +1,16 @@
+# Copia a terraform.tfvars y ajusta.
+region          = "eu-west-1"
+public_key_path = "~/.ssh/id_ed25519.pub"
+
+# ¡Importante! Pon TU IP pública con /32 (https://ifconfig.me) para no dejar SSH abierto.
+ssh_allowed_cidr = "TU.IP.PUBLICA.AQUI/32"
+
+# API: déjala cerrada (acceso por túnel SSH). Ponla a true solo si añades auth.
+expose_api = false
+
+# Opcional: si subes el repo a git, ponlo aquí para que se clone solo.
+# repo_url = "https://github.com/tu-org/corradi.git"
+
+use_elastic_ip = true
+instance_type  = "t4g.small"
+root_volume_gb = 30

@@ -1,0 +1,77 @@
+name: corradi
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: corradi-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-corradi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-corradi}
+      POSTGRES_DB: ${POSTGRES_DB:-corradi}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Migraciones que se ejecutan SOLO en la primera inicialización del volumen
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      # Host 5433 para evitar choque con un Postgres local en 5432.
+      # Dentro de la red de compose, api/bot siguen usando db:5432.
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-corradi} -d ${POSTGRES_DB:-corradi}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: corradi-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: corradi-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-corradi}:${POSTGRES_PASSWORD:-corradi}@db:5432/${POSTGRES_DB:-corradi}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  bot:
+    build:
+      context: .
+      dockerfile: docker/bot.Dockerfile
+    container_name: corradi-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-corradi}:${POSTGRES_PASSWORD:-corradi}@db:5432/${POSTGRES_DB:-corradi}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  redis_data:

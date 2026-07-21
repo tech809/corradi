@@ -1,0 +1,43 @@
+.PHONY: up down logs build bot api summary weekly-summary install dev-db test demo seed
+
+# ─── Docker (local = EC2: mismo compose) ───────────────────────────────────
+up:        ## Levanta toda la pila (db, redis, api, bot)
+	docker compose up -d --build
+
+down:      ## Para la pila
+	docker compose down
+
+logs:      ## Sigue los logs
+	docker compose logs -f
+
+build:     ## Reconstruye imágenes
+	docker compose build
+
+# ─── Ejecución local sin Docker (necesita Postgres+Redis y .env) ───────────
+install:
+	pip install -r requirements.txt
+
+dev-db:    ## Solo db + redis en Docker (para desarrollar la app en local)
+	docker compose up -d db redis
+
+bot:
+	python run_bot.py
+
+api:
+	uvicorn app.api.main:app --reload
+
+summary:
+	python -m app.scheduler.daily_summary
+
+weekly-summary:
+	python -m app.scheduler.weekly_summary
+
+# ─── Pruebas / demo sin claves ─────────────────────────────────────────────
+test:      ## Ejecuta los tests (no necesitan BD ni claves)
+	LLM_PROVIDER=fake python -m pytest
+
+demo:      ## Demo offline del flujo completo (sin BD ni claves)
+	LLM_PROVIDER=fake python -m app.demo
+
+seed:      ## Carga datos de ejemplo en la BD (necesita 'make dev-db')
+	LLM_PROVIDER=fake python -m app.seed

@@ -1,0 +1,81 @@
+"""Configuración central leída de variables de entorno (.env)."""
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+
+try:  # python-dotenv es opcional (p.ej. en dry-run/tests sin dependencias instaladas)
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ModuleNotFoundError:
+    pass
+
+
+def _ids(raw: str | None) -> list[int]:
+    return [int(x.strip()) for x in (raw or "").split(",") if x.strip()]
+
+
+def _phones(raw: str | None) -> list[str]:
+    """Normaliza números a formato Cloud API: solo dígitos, sin '+', espacios ni guiones."""
+    out = []
+    for x in (raw or "").split(","):
+        digits = "".join(c for c in x if c.isdigit())
+        if digits:
+            out.append(digits)
+    return out
+
+
+@dataclass(frozen=True)
+class Config:
+    # Infra
+    database_url: str = os.getenv("DATABASE_URL", "postgresql://corradi:corradi@localhost:5432/corradi")
+    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
+    # Telegram
+    telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    telegram_channel_id: str = os.getenv("TELEGRAM_CHANNEL_ID", "")
+    # Username público del canal (sin @), para enlazar directamente a cada post del resumen diario.
+    telegram_channel_username: str = os.getenv("TELEGRAM_CHANNEL_USERNAME", "")
+    admin_telegram_ids: list[int] = field(default_factory=lambda: _ids(os.getenv("ADMIN_TELEGRAM_IDS")))
+    whatsapp_handoff_group_id: str = os.getenv("WHATSAPP_HANDOFF_TELEGRAM_GROUP_ID", "")
+
+    # LLM
+    llm_provider: str = os.getenv("LLM_PROVIDER", "gemini")  # 'gemini' | 'fake' (dry-run sin claves)
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
+    llm_model: str = os.getenv("LLM_MODEL", "gemini-2.5-flash-lite")
+    embed_model: str = os.getenv("EMBED_MODEL", "gemini-embedding-001")
+    embed_dim: int = int(os.getenv("EMBED_DIM", "768"))
+
+    # Negocio
+    default_deadline_days: int = int(os.getenv("DEFAULT_DEADLINE_DAYS", "7"))
+    dedup_threshold: float = float(os.getenv("DEDUP_THRESHOLD", "0.88"))
+    # Anti-abuso: máximo de oportunidades que puede crear un coordinador al día, y nº de
+    # envíos consecutivos que no son oportunidad (spam) antes de bloquear automáticamente
+    # (con 2: el 1er mensaje que no es oportunidad avisa, el 2º seguido bloquea).
+    max_daily_opportunities: int = int(os.getenv("MAX_DAILY_OPPORTUNITIES", "3"))
+    spam_block_threshold: int = int(os.getenv("SPAM_BLOCK_THRESHOLD", "2"))
+    timezone: str = os.getenv("TIMEZONE", "Europe/Madrid")
+    summary_hour: int = int(os.getenv("SUMMARY_HOUR", "20"))
+    identifier_prefix: str = os.getenv("IDENTIFIER_PREFIX", "CORRADI")
+
+    # Handoff a WhatsApp: 'telegram' (grupo) | 'whatsapp_cloud' (API oficial) | 'none'
+    handoff_mode: str = os.getenv("HANDOFF_MODE", "telegram")
+    # WhatsApp Business Cloud API
+    whatsapp_cloud_token: str = os.getenv("WHATSAPP_CLOUD_TOKEN", "")
+    whatsapp_phone_number_id: str = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
+    whatsapp_recipients: list[str] = field(default_factory=lambda: _phones(os.getenv("WHATSAPP_RECIPIENTS")))
+    whatsapp_template_name: str = os.getenv("WHATSAPP_TEMPLATE_NAME", "nueva_oportunidad")
+    whatsapp_template_lang: str = os.getenv("WHATSAPP_TEMPLATE_LANG", "es")
+    graph_api_version: str = os.getenv("GRAPH_API_VERSION", "v21.0")
+    # WhatsApp vía Twilio (BSP)
+    twilio_account_sid: str = os.getenv("TWILIO_ACCOUNT_SID", "")
+    twilio_auth_token: str = os.getenv("TWILIO_AUTH_TOKEN", "")
+    twilio_whatsapp_from: str = os.getenv("TWILIO_WHATSAPP_FROM", "")   # p.ej. whatsapp:+14155238886
+    twilio_content_sid: str = os.getenv("TWILIO_CONTENT_SID", "")       # HX... (plantilla; vacío = texto libre)
+    # WhatsApp ENTRANTE (gestores que envían oportunidades por WhatsApp)
+    whatsapp_allowed_senders: list[str] = field(default_factory=lambda: _phones(os.getenv("WHATSAPP_ALLOWED_SENDERS")))
+    twilio_validate_signature: bool = os.getenv("TWILIO_VALIDATE_SIGNATURE", "false").lower() == "true"
+
+
+cfg = Config()

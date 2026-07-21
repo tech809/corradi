@@ -1,0 +1,26 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Logo de corradi_erasmus_bot</title>
+<desc>Circulo azul con doce estrellas doradas al estilo Erasmus+ y un monograma C blanco en el centro</desc>
+<defs>
+<clipPath id="circleClip"><circle cx="256" cy="256" r="256"/></clipPath>
+</defs>
+<g clip-path="url(#circleClip)">
+<rect x="0" y="0" width="512" height="512" fill="#10338F"/>
+<circle cx="256" cy="256" r="256" fill="none" stroke="#0A2472" stroke-width="10"/>
+</g>
+<g fill="#FFCC00">
+<g transform="translate(256,61)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(353.5,87.1)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(424.9,158.5)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(451,256)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(424.9,353.5)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(353.5,424.9)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(256,451)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(158.5,424.9)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(87.1,353.5)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(61,256)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(87.1,158.5)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+<g transform="translate(158.5,87.1)"><path d="M0,-18 L4.02,-5.53 L17.12,-5.56 L6.5,2.1 L10.51,14.53 L0,6.84 L-10.51,14.53 L-6.5,2.1 L-17.12,-5.56 L-4.02,-5.53 Z"/></g>
+</g>
+<text x="256" y="342" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="230" fill="#FFFFFF">C</text>
+</svg>
