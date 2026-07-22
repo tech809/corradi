@@ -194,10 +194,10 @@
   .mode-btn[aria-pressed="true"] {
     background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand);
   }
-  .month-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px; max-width: 260px; }
-  /* Los meses van como píldoras coloreadas (igual que Tipos), no como filas con check:
-     se eligen varios a la vez y en línea, no tiene sentido un check a la derecha aquí. */
-  .dd.compact .dd-panel .month-chips .chip { justify-content: center; flex: none; border-radius: 999px; }
+  /* Rejilla 2×4 con los próximos 8 meses: alineados y del mismo tamaño (más limpio que
+     el flex-wrap irregular de antes). */
+  .month-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px; width: 232px; }
+  .dd.compact .dd-panel .month-chips .chip { justify-content: center; flex: none; border-radius: 10px; }
   .dd.compact .dd-panel .month-chips .chip::after { content: none; }
   /* Con el mismo prefijo (y una clase más) que la regla genérica de "chip activo del
      panel" — si no, esta pierde el empate de especificidad y el border-color de la
@@ -225,14 +225,35 @@
     padding: 10px 16px; border-radius: 999px; box-shadow: 0 2px 10px rgba(11,11,11,.25);
   }
 
-  /* Pie de estadísticas: fila fina, centrada, no compite con nada. */
+  /* Pie de estadísticas: barra fina FIJA abajo, oculta por defecto (no consume pantalla).
+     Aparece deslizándose solo cuando se llega al final de la lista (ver JS). */
   .stats {
-    flex: none; display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 550;
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
     gap: 6px 18px; padding: 7px 14px; background: var(--surface);
     border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px;
+    transform: translateY(110%); transition: transform .22s ease;
   }
+  .stats.show { transform: translateY(0); }
   .stats span { white-space: nowrap; }
   .stats b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  /* Aviso efímero (p.ej. "Enlace copiado") */
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; z-index: 900;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: var(--surface); font-size: 13px; font-weight: 550;
+    padding: 10px 16px; border-radius: 999px; box-shadow: var(--shadow);
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Badge "Nuevo" (oportunidades de las últimas 48h) */
+  .new-tag {
+    display: inline-block; margin-left: 7px; font-size: 10.5px; font-weight: 700;
+    letter-spacing: .03em; text-transform: uppercase; vertical-align: middle;
+    color: #fff; background: var(--critical); padding: 2px 7px; border-radius: 6px;
+  }
 
   /* Ventana de información */
   .info-dialog {
@@ -536,6 +557,8 @@
   <span><span aria-hidden="true">👁️</span> <b id="statVisits">…</b> visitas</span>
 </footer>
 
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <dialog id="infoDialog" class="info-dialog" aria-labelledby="infoTitle">
   <div class="info-head">
     <h2 id="infoTitle">Cómo funciona este mapa</h2>
@@ -662,6 +685,12 @@
     if (one) { var c = p(one); return c.d + " " + MESES[c.m - 1]; }
     return "Fechas por confirmar";
   }
+  // "Nuevo" = publicada/creada en las últimas 48h (created viene de la API en ISO).
+  function isNew(o) {
+    if (!o.created) return false;
+    return (Date.now() - new Date(o.created).getTime()) < 48 * 3600 * 1000;
+  }
+
   function daysLeft(iso) {
     if (!iso) return null;
     var today = new Date(); today.setHours(0, 0, 0, 0);
@@ -698,11 +727,19 @@
     return out;
   }
 
-  function defaultMonthSet() {
-    var s = new Set();
-    all.forEach(function (o) { monthsSpan(o).forEach(function (m) { s.add(m); }); });
-    return s;
+  // Claves "YYYY-MM" de los próximos N meses a partir del mes actual (incluido).
+  function nextMonthsKeys(n) {
+    var out = [], d = new Date(); d.setDate(1);
+    for (var i = 0; i < n; i++) {
+      out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+      d.setMonth(d.getMonth() + 1);
+    }
+    return out;
   }
+
+  // El filtro de meses ofrece SIEMPRE los próximos 8 meses (no todos los que haya en los
+  // datos): más limpio y suficiente para el horizonte real de las convocatorias.
+  function defaultMonthSet() { return new Set(nextMonthsKeys(8)); }
 
   function matchesDate(o) {
     if (dateMode === "range") {
@@ -802,6 +839,7 @@
       return '<article class="card' + (located ? "" : " unlocated") + '" data-id="' + esc(o.identifier) +
         '" data-type="' + esc(o.type || "") + '" tabindex="0">' +
         '<span class="badge">' + esc(t.label) + "</span>" +
+          (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") +
         "<h3>" + esc(o.title) + "</h3>" +
         '<div class="meta">' +
           (place ? "<span><i>" + (flag(o.country_code) || "📍") + "</i>" + esc(place) + "</span>" : "") +
@@ -815,12 +853,13 @@
           (o.application_url ? '<a class="btn primary" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">Inscribirme</a>' : "") +
           (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">Infopack</a>' : "") +
           (o.channel_url ? '<a class="btn" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">Más info</a>' : "") +
+          '<button type="button" class="btn" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">Compartir</button>' +
         "</div></article>";
     }).join("");
 
     Array.prototype.forEach.call(list.querySelectorAll(".card"), function (el) {
       el.addEventListener("click", function (e) {
-        if (e.target.closest("a")) return;
+        if (e.target.closest("a,button")) return;
         // En móvil, tocar una tarjeta lleva directo al mapa a ver su pin — si no,
         // el usuario tendría que cambiar de vista a mano para verlo. Importante el
         // ORDEN: primero cambiar de vista (su fit() encuadra TODOS los pines), y
@@ -835,6 +874,7 @@
       el.addEventListener("mouseenter", function () { highlight(el.dataset.id); });
       el.addEventListener("mouseleave", function () { highlight(activeId); });
     });
+    updateStatsBar();   // lista recién pintada (scroll arriba): muestra la barra si es corta
   }
 
   // ── Mapa ─────────────────────────────────────────────────────────
@@ -853,6 +893,7 @@
     var t = typeOf(o), dl = deadlineText(o);
     var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
     return '<div class="popup"><span class="badge" style="--c:' + t.color + '">' + esc(t.label) + "</span>" +
+      (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
         (place ? "<span><i>" + (flag(o.country_code) || "📍") + "</i>" + esc(place) + "</span>" : "") +
@@ -864,6 +905,7 @@
       '<div class="actions">' +
         (o.application_url ? '<a class="btn primary" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">Inscribirme</a>' : "") +
         (o.channel_url ? '<a class="btn" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">Más info</a>' : "") +
+        '<button type="button" class="btn" onclick="shareOpp(\'' + esc(o.identifier) + '\')">Compartir</button>' +
       "</div>" +
       (o.approx_location ? '<div class="approx">📍 Ubicación aproximada (país)</div>' : "") +
       "</div>";
@@ -1005,7 +1047,7 @@
 
   function buildMonths() {
     var box = document.getElementById("monthChips");
-    var keys = Array.from(defaultMonthSet()).sort();
+    var keys = nextMonthsKeys(8);
     box.innerHTML = keys.map(function (k) {
       return '<button class="chip" data-month="' + k + '" aria-pressed="false">' + monthLabel(k) + "</button>";
     }).join("");
@@ -1048,6 +1090,7 @@
       map.invalidateSize({ animate: false });
       fit();
     }
+    updateStatsBar();   // ocultar la barra en vista mapa; recalcular en vista lista
   }
 
   // Estado "por defecto": en móvil, todos los tipos activos salvo "cierran pronto"
@@ -1147,13 +1190,52 @@
         apply();
       });
     });
-    document.getElementById("dateFrom").addEventListener("change", function (e) {
-      state.dateFrom = e.target.value || null; apply();
+    ["dateFrom", "dateTo"].forEach(function (id) {
+      var input = document.getElementById(id);
+      var key = id === "dateFrom" ? "dateFrom" : "dateTo";
+      input.addEventListener("change", function (e) { state[key] = e.target.value || null; apply(); });
+      // Abrir el calendario nativo al tocar CUALQUIER parte del campo (no solo el iconito),
+      // incluido el día/mes/año. showPicker no existe en algún navegador viejo: se ignora.
+      function open() { try { input.showPicker(); } catch (e) {} }
+      input.addEventListener("focus", open);
+      input.addEventListener("click", open);
     });
-    document.getElementById("dateTo").addEventListener("change", function (e) {
-      state.dateTo = e.target.value || null; apply();
-    });
+
+    // La barra de estadísticas solo aparece al llegar al fondo de la lista (así no come
+    // pantalla). Si la lista es corta y no hay scroll, se considera "al fondo" y se muestra.
+    document.getElementById("list").addEventListener("scroll", updateStatsBar, { passive: true });
   }
+
+  function updateStatsBar() {
+    var list = document.getElementById("list"), stats = document.getElementById("stats");
+    // En móvil, con el mapa a pantalla completa, la lista está oculta: nada que mostrar.
+    if (isMobileQuery && isMobileQuery.matches && document.body.classList.contains("view-map")) {
+      stats.classList.remove("show"); return;
+    }
+    var atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;
+    stats.classList.toggle("show", atBottom);
+  }
+
+  // ── Compartir una oportunidad ─────────────────────────────────────────────
+  var toastTimer = null;
+  function toast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2200);
+  }
+
+  // Enlace profundo a una oportunidad concreta: mismo mapa + ?o=IDENTIFICADOR.
+  function shareUrl(id) {
+    return location.origin + location.pathname + "?o=" + encodeURIComponent(id);
+  }
+  window.shareOpp = function (id) {
+    var opp = all.filter(function (o) { return o.identifier === id; })[0];
+    var data = { title: opp ? opp.title : "Oportunidad Erasmus+", url: shareUrl(id) };
+    if (navigator.share) { navigator.share(data).catch(function () {}); }
+    else if (navigator.clipboard) { navigator.clipboard.writeText(data.url).then(function () { toast("Enlace copiado ✓"); }); }
+    else { toast(data.url); }
+  };
 
   // ── Arranque ─────────────────────────────────────────────────────
   // Basemap SIEMPRE claro (light_all): no sigue el modo oscuro del sistema, a
@@ -1245,6 +1327,12 @@
         buildCountries();
         buildMonths();
         resetFilters();
+        // Enlace profundo (?o=IDENTIFICADOR): abre esa oportunidad directamente.
+        var wanted = new URLSearchParams(location.search).get("o");
+        if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
+          if (isMobileQuery && isMobileQuery.matches) setMobileView("map");
+          focusOpportunity(wanted, true);
+        }
       })
       .catch(function (err) {
         document.getElementById("statOpen").textContent = "—";

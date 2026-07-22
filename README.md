@@ -143,11 +143,13 @@ Para que el canal no se llene de spam ni de mensajes fuera de sitio:
 | Pieza | Uso |
 |---|---|
 | **PostgreSQL 16 + pgvector** | Catálogo de oportunidades + dedup semántico por embedding |
-| **Redis** | Reservado para caché/colas futuras |
-| **FastAPI** | API de solo lectura: catálogo y búsqueda (`/opportunities`) |
+| **FastAPI** | API pública de lectura: mapa (`/api/map`), catálogo, contador de visitas (`/api/visit`) |
+| **Caddy** | Proxy inverso público con HTTPS (Let's Encrypt); filtra rutas |
 | **python-telegram-bot** | Captura (DM) y publicación (canal) |
 | **Google Gemini** (`gemini-2.5-flash-lite` + `gemini-embedding-001`) | Clasificación, extracción de campos, embeddings |
 | **Docker Compose** | Mismo despliegue en local y en EC2 |
+
+> Redis se retiró del stack: estaba configurado pero no se usaba en el código.
 
 ## Estructura del repo
 
@@ -235,59 +237,61 @@ make seed                # carga ejemplos en la BD (necesita 'make dev-db')
 ## Producción (AWS EC2) — YA DESPLEGADO
 
 El bot corre **24/7 en una EC2 t4g.small** (Ubuntu 24.04 ARM), provisionada con el Terraform
-de `terraform/`. Todo el stack (db + redis + api + bot) corre en Docker Compose, igual que en
-local.
+de `terraform/`. Todo el stack (db + api + bot + caddy) corre en Docker Compose. El mapa es
+**público** vía Caddy (HTTPS con Let's Encrypt) en el dominio propio; la API no publica puerto
+al exterior (Caddy filtra las rutas permitidas).
 
 | Dato | Valor |
 |---|---|
-| IP pública (elástica, estable) | `52.49.142.64` |
-| Entrar por SSH | `ssh ubuntu@52.49.142.64` |
-| Ruta del proyecto en la instancia | `/opt/corradi` |
-| Región | `eu-west-1` |
+| Mapa público | **https://mapa.proactivefuture.eu** |
+| Instancia / IP elástica | `i-0af46b60fc0458333` · `52.49.142.64` (`eu-west-1`) |
+| Acceso a la instancia | **AWS SSM Session Manager** (no hay puerto 22 abierto) |
+| Ruta del proyecto | `/opt/corradi` |
 | Coste | **0 € hasta 31-dic-2026** (free trial), luego ~17-19 €/mes |
 
 **Resiliencia**: los contenedores usan `restart: unless-stopped` y Docker arranca al bootear,
-así que todo vuelve solo tras un reinicio o si un contenedor se cae. Los cron (diario 20:00,
-semanal domingos 20:30) están en el `crontab` de la instancia, que está en hora de Madrid.
+así que todo vuelve solo tras un reinicio o si un contenedor se cae. Los cron (resumen diario
+20:00, semanal domingos 20:30, backup de BD) están en el `crontab` de la instancia, en hora de
+Madrid.
 
 > ⚠️ **No arranques el bot en local mientras el de AWS esté vivo**: los dos competirían por
 > el mismo token de Telegram (solo un proceso puede hacer *polling*) y fallarían de forma
-> intermitente. El entorno local quedó parado a propósito (sirve de respaldo).
+> intermitente. El entorno local queda parado (sirve de respaldo).
 
-### Operar / ver info en la instancia
+### Acceso a la instancia (SSM, sin puerto 22)
+
+El SG solo abre 80/443 (Caddy). Para entrar se usa **SSH sobre SSM** (el agente SSM tuneliza;
+requiere `aws` CLI configurado + `session-manager-plugin` + tu clave en la instancia):
 
 ```bash
-ssh ubuntu@52.49.142.64
-cd /opt/corradi
-docker ps                              # estado de los contenedores
-docker logs corradi-bot --tail 50 -f   # logs del bot en vivo
-docker exec corradi-db psql -U corradi -d corradi -c \
-  "SELECT identifier, title, status FROM projects ORDER BY created DESC;"
-```
-
-La API (puerto 8000) está cerrada a internet. Para verla, túnel SSH desde tu Mac:
-```bash
-ssh -L 8000:localhost:8000 ubuntu@52.49.142.64
-# luego en el navegador: http://localhost:8000/opportunities
+IID=i-0af46b60fc0458333
+SSM='ssh -o ProxyCommand="aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p --region eu-west-1"'
+eval $SSM ubuntu@$IID            # entra a la instancia
+# ver/operar:
+#   docker ps ; docker logs corradi-bot --tail 50 -f
+#   docker exec corradi-db psql -U corradi -d corradi -c "SELECT identifier,title,status FROM projects;"
 ```
 
 ### Flujo de edición y despliegue
 
-1. **Editas en local** (`app/…`).
-2. **Pruebas** en local: `make test` (o `make demo` para el flujo offline sin claves).
-3. **Subes a AWS** con rsync y reconstruyes solo el/los servicio(s) afectados:
+1. **Editas en local** (`app/…`, `app/api/static/mapa.html`, …).
+2. **Pruebas**: `make test` (o `make demo` offline sin claves).
+3. **Commit + push** a `github.com/tech809/corradi` (`git push`).
+4. **Subes a AWS y reconstruyes** el/los servicio(s) afectados, por SSM:
    ```bash
-   cd /Users/pachu/Desktop/personal/corradi
-   rsync -a --exclude .git --exclude .venv --exclude '__pycache__' \
+   rsync -a -e "$SSM" --exclude .env --exclude .git --exclude '__pycache__' \
      --exclude '.pytest_cache' --exclude 'terraform/.terraform' \
-     ./ ubuntu@52.49.142.64:/opt/corradi/
-   ssh ubuntu@52.49.142.64 'cd /opt/corradi && docker compose up -d --build bot'
+     ./ ubuntu@$IID:/opt/corradi/
+   eval $SSM ubuntu@$IID 'cd /opt/corradi && docker compose up -d --build bot api'
    ```
-4. **Verificas**: `ssh ubuntu@52.49.142.64 'docker logs corradi-bot --tail 10'`.
+   - **api/bot**: el código va horneado en la imagen → hay que **rebuild** (`--build`).
+   - **mapa.html**: lo sirve la api → también necesita rebuild de `api`.
+   - **Caddyfile**: es un bind-mount de un fichero → tras cambiarlo, **reiniciar** el
+     contenedor (`docker restart corradi-caddy`), no basta rsync (rompe el inodo del mount).
 
-> El `.env` **no** se sube con cada cambio (rsync no lo trae de vuelta ni lo pisa salvo que
-> lo copies a mano). Si cambias variables de entorno, cópialo aparte con `scp .env
-> ubuntu@52.49.142.64:/opt/corradi/.env` y recrea el contenedor.
+> 🔴 **Excluye SIEMPRE `.env` del rsync** (`--exclude .env`). Sin ello, el `.env` local pisa
+> el de producción (que tiene `MAP_DOMAIN`, `MAP_PUBLIC_URL`, etc. propios). Si pasa, se puede
+> recuperar del contenedor en marcha: `docker exec corradi-api env`.
 
 ## Configuración (`.env`)
 
@@ -458,8 +462,11 @@ la guía correspondiente en `docs/archive/`.
 ## Pendiente / siguientes bloques
 
 - **Aviso de facturación en AWS** (Budgets) para enero-2027, cuando acabe el free trial.
-- Quitar Redis del `docker-compose.yml` (configurado pero sin uso real en el código) para
-  ahorrar RAM en la instancia. Ver [docs/infraestructura.md](docs/infraestructura.md).
+- **Backup fuera de la instancia**: hoy el `pg_dump` diario se guarda en la propia máquina
+  (`/opt/corradi/backups`, rota 14 días). Endurecerlo copiándolo a S3 lo protegería ante la
+  pérdida de la instancia.
+- **Fuentes automáticas de oportunidades** (SALTO Training Calendar, agregadores de infopacks,
+  portal ESC) — ver el análisis en `docs/fuentes_externas.md`.
 - Catálogo web (Astro/React) + panel de moderación — A3 Fase 4.
 - App móvil React Native + Expo — A3 Fase 5.
 - Revisar si reactivar WhatsApp (chatbot 1:1 y/o handoff) más adelante.

@@ -248,7 +248,9 @@ def format_weekly_summary(
         lines.append(f"\n🌍 Top países: {paises}")
     if types:
         temas = " · ".join(f"{_TIPOS_ES.get(t['type'], t['type'])} ({t['n']})" for t in types)
-        lines.append(f"🏷️ Top temáticas: {temas}")
+        lines.append(f"🏷️ Por tipo: {temas}")
+    if cfg.map_public_url:
+        lines.append(f'\n🗺️ <a href="{cfg.map_public_url}">Ver todas en el mapa</a>')
     return "\n".join(lines)
 
 

@@ -127,6 +127,12 @@ async def ingest(raw_text: str, source: str, submitted_by: str, submitted_by_id:
             return {"status": "duplicate", "existing": existing}
         vec = await asyncio.to_thread(embeddings.embed, raw_text)
         dup = await repo.find_similar(vec)
+        # Segunda pasada: misma oportunidad en otro idioma (mismo país + fecha de inicio,
+        # similitud moderada). Solo si la primera no la ha pillado ya.
+        if not dup:
+            dup = await repo.find_cross_lang_dup(
+                vec, fields.get("country_code"), fields.get("start_date")
+            )
     except Exception as e:  # noqa: BLE001
         log.exception("Error en deduplicación (usuario %s)", submitted_by_id)
         await repo.log_submission(submitted_by_id, "error")

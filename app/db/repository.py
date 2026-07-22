@@ -101,6 +101,31 @@ async def find_similar(embedding: list[float], threshold: float | None = None) -
     return None
 
 
+async def find_cross_lang_dup(
+    embedding: list[float], country_code: str | None, start_date, threshold: float | None = None
+) -> dict[str, Any] | None:
+    """Detecta la MISMA oportunidad publicada en otro idioma: busca la más parecida ENTRE las
+    que comparten país y fecha de inicio (señal fuerte) y baja el umbral de similitud, porque
+    con país+fecha ya coincidiendo un coseno moderado basta para ser el mismo proyecto."""
+    if not country_code or not start_date:
+        return None
+    threshold = cfg.dedup_crosslang_threshold if threshold is None else threshold
+    v = _vec(embedding)
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT id, identifier, title, 1 - (embedding <=> %s) AS similarity "
+                "FROM projects WHERE embedding IS NOT NULL "
+                "AND country_code = %s AND start_date = %s "
+                "ORDER BY embedding <=> %s LIMIT 1",
+                (v, country_code, start_date, v),
+            )
+            row = await cur.fetchone()
+    if row and row["similarity"] is not None and row["similarity"] >= threshold:
+        return row
+    return None
+
+
 async def list_open() -> list[dict[str, Any]]:
     async with get_pool().connection() as conn:
         async with conn.cursor(row_factory=dict_row) as cur:

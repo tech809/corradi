@@ -23,21 +23,6 @@ services:
       timeout: 3s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
-    container_name: corradi-redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   api:
     build:
       context: .
@@ -47,11 +32,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-corradi}:${POSTGRES_PASSWORD:-corradi}@db:5432/${POSTGRES_DB:-corradi}
-      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     # Sin publicar el puerto al host: el acceso público pasa SIEMPRE por caddy, que filtra
     # las rutas. Para depurar en local: docker compose exec api ... o el túnel SSH.
@@ -85,16 +67,12 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-corradi}:${POSTGRES_PASSWORD:-corradi}@db:5432/${POSTGRES_DB:-corradi}
-      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
 volumes:
   db_data:
-  redis_data:
   caddy_data:
   caddy_config:
   caddy_logs:

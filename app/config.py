@@ -57,6 +57,10 @@ class Config:
     # después del 17 de julio -> el LLM podría empujarlo un año de más).
     max_deadline_months: int = int(os.getenv("MAX_DEADLINE_MONTHS", "3"))
     dedup_threshold: float = float(os.getenv("DEDUP_THRESHOLD", "0.88"))
+    # Umbral relajado para detectar la MISMA oportunidad en otro idioma (EN/ES): solo se
+    # aplica cuando además coinciden país y fecha de inicio, así que puede ser más bajo sin
+    # provocar falsos positivos entre oportunidades realmente distintas.
+    dedup_crosslang_threshold: float = float(os.getenv("DEDUP_CROSSLANG_THRESHOLD", "0.72"))
     # Anti-abuso: máximo de oportunidades que puede crear un coordinador al día, y nº de
     # envíos consecutivos que no son oportunidad (spam) antes de bloquear automáticamente
     # (con 2: el 1er mensaje que no es oportunidad avisa, el 2º seguido bloquea).

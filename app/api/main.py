@@ -31,7 +31,7 @@ _PUBLIC_FIELDS = (
     "start_date", "end_date", "application_deadline", "deadline_estimated",
     "infopack_url", "application_url", "max_participants",
     "participant_min_age", "participant_max_age", "cost", "contact_information",
-    "status", "telegram_message_id",
+    "status", "telegram_message_id", "created",
 )
 
 
