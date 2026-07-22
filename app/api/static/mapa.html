@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapa Corradi</title>
+<meta name="description" content="Mapa interactivo de las oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses, ECS y workshops.">
+<meta name="color-scheme" content="light">
+<meta property="og:title" content="Mapa de oportunidades · Corradi Erasmus+">
+<meta property="og:description" content="Todas las oportunidades Erasmus+ con inscripción abierta, en el mapa.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mapa.proactivefuture.eu/corradi-erasmus">
+<!-- Tarjeta de previsualización al compartir el enlace (WhatsApp, Telegram, LinkedIn…).
+     La imagen se genera a mano con scripts/make_og_image.py, no al vuelo. -->
+<meta property="og:image" content="https://mapa.proactivefuture.eu/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Mapa de oportunidades Corradi Erasmus+">
+<meta name="twitter:card" content="summary_large_image">
+<!-- Bandera de España sin escudo: franjas 1:2:1 -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'><rect width='4' height='3' fill='%23AA151B'/><rect y='.75' width='4' height='1.5' fill='%23F1BF00'/></svg>">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+      integrity="sha256-YU3qCpj/P06tdPBJGPax0bm6Q1wltfwjsho5TR4+TYc=" crossorigin="">
+<style>
+  /* Paleta: superficies/tinta neutras cálidas + 4 colores categóricos validados
+     (contraste CVD y normal-vision comprobados con el validador del sistema de
+     dataviz, modo "todos los pares visibles a la vez" — el uso real de un mapa
+     con varios pines simultáneos, no solo pares adyacentes).
+     A propósito SIEMPRE claro: no sigue el modo oscuro del sistema (antes lo
+     seguía y en un móvil en modo oscuro se veía todo negro — pedido explícito
+     de mantenerlo claro siempre, sin depender del tema del dispositivo). */
+  :root {
+    --brand: #003399;
+    --gold: #ffcc00;
+    --bg: #f9f9f7;
+    --surface: #fcfcfb;
+    --text: #0b0b0b;
+    --muted: #52514e;
+    --muted-2: #898781;
+    --line: #e1e0d9;
+    --shadow: 0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.07);
+    --radius: 14px;
+    --ye: #2a78d6; --tc: #e87ba4; --ecs: #008300; --ws: #eda100; --other: #898781;
+    --critical: #d03b3b; --warn: #fab219;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── Cabecera ─────────────────────────────────────────────────── */
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--line);
+    padding: 14px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  /* Proporción de bandera (4:3), no círculo: es una bandera, no un emblema. */
+  .brand svg { width: 38px; height: 28px; flex: none; border-radius: 4px; border: 1px solid var(--line); }
+  .brand h1 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+  .brand p { margin: 1px 0 0; font-size: 12.5px; color: var(--muted); }
+  .count {
+    background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand);
+    font-weight: 650; font-size: 13px; padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+  }
+  .channel {
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    background: var(--brand); color: #fff; font-weight: 600; font-size: 13.5px;
+    padding: 8px 14px; border-radius: 999px; transition: opacity .15s;
+  }
+  .channel:hover { opacity: .88; }
+  /* Variante secundaria (contorno, no rellena): para no competir con "Ver canal",
+     que sigue siendo la acción principal en color sólido. */
+  .channel.outline { background: transparent; color: var(--brand); border: 1px solid var(--brand); }
+  .channel.outline:hover { opacity: 1; background: color-mix(in srgb, var(--brand) 10%, transparent); }
+
+  /* ── Filtros ──────────────────────────────────────────────────── */
+  .filters {
+    background: var(--surface); border-bottom: 1px solid var(--line);
+    padding: 12px 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .search { position: relative; flex: 1 1 240px; max-width: 340px; }
+  .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  input[type="search"] {
+    width: 100%; font: inherit; font-size: 14px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px 9px 42px; outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  input[type="search"]:focus {
+    border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
+  .chips { display: flex; gap: 7px; flex-wrap: wrap; }
+  .chip {
+    font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
+    background: var(--bg); color: var(--muted); border: 1px solid var(--line);
+    padding: 8px 13px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px;
+    transition: all .15s; user-select: none;
+  }
+  .chip:hover { border-color: var(--muted); }
+  /* El punto lleva SIEMPRE el color de su categoría (aunque el chip no esté
+     activo) — así la lista de filtros ya enseña el mismo código de color que
+     los pines/tarjetas, en vez de puntos grises indistinguibles en reposo. */
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c, currentColor); flex: none; }
+  /* Tono claro, no relleno sólido: fondo tintado al 16% + borde al 45%, texto SIEMPRE
+     en --text (nunca el hue) — igual que las píldoras de urgencia, mismo motivo: el
+     magenta/ámbar del validador bajan de 3:1 de contraste como color de texto plano. */
+  .chip[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--c, var(--brand)) 16%, var(--surface));
+    border-color: color-mix(in srgb, var(--c, var(--brand)) 45%, transparent);
+    color: var(--text);
+  }
+  .chip[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
+  .chip[data-type="TRAINING_COURSE"] { --c: var(--tc); }
+  .chip[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
+  .chip[data-type="WORKSHOP"]        { --c: var(--ws); }
+  .chip[data-type="soon"]            { --c: var(--critical); }
+  .reset {
+    font: inherit; font-size: 13px; background: none; border: 0; color: var(--muted);
+    cursor: pointer; padding: 8px 6px; text-decoration: underline; text-underline-offset: 3px;
+  }
+  .reset:hover { color: var(--text); }
+
+  /* Botón redondo de icono (lupa en móvil, cerrar…) */
+  .icon-btn {
+    display: none; align-items: center; justify-content: center; flex: none;
+    width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+    background: var(--bg); border: 1px solid var(--line); color: var(--muted);
+  }
+  .icon-btn:hover { border-color: var(--muted); color: var(--text); }
+  .search-close { display: none; }
+
+  /* Desplegable de tipos. En escritorio el panel va suelto (chips en línea) y el
+     botón se oculta; en móvil pasa a ser un desplegable de verdad (ver media query). */
+  .dd { position: relative; display: flex; }
+  .dd-toggle {
+    display: none; align-items: center; gap: 7px; font: inherit; font-size: 13px;
+    font-weight: 550; cursor: pointer; white-space: nowrap;
+    background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    padding: 10px 14px; border-radius: 999px;
+  }
+  .dd-toggle[aria-expanded="true"] { border-color: var(--brand); }
+  .dd-count {
+    background: var(--brand); color: #fff; font-size: 11px; font-weight: 700;
+    min-width: 18px; height: 18px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0 5px;
+  }
+
+  /* "Compact": SIEMPRE colapsado en un desplegable (Países, Fechas), a diferencia de
+     Tipos, que en escritorio se enseña expandido en línea y solo se colapsa en móvil
+     (ver media query más abajo). Así no ocupan una fila entera, viven en la misma
+     barra que el buscador y se agrupan al borde derecho. Selectores con varias clases
+     a propósito: más especificidad que las reglas de `.chips` de la media query, para
+     que estas ganen siempre sin depender del orden de aparición en el CSS. */
+  .dd.compact .dd-toggle { display: inline-flex; }
+  .dd.compact .dd-panel {
+    display: flex; position: absolute; top: calc(100% + 8px); right: 0; left: auto; z-index: 600;
+    flex-direction: column; align-items: stretch; gap: 2px; min-width: 230px;
+    max-height: 60vh; overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 8px; box-shadow: var(--shadow);
+    opacity: 0; transform: scale(.97) translateY(-6px); pointer-events: none;
+    transition: opacity .14s ease, transform .14s ease;
+  }
+  .dd.compact.open .dd-panel { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+  .dd.compact .dd-panel .chip {
+    border-radius: 9px; border-color: transparent; background: transparent;
+    justify-content: flex-start; padding: 11px 12px; font-size: 13.5px;
+  }
+  .dd.compact .dd-panel .chip:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+  .dd.compact .dd-panel .chip[aria-pressed="true"] { border-color: transparent; }
+  .dd.compact .dd-panel .chip::after {
+    content: "✓"; margin-left: auto; font-weight: 700; color: var(--brand); opacity: 0;
+  }
+  .dd.compact .dd-panel .chip[aria-pressed="true"]::after { opacity: 1; }
+  /* El primero del grupo de la derecha (Fechas) absorbe el hueco y empuja a los dos
+     (Fechas + Países) hasta el borde derecho de la barra, sin ocupar fila propia. */
+  #datesDd { margin-left: auto; }
+
+  /* Filtro de fechas: dos submodos, meses (por defecto, más simple) o rango exacto. */
+  .date-mode-switch {
+    display: flex; gap: 4px; padding: 2px 2px 8px; margin-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .mode-btn {
+    flex: 1; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+    padding: 7px 8px; border-radius: 8px; border: 1px solid transparent;
+    background: transparent; color: var(--muted);
+  }
+  .mode-btn[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand);
+  }
+  .month-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px; max-width: 260px; }
+  /* Los meses van como píldoras coloreadas (igual que Tipos), no como filas con check:
+     se eligen varios a la vez y en línea, no tiene sentido un check a la derecha aquí. */
+  .dd.compact .dd-panel .month-chips .chip { justify-content: center; flex: none; border-radius: 999px; }
+  .dd.compact .dd-panel .month-chips .chip::after { content: none; }
+  /* Con el mismo prefijo (y una clase más) que la regla genérica de "chip activo del
+     panel" — si no, esta pierde el empate de especificidad y el border-color de la
+     genérica (transparent) gana, dejando los meses elegidos sin marcar visualmente. */
+  .dd.compact .dd-panel .month-chips .chip[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--brand) 16%, var(--surface));
+    border-color: color-mix(in srgb, var(--brand) 45%, transparent); color: var(--text);
+  }
+  .range-inputs { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 2px; }
+  /* El atributo HTML `hidden` por sí solo pierde contra el `display:flex` de arriba (mi
+     regla tiene más especificidad que la hoja de estilos por defecto) — hay que
+     reforzarlo explícitamente para que oculte de verdad al cambiar de submodo. */
+  .range-inputs[hidden], .month-chips[hidden] { display: none; }
+  .range-inputs label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .range-inputs input[type="date"] {
+    font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  }
+
+  /* Burbuja flotante Mapa/Lista (solo móvil) */
+  .view-bubble {
+    display: none; position: absolute; top: 12px; right: 12px; z-index: 500;
+    font: inherit; font-size: 13px; font-weight: 620; cursor: pointer;
+    background: var(--brand); color: #fff; border: 0;
+    padding: 10px 16px; border-radius: 999px; box-shadow: 0 2px 10px rgba(11,11,11,.25);
+  }
+
+  /* Pie de estadísticas: fila fina, centrada, no compite con nada. */
+  .stats {
+    flex: none; display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+    gap: 6px 18px; padding: 7px 14px; background: var(--surface);
+    border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px;
+  }
+  .stats span { white-space: nowrap; }
+  .stats b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  /* Ventana de información */
+  .info-dialog {
+    border: 0; border-radius: 16px; padding: 0; max-width: 560px; width: calc(100% - 32px);
+    color: var(--text); background: var(--surface); box-shadow: 0 12px 48px rgba(11,11,11,.22);
+  }
+  .info-dialog::backdrop { background: rgba(11,11,11,.45); }
+  .info-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 18px 20px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: var(--surface); border-radius: 16px 16px 0 0;
+  }
+  .info-head h2 { margin: 0; font-size: 17px; font-weight: 650; }
+  .info-close {
+    font: inherit; font-size: 16px; line-height: 1; cursor: pointer; flex: none;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--bg); border: 1px solid var(--line); color: var(--muted);
+  }
+  .info-close:hover { color: var(--text); border-color: var(--muted); }
+  .info-body { padding: 4px 20px 22px; max-height: 70vh; overflow-y: auto; }
+  .info-body h3 {
+    margin: 20px 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--brand);
+  }
+  .info-body p, .info-body li { margin: 0 0 8px; font-size: 14px; color: var(--muted); line-height: 1.55; }
+  .info-body strong { color: var(--text); }
+  .info-body ul { margin: 0; padding-left: 18px; }
+  .info-body a { color: var(--brand); font-weight: 600; text-decoration: none; }
+  .info-body a:hover { text-decoration: underline; }
+  .info-btn { cursor: pointer; }
+
+  /* ── Layout principal ─────────────────────────────────────────── */
+  main { flex: 1; display: flex; min-height: 0; }
+  #list {
+    width: 380px; flex: none; overflow-y: auto; padding: 14px;
+    background: var(--bg); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth;
+  }
+  #map { flex: 1; min-width: 0; background: var(--bg); z-index: 0; }
+
+  /* ── Tarjetas ─────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c, var(--other));
+    border-radius: var(--radius); padding: 13px 15px; cursor: pointer;
+    transition: transform .12s, box-shadow .12s, border-color .12s;
+  }
+  .card:hover, .card.active { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .card.active { border-color: var(--c, var(--brand)); }
+  .card[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
+  .card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
+  .card[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
+  .card[data-type="WORKSHOP"]        { --c: var(--ws); }
+  .card h3 { margin: 0 0 7px; font-size: 15px; font-weight: 640; line-height: 1.35; letter-spacing: -.01em; }
+  .badge {
+    display: inline-block; font-size: 11.5px; font-weight: 650; letter-spacing: .02em;
+    color: var(--c, var(--other)); background: color-mix(in srgb, var(--c, var(--other)) 12%, transparent);
+    padding: 3px 9px; border-radius: 6px; margin-bottom: 8px;
+  }
+  .meta { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .meta span { display: flex; align-items: baseline; gap: 7px; }
+  .meta i, .deadline i { font-style: normal; flex: none; width: 16px; text-align: center; }
+  /* La urgencia se marca con un fondo/borde de color (chip), NUNCA coloreando el
+     texto directamente: el ámbar y el magenta del validador bajan de 3:1 como
+     texto plano, así que la tinta se queda siempre en --text y el color solo
+     entra de fondo — el icono ⏳ ya aporta la señal visual sin depender del hue. */
+  .deadline {
+    font-weight: 600; margin-top: 8px; font-size: 13px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .deadline.urgent, .deadline.soon {
+    padding: 4px 10px; border-radius: 999px;
+    background: color-mix(in srgb, var(--c) 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--c) 38%, transparent);
+  }
+  .deadline.urgent { --c: var(--critical); }
+  .deadline.soon { --c: var(--warn); }
+  .est { font-weight: 400; color: var(--muted-2); font-size: 12px; }
+  /* Oportunidad que no se ha podido situar: sigue siendo válida y se muestra igual,
+     solo se avisa de que no tiene pin. Borde gris para distinguirla de un vistazo. */
+  .card.unlocated { border-left-color: var(--muted-2); }
+  .nogeo { color: var(--muted-2); font-style: italic; }
+  .actions { display: flex; gap: 8px; margin-top: 11px; flex-wrap: wrap; }
+  .btn {
+    font-size: 12.5px; font-weight: 600; text-decoration: none; padding: 7px 12px;
+    border-radius: 8px; border: 1px solid var(--line); color: var(--text); background: var(--bg);
+    transition: border-color .15s, background .15s;
+  }
+  .btn:hover { border-color: var(--brand); }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .btn.primary:hover { opacity: .88; }
+
+  .empty { text-align: center; color: var(--muted); padding: 44px 20px; font-size: 14px; }
+  .empty strong { display: block; color: var(--text); font-size: 15px; margin-bottom: 6px; }
+  .skeleton {
+    height: 116px; border-radius: var(--radius); background: var(--surface);
+    border: 1px solid var(--line); position: relative; overflow: hidden;
+  }
+  .skeleton::after {
+    content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 6%, transparent), transparent);
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer { 100% { transform: translateX(100%); } }
+
+  /* ── Pines ────────────────────────────────────────────────────── */
+  .pin { transition: transform .15s; transform-origin: 50% 100%; }
+  .pin svg { display: block; filter: drop-shadow(0 3px 5px rgba(15,23,42,.3)); }
+  .pin.active, .pin:hover { transform: scale(1.22); z-index: 1000 !important; }
+  /* Grupo de pines: círculo azul de marca con el nº de oportunidades. Estilo propio
+     en vez de MarkerCluster.Default.css, para no arrastrar su paleta verde/amarilla. */
+  .cluster {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; background: var(--brand); color: #fff;
+    font-weight: 700; font-size: 14px; border: 3px solid var(--surface);
+    box-shadow: 0 2px 6px rgba(11,11,11,.3); transition: transform .15s;
+  }
+  .cluster:hover { transform: scale(1.1); }
+  .leaflet-popup-content-wrapper { border-radius: var(--radius); box-shadow: var(--shadow); padding: 2px; }
+  .leaflet-popup-content { margin: 13px 15px; font: inherit; width: 268px !important; }
+  .leaflet-popup-tip-container .leaflet-popup-tip { box-shadow: none; }
+  .popup h3 { margin: 0 0 7px; font-size: 14.5px; font-weight: 640; line-height: 1.35; }
+  .popup .meta { font-size: 12.5px; }
+  .approx { font-size: 11.5px; color: var(--muted-2); font-style: italic; margin-top: 7px; }
+
+  /* ── Móvil ────────────────────────────────────────────────────────────────
+     En vez de apilar mapa (bajo, apretado) + lista (scroll infinito) en una
+     pantalla pequeña, se alterna entre las dos a pantalla completa con el
+     selector Lista/Mapa — mismo patrón que las apps de viajes con mapa+listado. */
+  @media (max-width: 880px) {
+    /* La marca (logo+título) ocupa su propia línea entera; debajo, contador +
+       contribuir + canal van juntos en la misma línea — el botón de contribuir
+       se reduce a un icono "+" para que los tres quepan sin envolver. */
+    header { padding: max(10px, env(safe-area-inset-top)) 14px 10px; gap: 8px 10px; }
+    .brand { min-width: 0; flex: 1 1 100%; }
+    .brand h1 { font-size: 15.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand p { display: none; }
+    .brand svg { width: 32px; height: 24px; }
+    .count { font-size: 12px; padding: 5px 10px; }
+    .channel { padding: 8px 13px; font-size: 12.5px; }
+    /* Ancho y alto FIJOS e iguales: con solo padding, el carácter "?" (más estrecho
+       que alto) daba un óvalo en vez de un círculo — un SVG cuadrado (el "+") sí
+       salía redondo por casualidad, un carácter de texto no. */
+    .channel.outline { width: 40px; height: 40px; padding: 0; border-radius: 50%; justify-content: center; }
+    .channel.outline .label { display: none; }
+    /* Con la marca ocupando su propia línea, el auto-margin de `.brand` ya no separa
+       nada en esta segunda línea — sin esto, el "?" quedaba pegado a "Ver canal" en
+       vez de ir al borde derecho del todo. */
+    #infoBtn { margin-left: auto; }
+    /* UNA sola fila de filtros: [lupa] [Tipos ▾] [Países ▾]. El buscador vive
+       colapsado tras la lupa y, al abrirlo, ocupa la fila entera tapando a los otros
+       dos — así nunca hay dos filas compitiendo por el ancho. */
+    .filters { padding: 9px 14px; gap: 8px; flex-wrap: nowrap; }
+    .icon-btn { display: inline-flex; }
+    .search { display: none; }
+    body.searching .icon-btn, body.searching .dd { display: none; }
+    body.searching .search { display: block; flex: 1 1 auto; max-width: none; min-width: 0; }
+    .search-close {
+      display: block; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 13px;
+      background: none; border: 0; color: var(--muted);
+    }
+    input[type="search"] { padding-right: 38px; }
+
+    .dd-toggle { display: inline-flex; }
+    /* El panel (de tipos o de países) pasa a desplegable flotante. Siempre en el DOM
+       (nunca display:none) para poder animar con opacidad+escala; al estar en
+       position:absolute no ocupa sitio ni afecta al layout mientras está "cerrado". */
+    .chips {
+      display: flex; position: absolute; top: calc(100% + 8px); left: 0; z-index: 600;
+      flex-direction: column; align-items: stretch; gap: 2px; min-width: 226px;
+      max-height: 60vh; overflow-y: auto;
+      background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+      padding: 8px; box-shadow: var(--shadow);
+      opacity: 0; transform: scale(.97) translateY(-6px); pointer-events: none;
+      transition: opacity .14s ease, transform .14s ease;
+    }
+    .dd.open .chips { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+    /* Dentro del desplegable los chips son filas, no píldoras */
+    .dd.open .chip {
+      border-radius: 9px; border-color: transparent; background: transparent;
+      justify-content: flex-start; padding: 11px 12px; font-size: 13.5px;
+    }
+    .dd.open .chip:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+    .dd.open .chip[aria-pressed="true"] { border-color: transparent; }
+    /* Marca de selección: hace que "elegido" no dependa solo del fondo tintado */
+    .dd.open .chip::after {
+      content: "✓"; margin-left: auto; font-weight: 700; color: var(--brand); opacity: 0;
+    }
+    .dd.open .chip[aria-pressed="true"]::after { opacity: 1; }
+    /* "Cierran pronto" es un filtro de otra naturaleza (urgencia, no categoría):
+       se separa visualmente del resto con una línea. */
+    .dd.open .chip[data-type="soon"] { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 13px; }
+
+    .reset { display: none; }
+    /* Objetivos táctiles MÁS grandes en móvil, no más pequeños. */
+    input[type="search"] { padding-top: 11px; padding-bottom: 11px; }
+    .btn { padding: 9px 14px; font-size: 13px; }
+
+    main { flex: 1; min-height: 0; position: relative; }
+    .view-bubble { display: block; }
+    /* Solo una vista visible a la vez; JS pone view-map/view-list en <body>. */
+    #list { width: 100%; border-right: 0; height: 100%; }
+    #map { height: 100%; }
+    body.view-list #map, body.view-map #list { display: none; }
+    /* Pie aún más compacto en móvil: cabe entero en una línea sin comerse el mapa. */
+    .stats { gap: 4px 12px; padding: 6px 10px; font-size: 11.5px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <!-- Bandera de España sin escudo: franjas horizontales 1:2:1 -->
+    <svg viewBox="0 0 4 3" role="img" aria-label="España">
+      <rect width="4" height="3" fill="#AA151B"/>
+      <rect y=".75" width="4" height="1.5" fill="#F1BF00"/>
+    </svg>
+    <div>
+      <h1>Mapa de oportunidades Corradi Erasmus+</h1>
+      <p>Para residentes en España · inscripción abierta ahora mismo</p>
+    </div>
+  </div>
+  <a class="channel outline" id="contribute" href="https://t.me/corradi_erasmus_bot" target="_blank" rel="noopener" aria-label="¿Quieres contribuir?">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    <span class="label">¿Quieres contribuir?</span>
+  </a>
+  <a class="channel" id="channel" href="https://t.me/erasmuscorradi" target="_blank" rel="noopener">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.7 19.4c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-.9.5l.3-4.8 8.8-8c.4-.3-.1-.5-.6-.2L6.7 13.2l-4.7-1.5c-1-.3-1-1 .2-1.5l18.4-7.1c.9-.3 1.6.2 1.3 1.2z"/></svg>
+    Ver canal
+  </a>
+  <button type="button" class="channel outline info-btn" id="infoBtn" aria-label="Más información">
+    <span aria-hidden="true">?</span><span class="label">Más información</span>
+  </button>
+</header>
+
+<!-- Una sola fila de filtros. En móvil el buscador se colapsa a lupa y los tipos a un
+     desplegable; en escritorio hay sitio y se muestran expandidos (ver CSS). -->
+<div class="filters">
+  <button type="button" class="icon-btn" id="searchToggle" aria-label="Buscar" aria-expanded="false">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  </button>
+  <div class="search" id="searchBox">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input type="search" id="q" placeholder="Buscar país, ciudad, temática…" autocomplete="off" aria-label="Buscar oportunidades">
+    <button type="button" class="search-close" id="searchClose" aria-label="Cerrar búsqueda">✕</button>
+  </div>
+
+  <div class="dd" id="typesDd">
+    <button type="button" class="dd-toggle" id="typesToggle" aria-expanded="false" aria-controls="chips">
+      Tipos <span class="dd-count" id="typesCount"></span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
+    </button>
+    <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo"></div>
+  </div>
+
+  <!-- "compact": siempre desplegable (no ocupa fila entera, ni en escritorio); ver CSS -->
+  <div class="dd compact" id="datesDd">
+    <button type="button" class="dd-toggle" id="datesToggle" aria-expanded="false" aria-controls="datesPanel">
+      Fechas <span class="dd-count" id="datesCount"></span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
+    </button>
+    <div class="chips dd-panel date-panel" id="datesPanel">
+      <div class="date-mode-switch" role="tablist" aria-label="Cómo filtrar por fecha">
+        <button type="button" class="mode-btn" data-mode="months" aria-pressed="true">Meses</button>
+        <button type="button" class="mode-btn" data-mode="range" aria-pressed="false">Fechas exactas</button>
+      </div>
+      <div class="month-chips" id="monthChips"></div>
+      <div class="range-inputs" id="rangeInputs" hidden>
+        <label>Desde <input type="date" id="dateFrom"></label>
+        <label>Hasta <input type="date" id="dateTo"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="dd compact" id="countryDd">
+    <button type="button" class="dd-toggle" id="countryToggle" aria-expanded="false" aria-controls="countryChips">
+      Países <span class="dd-count" id="countryCount"></span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
+    </button>
+    <div class="chips dd-panel" id="countryChips" role="group" aria-label="Filtrar por país"></div>
+  </div>
+  <button class="reset" id="reset" hidden>Limpiar filtros</button>
+</div>
+
+<main>
+  <div id="list" aria-live="polite">
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+  </div>
+  <div id="map" role="application" aria-label="Mapa de oportunidades"></div>
+  <!-- Burbuja flotante: enseña SIEMPRE la vista a la que se va, no en la que estás.
+       Solo móvil; en escritorio se ven mapa y lista a la vez y no hace falta. -->
+  <button type="button" class="view-bubble" id="viewBubble">☰ Lista</button>
+</main>
+
+<!-- Pie de estadísticas: nº de oportunidades abiertas ahora (movido desde la cabecera) +
+     total histórico publicado + visitas. Barra fina, misma altura en escritorio y móvil. -->
+<footer class="stats" id="stats">
+  <span><span aria-hidden="true">🎯</span> <b id="statOpen">…</b> abiertas</span>
+  <span><span aria-hidden="true">📢</span> <b id="statPublished">…</b> publicadas</span>
+  <span><span aria-hidden="true">👁️</span> <b id="statVisits">…</b> visitas</span>
+</footer>
+
+<dialog id="infoDialog" class="info-dialog" aria-labelledby="infoTitle">
+  <div class="info-head">
+    <h2 id="infoTitle">Cómo funciona este mapa</h2>
+    <button type="button" class="info-close" id="infoClose" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="info-body">
+    <h3>Qué vas a encontrar</h3>
+    <p>Oportunidades de movilidad europea con <strong>inscripción abierta ahora mismo</strong>:
+    intercambios juveniles, training courses, voluntariado ECS y workshops. Están pensadas
+    para jóvenes <strong>residentes en España</strong>.</p>
+
+    <h3>De dónde salen</h3>
+    <p>Las envían coordinadores al bot de Telegram de Corradi. Cada envío se comprueba
+    automáticamente: que sea una oportunidad real, que no esté ya publicada y que el plazo
+    de inscripción <strong>no haya vencido</strong>. Si pasa esos filtros, se publica en el
+    canal y aparece aquí. Cuando el plazo se cumple, desaparece sola del mapa.</p>
+
+    <h3>Qué significa «(estimada)»</h3>
+    <p>A veces el mensaje original no dice hasta cuándo se puede uno apuntar. En ese caso
+    calculamos una fecha aproximada: <strong>5 días</strong> desde que la recibimos, o solo
+    <strong>2 días</strong> si el mensaje habla de «última hora» o «últimas plazas».
+    Es una estimación nuestra, así que <strong>confirma siempre la fecha real en el
+    formulario de inscripción</strong>.</p>
+
+    <h3>Las etiquetas de los pines</h3>
+    <ul>
+      <li><strong>Cierra hoy / en X días</strong> — calculado sobre la fecha límite.</li>
+      <li><strong>Ubicación aproximada (país)</strong> — no hemos podido situar la ciudad
+      exacta, así que el pin va al centro del país.</li>
+      <li><strong>Sin ubicación exacta</strong> — no se ha podido situar en el mapa, pero
+      la oportunidad es válida y sale en la lista.</li>
+    </ul>
+
+    <h3>Cómo apuntarse</h3>
+    <p>El botón <strong>Inscribirme</strong> lleva al formulario de la organización que
+    ofrece la plaza. Corradi <strong>solo difunde</strong>: no gestionamos las inscripciones
+    ni seleccionamos a los participantes. Cualquier duda sobre una plaza concreta va
+    directa a quien la organiza.</p>
+
+    <h3>¿Tienes una oportunidad?</h3>
+    <p>Si organizas o conoces una, puedes mandárnosla por el bot con el botón
+    <strong>«¿Quieres contribuir?»</strong>. Pégala tal cual te llegue, sin limpiar nada.</p>
+
+    <h3>Quién está detrás</h3>
+    <p>Este mapa lo desarrolla <strong>Proactive Future</strong>. Síguenos en Instagram
+    <a href="https://www.instagram.com/proactivefuture_eu/" target="_blank" rel="noopener">@proactivefuture_eu</a>
+    — si quieres colaborar o ayudarnos a difundir esta herramienta, escríbenos por ahí:
+    encantados de echarte una mano.</p>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"
+        integrity="sha256-Hk4dIpcqOSb0hZjgyvFOP+cEmDXUKKNE/tT542ZbNQg=" crossorigin=""></script>
+<script>
+(function () {
+  "use strict";
+
+  // Hex de los pines: un único valor por tipo (no cambia con el tema) — la variante
+  // "oscura" de la paleta validada, que se lee bien tanto sobre el basemap claro como
+  // el oscuro gracias al contorno blanco del propio pin (ver pinIcon).
+  var TYPES = {
+    YOUTH_EXCHANGE:  { label: "Youth Exchange",  color: "var(--ye)",    hex: "#3987e5" },
+    TRAINING_COURSE: { label: "Training Course", color: "var(--tc)",    hex: "#d55181" },
+    VOLUNTEERING:    { label: "ECS",             color: "var(--ecs)",   hex: "#008300" },
+    WORKSHOP:        { label: "Workshop",        color: "var(--ws)",    hex: "#c98500" }
+  };
+  var OTHER = { label: "Otras", color: "var(--other)", hex: "#898781" };
+  var COUNTRIES = {
+    ES:"España", PT:"Portugal", FR:"Francia", IT:"Italia", DE:"Alemania", AT:"Austria",
+    BE:"Bélgica", NL:"Países Bajos", LU:"Luxemburgo", IE:"Irlanda", PL:"Polonia",
+    CZ:"Chequia", SK:"Eslovaquia", HU:"Hungría", RO:"Rumanía", BG:"Bulgaria", GR:"Grecia",
+    HR:"Croacia", SI:"Eslovenia", EE:"Estonia", LV:"Letonia", LT:"Lituania", FI:"Finlandia",
+    SE:"Suecia", DK:"Dinamarca", NO:"Noruega", IS:"Islandia", MT:"Malta", CY:"Chipre",
+    TR:"Turquía", RS:"Serbia", MK:"Macedonia del Norte", ME:"Montenegro",
+    BA:"Bosnia y Herzegovina", AL:"Albania", XK:"Kosovo", GE:"Georgia", AM:"Armenia",
+    UA:"Ucrania", MD:"Moldavia", CH:"Suiza", GB:"Reino Unido", LI:"Liechtenstein", AZ:"Azerbaiyán"
+  };
+  var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
+  var SOON_DAYS = 7;
+
+  var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false };
+  var dateMode = "months";   // "months" | "range" — submodo del filtro de fechas
+  var all = [], shown = [], markers = {}, map, layer, activeId = null;
+  var isMobileQuery = window.matchMedia && window.matchMedia("(max-width: 880px)");
+
+  // ── Utilidades ───────────────────────────────────────────────────
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+  function typeOf(o) { return TYPES[o.type] || OTHER; }
+  // Un único sitio donde se decide si una oportunidad se puede situar en el mapa.
+  function hasCoords(o) {
+    return o.latitude !== null && o.latitude !== undefined && isFinite(Number(o.latitude)) &&
+           o.longitude !== null && o.longitude !== undefined && isFinite(Number(o.longitude));
+  }
+  function flag(cc) {
+    if (!cc || cc.length !== 2) return "";
+    return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) {
+      return 0x1f1e6 + c.charCodeAt(0) - 65;
+    }));
+  }
+  function countryName(cc) { return COUNTRIES[cc] || cc || ""; }
+  function fmtDate(iso) {
+    if (!iso) return "";
+    var p = iso.split("-");
+    return Number(p[2]) + " " + MESES[Number(p[1]) - 1];
+  }
+  // Fechas de realización compactas, ignorando el año (mismo criterio que el resumen de
+  // Telegram): mismo mes -> "5-15 sept"; distinto mes -> "5 oct - 15 nov"; distinto año se
+  // sobreentiende -> "28 dic - 5 ene".
+  function fmtRange(o) {
+    function p(iso) { var a = iso.split("-"); return { y: +a[0], m: +a[1], d: +a[2] }; }
+    var s = o.start_date, e = o.end_date;
+    if (s && e) {
+      var a = p(s), b = p(e);
+      if (a.m === b.m && a.y === b.y) return a.d + "-" + b.d + " " + MESES[a.m - 1];
+      return a.d + " " + MESES[a.m - 1] + " - " + b.d + " " + MESES[b.m - 1];
+    }
+    var one = s || e;
+    if (one) { var c = p(one); return c.d + " " + MESES[c.m - 1]; }
+    return "Fechas por confirmar";
+  }
+  function daysLeft(iso) {
+    if (!iso) return null;
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    return Math.round((new Date(iso + "T00:00:00") - today) / 86400000);
+  }
+  function deadlineText(o) {
+    var d = daysLeft(o.application_deadline);
+    if (d === null) return { text: "Sin fecha límite", cls: "" };
+    if (d <= 0) return { text: "Cierra hoy", cls: "urgent" };
+    if (d === 1) return { text: "Cierra mañana", cls: "urgent" };
+    if (d <= 3) return { text: "Cierra en " + d + " días", cls: "urgent" };
+    if (d <= SOON_DAYS) return { text: "Cierra en " + d + " días", cls: "soon" };
+    return { text: "Hasta el " + fmtDate(o.application_deadline), cls: "" };
+  }
+
+  // ── Fechas ───────────────────────────────────────────────────────
+  // Fechas de REALIZACIÓN del proyecto (start_date/end_date), no la fecha límite de
+  // inscripción — es un filtro de "cuándo pasa la oportunidad", no de "cuándo hay
+  // que apuntarse".
+  function monthsSpan(o) {
+    // Lista de claves "YYYY-MM" que cubre [start_date, end_date] (ambos incluidos).
+    // Sin fecha alguna, lista vacía — matchesDate() lo trata como "no evaluable" y
+    // NUNCA lo oculta, mismo criterio que el resto del mapa con datos que faltan.
+    var s = o.start_date || o.end_date, e = o.end_date || o.start_date;
+    if (!s) return [];
+    var d = new Date(s + "T00:00:00"), end = new Date(e + "T00:00:00");
+    d.setDate(1); end.setDate(1);
+    var out = [], guard = 0;   // guard: red de seguridad ante una fecha corrupta
+    while (d <= end && guard < 60) {
+      out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+      d.setMonth(d.getMonth() + 1);
+      guard++;
+    }
+    return out;
+  }
+
+  function defaultMonthSet() {
+    var s = new Set();
+    all.forEach(function (o) { monthsSpan(o).forEach(function (m) { s.add(m); }); });
+    return s;
+  }
+
+  function matchesDate(o) {
+    if (dateMode === "range") {
+      if (!state.dateFrom && !state.dateTo) return true;   // sin rango puesto: no filtra
+      var s = o.start_date || o.end_date, e = o.end_date || o.start_date;
+      if (!s) return true;   // sin fechas: no se oculta, igual que en el resto del mapa
+      if (state.dateFrom && e < state.dateFrom) return false;
+      if (state.dateTo && s > state.dateTo) return false;
+      return true;
+    }
+    var span = monthsSpan(o);
+    if (!span.length) return true;
+    if (sameSet(state.months, defaultMonthSet())) return true;   // "todos": no filtra de verdad
+    return span.some(function (m) { return state.months.has(m); });
+  }
+
+  // ── Filtrado ─────────────────────────────────────────────────────
+  function matches(o) {
+    if (state.types.size && !state.types.has(o.type || "OTHER")) return false;
+    if (state.countries.size && !state.countries.has(o.country_code || "OTHER")) return false;
+    if (!matchesDate(o)) return false;
+    if (state.soon) { var d = daysLeft(o.application_deadline); if (d === null || d > SOON_DAYS) return false; }
+    if (state.q) {
+      var hay = [o.title, o.topic, o.location, countryName(o.country_code), o.summary,
+                 typeOf(o).label].join(" ").toLowerCase();
+      if (hay.indexOf(state.q) === -1) return false;
+    }
+    return true;
+  }
+
+  // Estado "sin filtrar": los 4 chips de tipo marcados (igual en móvil y escritorio),
+  // así se ve de un vistazo qué categorías hay y se van QUITANDO en vez de añadiendo.
+  // "Hay algo que limpiar" se compara contra ESE estado, no contra un Set vacío, o
+  // "Limpiar filtros" saldría siempre visible.
+  // Si hay oportunidades de un tipo no reconocido (bucket "Otras", que no tiene chip
+  // propio), se añade OTHER al set: si no, quedarían ocultas sin forma de recuperarlas.
+  function defaultTypeSet() {
+    var s = new Set(Object.keys(TYPES));
+    if (all.some(function (o) { return !TYPES[o.type]; })) s.add("OTHER");
+    return s;
+  }
+
+  // Mismo criterio para países: todos los que aparecen en los datos, marcados por
+  // defecto — clicar uno lo deja como único filtro, clicar otro más lo AÑADE, y
+  // clicar uno ya marcado lo quita.
+  function defaultCountrySet() {
+    var s = new Set();
+    all.forEach(function (o) { s.add(o.country_code || "OTHER"); });
+    return s;
+  }
+
+  function sameSet(a, b) {
+    return a.size === b.size && Array.from(a).every(function (x) { return b.has(x); });
+  }
+
+  function isDirty() {
+    var sameTypes = sameSet(state.types, defaultTypeSet());
+    var sameCountries = sameSet(state.countries, defaultCountrySet());
+    var dateDirty = dateMode === "range"
+      ? !!(state.dateFrom || state.dateTo)
+      : !sameSet(state.months, defaultMonthSet());
+    return !!(state.q || state.soon || !sameTypes || !sameCountries || dateDirty);
+  }
+
+  function apply() {
+    shown = all.filter(matches);
+    renderList();
+    renderMarkers();
+    // Nº de abiertas en el pie: el total si no hay filtro, o "n de N" si se ha filtrado.
+    var n = shown.length;
+    document.getElementById("statOpen").textContent =
+      n === all.length ? String(n) : n + " de " + all.length;
+    document.getElementById("reset").hidden = !isDirty();
+
+    // Nº de filtros activos en cada píldora (en móvil el panel está cerrado, así que
+    // sin este contador no se vería cuántos filtros hay puestos).
+    document.getElementById("typesCount").textContent = state.types.size + (state.soon ? 1 : 0);
+    document.getElementById("countryCount").textContent = state.countries.size;
+    document.getElementById("datesCount").textContent = dateMode === "range"
+      ? (state.dateFrom ? 1 : 0) + (state.dateTo ? 1 : 0)
+      : state.months.size;
+  }
+
+  // ── Lista ────────────────────────────────────────────────────────
+  function renderList() {
+    var list = document.getElementById("list");
+    if (!shown.length) {
+      list.innerHTML = '<div class="empty"><strong>Nada por aquí</strong>' +
+        (all.length ? "Prueba a quitar algún filtro." : "Ahora mismo no hay oportunidades abiertas.") +
+        "</div>";
+      return;
+    }
+    list.innerHTML = shown.map(function (o) {
+      var t = typeOf(o), dl = deadlineText(o);
+      var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
+      var located = hasCoords(o);
+      return '<article class="card' + (located ? "" : " unlocated") + '" data-id="' + esc(o.identifier) +
+        '" data-type="' + esc(o.type || "") + '" tabindex="0">' +
+        '<span class="badge">' + esc(t.label) + "</span>" +
+        "<h3>" + esc(o.title) + "</h3>" +
+        '<div class="meta">' +
+          (place ? "<span><i>" + (flag(o.country_code) || "📍") + "</i>" + esc(place) + "</span>" : "") +
+          (located ? "" : '<span class="nogeo"><i>❓</i>Sin ubicación exacta — no sale en el mapa</span>') +
+          "<span><i>📅</i>" + esc(fmtRange(o)) + "</span>" +
+          (o.topic ? "<span><i>🏷️</i>" + esc(o.topic) + "</span>" : "") +
+        "</div>" +
+        '<div class="deadline ' + dl.cls + '"><i>⏳</i>' + esc(dl.text) +
+          (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
+        '<div class="actions">' +
+          (o.application_url ? '<a class="btn primary" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">Inscribirme</a>' : "") +
+          (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">Infopack</a>' : "") +
+          (o.channel_url ? '<a class="btn" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">Más info</a>' : "") +
+        "</div></article>";
+    }).join("");
+
+    Array.prototype.forEach.call(list.querySelectorAll(".card"), function (el) {
+      el.addEventListener("click", function (e) {
+        if (e.target.closest("a")) return;
+        // En móvil, tocar una tarjeta lleva directo al mapa a ver su pin — si no,
+        // el usuario tendría que cambiar de vista a mano para verlo. Importante el
+        // ORDEN: primero cambiar de vista (su fit() encuadra TODOS los pines), y
+        // solo DESPUÉS volar al pin concreto — al revés, el fit() general pisaba
+        // el vuelo específico y la vista se quedaba descuadrada.
+        if (isMobileQuery && isMobileQuery.matches) setMobileView("map");
+        focusOpportunity(el.dataset.id, true);
+      });
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusOpportunity(el.dataset.id, true); }
+      });
+      el.addEventListener("mouseenter", function () { highlight(el.dataset.id); });
+      el.addEventListener("mouseleave", function () { highlight(activeId); });
+    });
+  }
+
+  // ── Mapa ─────────────────────────────────────────────────────────
+  function pinIcon(o, active) {
+    var hex = typeOf(o).hex;
+    return L.divIcon({
+      className: "", iconSize: [30, 40], iconAnchor: [15, 39], popupAnchor: [0, -34],
+      html: '<div class="pin' + (active ? " active" : "") + '" data-id="' + esc(o.identifier) + '">' +
+        '<svg width="30" height="40" viewBox="0 0 30 40" aria-hidden="true">' +
+        '<path d="M15 39C15 39 28 24.5 28 15A13 13 0 1 0 2 15c0 9.5 13 24 13 24z" fill="' + hex + '" stroke="#fff" stroke-width="2.5"/>' +
+        '<circle cx="15" cy="15" r="5" fill="#fff"/></svg></div>'
+    });
+  }
+
+  function popupHtml(o) {
+    var t = typeOf(o), dl = deadlineText(o);
+    var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
+    return '<div class="popup"><span class="badge" style="--c:' + t.color + '">' + esc(t.label) + "</span>" +
+      "<h3>" + esc(o.title) + "</h3>" +
+      '<div class="meta">' +
+        (place ? "<span><i>" + (flag(o.country_code) || "📍") + "</i>" + esc(place) + "</span>" : "") +
+        "<span><i>📅</i>" + esc(fmtRange(o)) + "</span>" +
+        (o.topic ? "<span><i>🏷️</i>" + esc(o.topic) + "</span>" : "") +
+      "</div>" +
+      '<div class="deadline ' + dl.cls + '"><i>⏳</i>' + esc(dl.text) +
+        (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
+      '<div class="actions">' +
+        (o.application_url ? '<a class="btn primary" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">Inscribirme</a>' : "") +
+        (o.channel_url ? '<a class="btn" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">Más info</a>' : "") +
+      "</div>" +
+      (o.approx_location ? '<div class="approx">📍 Ubicación aproximada (país)</div>' : "") +
+      "</div>";
+  }
+
+  function renderMarkers() {
+    layer.clearLayers();
+    markers = {};
+    var batch = [];
+    shown.forEach(function (o) {
+      // OJO con el orden: Number(null) es 0 y isFinite(0) es true, así que sin este
+      // descarte explícito las oportunidades sin ubicación acababan pintadas en (0,0)
+      // — el golfo de Guinea, la "isla nula" — y encima descuadraban el encuadre.
+      if (!hasCoords(o)) return;   // sin ubicación: solo sale en la lista
+      var lat = Number(o.latitude), lon = Number(o.longitude);
+      // Coordenadas REALES, sin desplazarlas: los pines que coinciden en el mismo punto
+      // los agrupa y abre en abanico el propio clustering, sin mentir sobre dónde caen.
+      var m = L.marker([lat, lon], { icon: pinIcon(o, false), title: o.title, riseOnHover: true })
+        .bindPopup(popupHtml(o), { closeButton: true, autoPanPadding: [30, 30] })
+        .on("click", function () { setActive(o.identifier, false); });
+      markers[o.identifier] = m;
+      batch.push(m);
+    });
+    layer.addLayers(batch);   // en bloque: mucho más rápido que uno a uno al crecer
+    fit();
+  }
+
+  function fit() {
+    var bounds = [];
+    for (var id in markers) bounds.push(markers[id].getLatLng());
+    if (!bounds.length) return;
+    // invalidateSize() es imprescindible: si Leaflet aún cree que el contenedor mide 0,
+    // fitBounds calcula el zoom sobre ese tamaño y el mapa se queda en zoom mundial.
+    map.invalidateSize({ animate: false });
+    // animate:false a propósito: con animación, Leaflet calcula el encuadre contra un
+    // tamaño de contenedor que todavía está cambiando y deja pines fuera de pantalla.
+    if (bounds.length === 1) map.setView(bounds[0], 7, { animate: false });
+    // Padding en PÍXELES, no pad() proporcional: el pin mide 40px hacia arriba desde su
+    // punto de anclaje, así que con un margen relativo se corta en pantallas bajas (móvil).
+    else map.fitBounds(L.latLngBounds(bounds), { animate: false, maxZoom: 9, padding: [48, 48] });
+  }
+
+  function highlight(id) {
+    Array.prototype.forEach.call(document.querySelectorAll(".pin"), function (p) {
+      p.classList.toggle("active", p.dataset.id === id);
+    });
+  }
+
+  function setActive(id, scrollList) {
+    activeId = id;
+    Array.prototype.forEach.call(document.querySelectorAll(".card"), function (c) {
+      var on = c.dataset.id === id;
+      c.classList.toggle("active", on);
+      if (on && scrollList) c.scrollIntoView({ block: "nearest" });
+    });
+    highlight(id);
+  }
+
+  function focusOpportunity(id, fromList) {
+    var m = markers[id];
+    setActive(id, !fromList);
+    if (!m) return;   // sin coordenadas: se selecciona en la lista, pero no hay pin al que ir
+    // Si el pin está dentro de un grupo cerrado, openPopup() no haría nada: hay que
+    // pedirle al clustering que lo saque a la vista primero (abre el grupo o hace zoom).
+    layer.zoomToShowLayer(m, function () {
+      map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 7), { duration: .6 });
+      m.openPopup();
+    });
+  }
+
+  // ── Controles ────────────────────────────────────────────────────
+  function buildChips() {
+    var box = document.getElementById("chips"), html = "";
+    Object.keys(TYPES).forEach(function (k) {
+      html += '<button class="chip" data-type="' + k + '" aria-pressed="false">' +
+              '<span class="dot"></span>' + TYPES[k].label + "</button>";
+    });
+    html += '<button class="chip" data-type="soon" aria-pressed="false">⏳ Cierran pronto</button>';
+    box.innerHTML = html;
+    Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
+      chip.addEventListener("click", function () {
+        var k = chip.dataset.type, on;
+        if (k === "soon") { state.soon = on = !state.soon; }
+        else {
+          on = !state.types.has(k);
+          if (on) state.types.add(k); else state.types.delete(k);
+        }
+        chip.setAttribute("aria-pressed", String(on));
+        apply();
+      });
+    });
+  }
+
+  function buildCountries() {
+    var box = document.getElementById("countryChips");
+    var codes = {}, sinPais = 0;
+    all.forEach(function (o) {
+      if (o.country_code) codes[o.country_code] = (codes[o.country_code] || 0) + 1;
+      else sinPais++;
+    });
+    var html = Object.keys(codes).sort(function (a, b) {
+      return countryName(a).localeCompare(countryName(b), "es");
+    }).map(function (cc) {
+      return '<button class="chip" data-country="' + cc + '" aria-pressed="false">' +
+        flag(cc) + " " + esc(countryName(cc)) + " (" + codes[cc] + ")</button>";
+    }).join("");
+    if (sinPais) {
+      html += '<button class="chip" data-country="OTHER" aria-pressed="false">Sin país (' + sinPais + ")</button>";
+    }
+    box.innerHTML = html;
+    Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
+      chip.addEventListener("click", function () {
+        var k = chip.dataset.country;
+        // Con "todos" activos (el estado inicial, sin filtrar de verdad), el primer
+        // clic NO quita ese país: lo AÍSLA como único filtro — igual que elegir una
+        // sola opción en una lista de facetas. A partir de ahí, cada clic ya suma o
+        // resta sobre esa selección concreta (comportamiento de toggle normal).
+        if (sameSet(state.countries, defaultCountrySet())) {
+          state.countries = new Set([k]);
+        } else if (state.countries.has(k)) {
+          state.countries.delete(k);
+        } else {
+          state.countries.add(k);
+        }
+        // Un solo clic puede cambiar MUCHOS chips a la vez (el caso "aislar"), así que
+        // se refresca todo el panel, no solo el botón clicado.
+        Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (c) {
+          c.setAttribute("aria-pressed", String(state.countries.has(c.dataset.country)));
+        });
+        apply();
+      });
+    });
+  }
+
+  function monthLabel(key) {
+    var p = key.split("-");
+    return MESES[Number(p[1]) - 1] + " " + p[0].slice(2);   // "sep 26"
+  }
+
+  function buildMonths() {
+    var box = document.getElementById("monthChips");
+    var keys = Array.from(defaultMonthSet()).sort();
+    box.innerHTML = keys.map(function (k) {
+      return '<button class="chip" data-month="' + k + '" aria-pressed="false">' + monthLabel(k) + "</button>";
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
+      chip.addEventListener("click", function () {
+        var k = chip.dataset.month;
+        // Mismo criterio que países: con "todos" activos, el primer clic AÍSLA ese
+        // mes; a partir de ahí, toggle normal (sumar/quitar).
+        if (sameSet(state.months, defaultMonthSet())) {
+          state.months = new Set([k]);
+        } else if (state.months.has(k)) {
+          state.months.delete(k);
+        } else {
+          state.months.add(k);
+        }
+        Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (c) {
+          c.setAttribute("aria-pressed", String(state.months.has(c.dataset.month)));
+        });
+        apply();
+      });
+    });
+  }
+
+  function debounce(fn, ms) {
+    var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+  }
+
+  // ── Selector Lista/Mapa (solo móvil) ──────────────────────────────
+  function setMobileView(view) {
+    document.body.classList.toggle("view-map", view === "map");
+    document.body.classList.toggle("view-list", view !== "map");
+    // La burbuja anuncia SIEMPRE a dónde vas, no dónde estás.
+    var bubble = document.getElementById("viewBubble");
+    bubble.textContent = view === "map" ? "☰ Lista" : "🗺️ Mapa";
+    bubble.dataset.goto = view === "map" ? "list" : "map";
+    // El contenedor estaba en display:none (tamaño 0): Leaflet necesita que se lo
+    // digan en cuanto vuelve a ser visible, y encima el encuadre calculado mientras
+    // medía 0 era basura — hay que recalcularlo (fit), no solo invalidar el tamaño.
+    if (view === "map" && map) {
+      map.invalidateSize({ animate: false });
+      fit();
+    }
+  }
+
+  // Estado "por defecto": en móvil, todos los tipos activos salvo "cierran pronto"
+  // (el usuario puede quitar/poner cada uno); en escritorio, sin filtro (como antes).
+  function resetFilters() {
+    state = {
+      q: "", types: defaultTypeSet(), countries: defaultCountrySet(),
+      months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false
+    };
+    dateMode = "months";
+    document.getElementById("q").value = "";
+    document.getElementById("dateFrom").value = "";
+    document.getElementById("dateTo").value = "";
+    document.getElementById("monthChips").hidden = false;
+    document.getElementById("rangeInputs").hidden = true;
+    Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.mode === "months"));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (c) {
+      var k = c.dataset.type;
+      c.setAttribute("aria-pressed", String(k !== "soon" && state.types.has(k)));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) {
+      c.setAttribute("aria-pressed", String(state.countries.has(c.dataset.country)));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#monthChips .chip"), function (c) {
+      c.setAttribute("aria-pressed", String(state.months.has(c.dataset.month)));
+    });
+    apply();
+  }
+
+  function wire() {
+    var bubble = document.getElementById("viewBubble");
+    bubble.addEventListener("click", function () { setMobileView(bubble.dataset.goto); });
+
+    // Buscador colapsable (móvil): la lupa lo abre y le da el foco.
+    var searchToggle = document.getElementById("searchToggle");
+    searchToggle.addEventListener("click", function () {
+      document.body.classList.add("searching");
+      searchToggle.setAttribute("aria-expanded", "true");
+      document.getElementById("q").focus();
+    });
+    document.getElementById("searchClose").addEventListener("click", function () {
+      document.body.classList.remove("searching");
+      searchToggle.setAttribute("aria-expanded", "false");
+      // Al cerrar se limpia: si no, quedaría un filtro activo invisible tras la lupa.
+      document.getElementById("q").value = "";
+      state.q = "";
+      apply();
+    });
+
+    // Desplegables (tipos y países): mismo comportamiento para los dos, así que se
+    // cablean en bucle en vez de duplicar la lógica de abrir/cerrar dos veces.
+    var dds = [["typesDd", "typesToggle"], ["datesDd", "datesToggle"], ["countryDd", "countryToggle"]].map(function (pair) {
+      var dd = document.getElementById(pair[0]);
+      var toggle = document.getElementById(pair[1]);
+      toggle.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = dd.classList.toggle("open");
+        toggle.setAttribute("aria-expanded", String(open));
+        // Solo uno abierto a la vez: abrir Países con Tipos ya abierto los solaparía.
+        if (open) dds.forEach(function (o) { if (o.dd !== dd) closeDd(o); });
+      });
+      return { dd: dd, toggle: toggle };
+    });
+    function closeDd(o) { o.dd.classList.remove("open"); o.toggle.setAttribute("aria-expanded", "false"); }
+    // Cerrar al tocar fuera; los clics de dentro no deben cerrarlo (se eligen varios).
+    document.addEventListener("click", function (e) {
+      dds.forEach(function (o) { if (!o.dd.contains(e.target)) closeDd(o); });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") dds.forEach(closeDd);
+    });
+
+    // Ventana de información
+    var dlg = document.getElementById("infoDialog");
+    document.getElementById("infoBtn").addEventListener("click", function () { dlg.showModal(); });
+    document.getElementById("infoClose").addEventListener("click", function () { dlg.close(); });
+    // Clic en el fondo oscuro = cerrar (el <dialog> ocupa solo la caja blanca).
+    dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+
+    document.getElementById("q").addEventListener("input", debounce(function () {
+      state.q = document.getElementById("q").value.trim().toLowerCase();
+      apply();
+    }, 180));
+    document.getElementById("reset").addEventListener("click", resetFilters);
+
+    // Interruptor Meses / Fechas exactas dentro del filtro de Fechas.
+    Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (btn) {
+      btn.addEventListener("click", function () {
+        dateMode = btn.dataset.mode;
+        Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (b) {
+          b.setAttribute("aria-pressed", String(b === btn));
+        });
+        document.getElementById("monthChips").hidden = dateMode !== "months";
+        document.getElementById("rangeInputs").hidden = dateMode !== "range";
+        apply();
+      });
+    });
+    document.getElementById("dateFrom").addEventListener("change", function (e) {
+      state.dateFrom = e.target.value || null; apply();
+    });
+    document.getElementById("dateTo").addEventListener("change", function (e) {
+      state.dateTo = e.target.value || null; apply();
+    });
+  }
+
+  // ── Arranque ─────────────────────────────────────────────────────
+  // Basemap SIEMPRE claro (light_all): no sigue el modo oscuro del sistema, a
+  // propósito — ver comentario junto a la paleta de colores en el <style>.
+  function paintTiles() {
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: "abcd", maxZoom: 19
+    }).addTo(map);
+  }
+
+  function initMap() {
+    map = L.map("map", { zoomControl: true, scrollWheelZoom: true, attributionControl: true })
+           .setView([50, 12], 4);
+    paintTiles();
+
+    // Clustering: al crecer evita la maraña de pines encimados. El radio es el 30% del
+    // que traía (45px → 14px): agrupa solo pines prácticamente pegados, no los que
+    // simplemente están en el mismo país. A partir de zoom 10 salen siempre sueltos.
+    layer = L.markerClusterGroup({
+      maxClusterRadius: 14,
+      disableClusteringAtZoom: 10,
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: true,
+      iconCreateFunction: function (cluster) {
+        var n = cluster.getChildCount();
+        var size = n < 10 ? 34 : n < 50 ? 40 : 46;
+        return L.divIcon({
+          className: "",
+          iconSize: [size, size],
+          html: '<div class="cluster" style="width:' + size + "px;height:" + size + 'px">' + n + "</div>"
+        });
+      }
+    }).addTo(map);
+
+    // El mapa vive dentro de un layout flex: si el contenedor cambia de tamaño (rotar el
+    // móvil, redimensionar la ventana), Leaflet necesita que se lo digan.
+    if (window.ResizeObserver) {
+      var refit = debounce(function () {
+        map.invalidateSize({ animate: false });
+        fit();  // si no, al ensanchar la ventana el mapa conserva el zoom viejo y descuadra
+      }, 200);
+      new ResizeObserver(refit).observe(document.getElementById("map"));
+    }
+  }
+
+  // Cuenta ascendente de 0 al valor real (el efecto "que va subiendo" al cargar).
+  function countUp(el, to) {
+    if (!el) return;
+    var dur = 800, t0 = null;
+    function step(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / dur);
+      var val = Math.round(to * (1 - Math.pow(1 - k, 3)));   // easing suave al final
+      el.textContent = val.toLocaleString("es-ES");
+      if (k < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // Suma la visita y pinta visitas + publicadas (histórico). Si algo falla, el pie se
+  // queda con "—": no es crítico, no debe romper el mapa.
+  function loadStats() {
+    fetch("/api/visit", { method: "POST", headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (s) {
+        if (!s) { document.getElementById("statVisits").textContent = "—";
+                  document.getElementById("statPublished").textContent = "—"; return; }
+        countUp(document.getElementById("statVisits"), s.visits || 0);
+        countUp(document.getElementById("statPublished"), s.published || 0);
+      })
+      .catch(function () {
+        document.getElementById("statVisits").textContent = "—";
+        document.getElementById("statPublished").textContent = "—";
+      });
+  }
+
+  function boot() {
+    initMap();
+    buildChips();
+    wire();
+    setMobileView("map");
+    loadStats();
+    fetch("/api/map", { headers: { Accept: "application/json" } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (data) {
+        all = data.results || [];
+        if (data.channel) document.getElementById("channel").href = "https://t.me/" + data.channel;
+        buildCountries();
+        buildMonths();
+        resetFilters();
+      })
+      .catch(function (err) {
+        document.getElementById("statOpen").textContent = "—";
+        document.getElementById("list").innerHTML =
+          '<div class="empty"><strong>No he podido cargar las oportunidades</strong>' +
+          "Vuelve a intentarlo en un momento.</div>";
+        console.error(err);
+      });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+</script>
+</body>
+</html>

@@ -47,12 +47,21 @@ RULES:
 - Dates in DD/MM/YYYY. For ranges like "September 4-14, 2025" -> start_date "04/09/2025", end_date "14/09/2025".
 - If a date (start_date, end_date or application_deadline) has NO explicit year, assume the NEXT occurrence
   of that month/day strictly after today (__TODAY__), i.e. this year if it hasn't passed yet, otherwise next
-  year. NEVER return a date before today: these are open calls for a future opportunity, not past events.
+  year. Without an explicit year, never return a date before today: these are open calls for a future
+  opportunity, not past events.
+- BUT if the text DOES state the year explicitly, return exactly that year, even if the date is already in
+  the past. Never "fix" an explicitly past date by moving it forward: an out-of-date call must stay out of
+  date so it can be detected and rejected.
 - application_deadline = deadline to apply/register, if explicitly mentioned.
 - type must be one of: __TYPES__ (or null if unclear).
 - country_code = ISO 3166-1 alpha-2 of the host country (e.g. ES, IT, RO, PL, LV, LT), or null.
 - title = the project name (often in quotes/caps), NOT the urgency banner. Ignore intros like "URGENTE" or jokes.
-- summary = 1-2 neutral sentences describing the opportunity (in the message's language).
+  Keep the title in its ORIGINAL language (do NOT translate it).
+- summary = 1-2 neutral sentences describing the opportunity, ALWAYS written in Spanish (castellano),
+  regardless of the language of the original message. Do not translate proper nouns or the project title.
+- topic = short comma-separated list of themes, preferably in Spanish. You MAY keep a term in English only
+  if its Spanish translation would sound awkward or unnatural. Do NOT translate the keywords
+  "youth exchange", "training course" or "ECS" (leave them as-is if they appear).
 - max_participants / ages = integers as strings; cost = signup fee in euros (number) or null.
 
 MESSAGE TO PROCESS:

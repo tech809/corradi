@@ -1,34 +1,61 @@
-"""API FastAPI: catálogo de oportunidades (lectura) sobre la BD."""
+"""API FastAPI: catálogo de oportunidades (lectura) + mapa público.
+
+⚠️ Esta API es PÚBLICA (se expone en internet para servir el mapa). Por eso la
+serialización usa **lista blanca** de campos, nunca lista negra: así, si mañana se añade
+una columna a `projects`, no se filtra sola. Los datos de quien envía la oportunidad
+(`submitted_by`, `submitted_by_id`) y el mensaje original NO salen nunca de aquí.
+"""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
-from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse
 
-from app.api.twilio_webhook import router as twilio_router
+from app import geo
+from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
 
-_HIDDEN = {"embedding", "raw_message"}
+_STATIC = Path(__file__).parent / "static"
+
+# Únicos campos que salen al exterior. Todo lo demás (raw_message, embedding, hash,
+# submitted_by, submitted_by_id, source...) se queda dentro.
+_PUBLIC_FIELDS = (
+    "identifier", "title", "type", "topic", "summary",
+    "country_code", "location", "latitude", "longitude",
+    "start_date", "end_date", "application_deadline", "deadline_estimated",
+    "infopack_url", "application_url", "max_participants",
+    "participant_min_age", "participant_max_age", "cost", "contact_information",
+    "status", "telegram_message_id",
+)
+
+
+def _clean(value: Any) -> Any:
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
 
 
 def _serialize(row: dict[str, Any]) -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    for k, v in row.items():
-        if k in _HIDDEN:
-            continue
-        if isinstance(v, (UUID,)):
-            out[k] = str(v)
-        elif isinstance(v, (date, datetime)):
-            out[k] = v.isoformat()
-        elif isinstance(v, Decimal):
-            out[k] = float(v)
-        else:
-            out[k] = v
+    out = {k: _clean(row.get(k)) for k in _PUBLIC_FIELDS}
+    # Enlace al post original del canal (solo si el canal es público y se guardó el id).
+    if cfg.telegram_channel_username and row.get("telegram_message_id"):
+        out["channel_url"] = (
+            f"https://t.me/{cfg.telegram_channel_username}/{row['telegram_message_id']}"
+        )
+    else:
+        out["channel_url"] = None
+    # El pin es aproximado (centro del país) en vez de una ciudad concreta.
+    out["approx_location"] = geo.is_country_level(
+        row.get("latitude"), row.get("longitude"), row.get("country_code")
+    )
     return out
 
 
@@ -39,13 +66,100 @@ async def lifespan(_app: FastAPI):
     await close_pool()
 
 
-app = FastAPI(title="CORRADI-BOT API", version="0.1.0", lifespan=lifespan)
-app.include_router(twilio_router)
+app = FastAPI(
+    title="CORRADI-BOT API",
+    version="0.2.0",
+    description="Catálogo público de oportunidades Erasmus+ de Corradi.",
+    lifespan=lifespan,
+)
+# El webhook de WhatsApp SOLO se monta si WhatsApp está activo. Con la API expuesta a
+# internet y `TWILIO_VALIDATE_SIGNATURE=false` por defecto, dejarlo montado permitiría a
+# cualquiera hacer POST y colar oportunidades en el canal. Hoy HANDOFF_MODE=none, así que
+# ni siquiera existe la ruta.
+if cfg.handoff_mode in ("whatsapp_twilio", "whatsapp_cloud"):
+    from app.api.twilio_webhook import router as twilio_router
+
+    app.include_router(twilio_router)
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _file_etag(path: Path) -> str:
+    """ETag a partir de la fecha de modificación y el tamaño: cambia si el fichero cambia."""
+    st = path.stat()
+    return f'"{int(st.st_mtime)}-{st.st_size}"'
+
+
+# URL "bonita" para compartir/publicitar. `/mapa` se conserva como alias (no como
+# redirect): cualquier enlace ya repartido (resumen diario de hace días, capturas,
+# el propio `channel_url` guardado en la BD) sigue funcionando igual, sin 301 de por
+# medio — dos rutas, un único fichero servido.
+@app.get("/", include_in_schema=False)
+@app.get("/mapa", include_in_schema=False)
+@app.get("/corradi-erasmus", include_in_schema=False)
+async def mapa(request: Request) -> Response:
+    """Mapa interactivo de las oportunidades abiertas.
+
+    `no-cache` = el navegador guarda la copia pero SIEMPRE pregunta si cambió: así una
+    versión recién desplegada se ve al instante (con un `max-age` fijo tardaría en llegar).
+
+    El 304 hay que responderlo a mano: `FileResponse` manda el ETag pero NO mira la
+    cabecera `If-None-Match`, así que sin esto cada visita se re-descargaba el fichero
+    entero — justo lo que la caché pretendía evitar.
+    """
+    path = _STATIC / "mapa.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
+
+
+@app.get("/og.png", include_in_schema=False)
+async def og_image() -> FileResponse:
+    """Imagen de previsualización al compartir el enlace. Cambia muy de vez en cuando,
+    así que se cachea una semana: las redes sociales la piden a menudo."""
+    return FileResponse(
+        _STATIC / "og.png",
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+@app.get("/api/map")
+async def map_data(response: Response) -> dict[str, Any]:
+    """Datos del mapa: TODAS las oportunidades abiertas, tengan coordenadas o no.
+
+    Antes se filtraban las que no tenían lat/lon y desaparecían sin dejar rastro. Ahora
+    van todas: el mapa pinta las que se pueden situar y la lista las muestra todas, con
+    las no situables marcadas — que no se sepa dónde cae no significa que no exista.
+    """
+    # 60s de caché: absorbe un pico de tráfico (si el canal manda 3.000 personas de golpe,
+    # la BD recibe ~1 consulta por minuto en vez de 3.000) y una oportunidad nueva tarda
+    # como mucho un minuto en aparecer, que para este caso de uso es instantáneo.
+    response.headers["Cache-Control"] = "public, max-age=60"
+
+    rows = await repo.list_open()
+    results = [_serialize(r) for r in rows]
+    located = sum(1 for r in results if r["latitude"] is not None and r["longitude"] is not None)
+    return {
+        "count": len(results),
+        "located": located,
+        "unlocated": len(results) - located,
+        "generated": datetime.now().date().isoformat(),
+        "channel": cfg.telegram_channel_username or None,
+        "results": results,
+    }
+
+
+@app.post("/api/visit")
+async def visit() -> dict[str, int]:
+    """Suma una visita y devuelve {visits, published} para el pie de estadísticas del mapa.
+    Sin caché: cada carga cuenta. Es un contador agregado, no guarda nada de quién visita."""
+    return await repo.bump_visit()
 
 
 @app.get("/opportunities")

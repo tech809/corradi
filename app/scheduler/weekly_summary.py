@@ -11,6 +11,7 @@ import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from app import alerts
 from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
@@ -37,6 +38,10 @@ async def run() -> None:
         )
         await pub.publish_to_channel(text)
         log.info("Resumen semanal publicado: %s nuevas, %s abiertas.", published, open_count)
+    except Exception as e:  # noqa: BLE001
+        log.exception("Falló el resumen semanal")
+        await alerts.alert("El resumen semanal no se ha publicado", f"{type(e).__name__}: {e}")
+        raise
     finally:
         await close_pool()
 

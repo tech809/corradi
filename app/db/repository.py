@@ -146,13 +146,74 @@ async def search(
             return await cur.fetchall()
 
 
-async def mark_published(project_id, message_id: int | None = None) -> None:
+async def set_coords(project_id, lat: float, lon: float) -> None:
+    """Guarda las coordenadas del mapa (se geocodifica una sola vez, al crear la ficha)."""
     async with get_pool().connection() as conn:
         await conn.execute(
+            "UPDATE projects SET latitude = %s, longitude = %s, updated = now() WHERE id = %s",
+            (lat, lon, project_id),
+        )
+
+
+async def list_without_coords(only_open: bool = True) -> list[dict[str, Any]]:
+    """Fichas sin geocodificar todavía (para el backfill de las creadas antes del mapa)."""
+    clause = "AND status = 'open'" if only_open else ""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                f"SELECT id, identifier, title, location, country_code FROM projects "
+                f"WHERE (latitude IS NULL OR longitude IS NULL) {clause} ORDER BY created"
+            )
+            return await cur.fetchall()
+
+
+async def list_open_geo() -> list[dict[str, Any]]:
+    """Oportunidades abiertas que tienen coordenadas (las que se pintan en el mapa)."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT * FROM projects WHERE status = 'open' "
+                "AND latitude IS NOT NULL AND longitude IS NOT NULL "
+                "ORDER BY application_deadline IS NULL, application_deadline ASC"
+            )
+            return await cur.fetchall()
+
+
+async def mark_published(project_id, message_id: int | None = None) -> None:
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
             "UPDATE projects SET published_telegram = TRUE, telegram_message_id = %s, updated = now() "
-            "WHERE id = %s",
+            "WHERE id = %s AND published_telegram = FALSE",
             (message_id, project_id),
         )
+        # Contador histórico de publicadas: solo suma si esta ficha no estaba ya publicada
+        # (rowcount 0 = ya lo estaba), para que reintentos/reejecuciones no lo inflen.
+        if cur.rowcount:
+            await conn.execute(
+                "INSERT INTO counters (key, value) VALUES ('published', 1) "
+                "ON CONFLICT (key) DO UPDATE SET value = counters.value + 1"
+            )
+        elif message_id is not None:
+            # Ya estaba publicada pero llega un message_id (p.ej. republicación): actualiza
+            # el enlace sin volver a contar.
+            await conn.execute(
+                "UPDATE projects SET telegram_message_id = %s, updated = now() WHERE id = %s",
+                (message_id, project_id),
+            )
+
+
+# ── Contadores de la web (visitas + publicadas) ──────────────────────────────
+async def bump_visit() -> dict[str, int]:
+    """Suma 1 a las visitas y devuelve las visitas y el total histórico de publicadas."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "INSERT INTO counters (key, value) VALUES ('visits', 1) "
+            "ON CONFLICT (key) DO UPDATE SET value = counters.value + 1 RETURNING value"
+        )
+        visits = (await cur.fetchone())[0]
+        cur = await conn.execute("SELECT value FROM counters WHERE key = 'published'")
+        row = await cur.fetchone()
+        return {"visits": visits, "published": row[0] if row else 0}
 
 
 async def expire_past_deadline(today: date) -> int:

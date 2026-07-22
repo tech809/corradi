@@ -5,6 +5,7 @@ from datetime import date
 from typing import Any
 
 from app.config import cfg
+from app.domain.project import is_last_minute
 
 _MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
           "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
@@ -59,11 +60,46 @@ def _flag(country_code: str | None) -> str:
     return "".join(chr(0x1F1E6 + ord(ch) - ord("A")) for ch in cc)
 
 
+def _est(o: dict[str, Any]) -> str:
+    """Sufijo de la fecha límite cuando la hemos estimado nosotros (no venía en el mensaje).
+
+    Se distingue el caso de última hora / últimas plazas releyendo el mensaje original
+    (mismo criterio que usó `normalize` para acortar el margen a 2 días)."""
+    if not o.get("deadline_estimated"):
+        return ""
+    return " (estimada: última hora)" if is_last_minute(o.get("raw_message")) else " (estimada)"
+
+
 def _dates(o: dict[str, Any]) -> str:
     s, e = o.get("start_date"), o.get("end_date")
     if s and e:
         return f"{s} → {e}"
     return str(s or e or "fechas por confirmar")
+
+
+# Abreviaturas de mes en español (RAE): sept. es la de septiembre, no "sep".
+_MES_ABBR = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"]
+
+
+def _compact_dates(o: dict[str, Any]) -> str:
+    """Fechas de realización compactas, ignorando el año (se sobreentiende):
+    mismo mes -> "5-15 sept"; meses distintos -> "5 oct - 15 nov"; distinto año -> "28 dic - 5 ene"."""
+    def parse(v):
+        p = str(v).split("-")
+        return int(p[0]), int(p[1]), int(p[2])   # (año, mes, día)
+
+    s, e = o.get("start_date"), o.get("end_date")
+    if s and e:
+        ys, ms, ds = parse(s)
+        ye, me, de = parse(e)
+        if ms == me and ys == ye:
+            return f"{ds}-{de} {_MES_ABBR[ms - 1]}"
+        return f"{ds} {_MES_ABBR[ms - 1]} - {de} {_MES_ABBR[me - 1]}"
+    one = s or e
+    if one:
+        _, m, d = parse(one)
+        return f"{d} {_MES_ABBR[m - 1]}"
+    return "fechas por confirmar"
 
 
 def _place(o: dict[str, Any]) -> str:
@@ -78,12 +114,11 @@ def format_opportunity(o: dict[str, Any]) -> str:
         lines.append(f"🏷️ {_topic_label(o)}: {o['topic']}")
     if _place(o):
         lines.append(f"📍 {_place(o)}")
-    lines.append(f"🗓️ {_dates(o)}")
+    lines.append(f"🗓️ {_compact_dates(o)}")
     if o.get("summary"):
         lines.append(f"\n{o['summary']}")
     if o.get("application_deadline"):
-        est = " (estimada)" if o.get("deadline_estimated") else ""
-        lines.append(f"\n⏳ Inscripción hasta: <b>{o['application_deadline']}{est}</b>")
+        lines.append(f"\n⏳ Fecha límite: <b>{o['application_deadline']}{_est(o)}</b>")
     if o.get("application_url"):
         lines.append(f'👉 <a href="{o["application_url"]}">Formulario de inscripción</a>')
     if o.get("infopack_url"):
@@ -104,8 +139,7 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
     if o.get("summary"):
         lines.append(f"\n{o['summary']}")
     if o.get("application_deadline"):
-        est = " (estimada)" if o.get("deadline_estimated") else ""
-        lines.append(f"⏳ Inscripción hasta: *{o['application_deadline']}{est}*")
+        lines.append(f"⏳ Inscripción hasta: *{o['application_deadline']}{_est(o)}*")
     if o.get("application_url"):
         lines.append(f"👉 {o['application_url']}")
     if o.get("infopack_url"):
@@ -123,35 +157,48 @@ def _channel_link(o: dict[str, Any]) -> str | None:
 
 
 def _header(today: date) -> str:
-    return f"📅 <b>Resumen diario — {today.day} de {_MESES[today.month - 1]} de {today.year}</b>"
+    return (
+        f"📅 <b>Resumen diario de oportunidades abiertas — "
+        f"{today.day} de {_MESES[today.month - 1]} de {today.year}</b>"
+    )
 
 
-def format_summary_item(o: dict[str, Any]) -> str:
-    """Bloque de 3 líneas para una oportunidad (usado en el resumen diario y en /buscar)."""
+def format_summary_item(o: dict[str, Any], show_type: bool = True) -> str:
+    """Bloque de una oportunidad. En el resumen diario va agrupada por tipo, así que ahí
+    NO se repite el tipo en cada línea (show_type=False); en /buscar la lista es plana y
+    sí interesa verlo (show_type=True, por defecto)."""
     link = _channel_link(o)
     title = f'<a href="{link}">{o["title"]}</a>' if link else o["title"]
+    if o.get("topic"):
+        tema = f"🏷️ {_topic_label(o)}: {o['topic']}" if show_type else f"🏷️ {o['topic']}"
+    else:
+        tema = ""
     segs = [s for s in [
-        f"🏷️ {_topic_label(o)}: {o['topic']}" if o.get("topic") else "",
+        tema,
         f"🌍 {_place(o)}" if _place(o) else "",
-        f"📅 {_dates(o)}",
+        f"📅 {_compact_dates(o)}",
     ] if s]
-    est = " (estimada)" if o.get("deadline_estimated") else ""
     return (
         f"• <b>{title}</b>\n{' '.join(segs)}\n"
-        f"⏳ Fecha límite inscripción: {o['application_deadline']}{est}"
+        f"⏳ Fecha límite: {o['application_deadline']}{_est(o)}"
     )
 
 
 def format_daily_summary(opps: list[dict[str, Any]], today: date | None = None) -> str:
-    """Resumen de las oportunidades ABIERTAS, agrupadas por tipo (Youth Exchange, Training
-    Course, ECS, Workshop). Cada título enlaza a su post original en el canal (si es público
-    y se conoce su message_id), para poder encontrarla en el historial."""
+    """Resumen de TODAS las oportunidades que siguen ABIERTAS (fecha límite de inscripción aún
+    no vencida), no solo las recibidas hoy, agrupadas por tipo (Youth Exchange, Training Course,
+    ECS, Workshop). Cada título enlaza a su post original en el canal (si es público y se conoce
+    su message_id), para poder encontrarla en el historial."""
     today = today or date.today()
     head = _header(today)
     if not opps:
-        return f"{head}\n\n☀️ Hoy no hay oportunidades abiertas nuevas. ¡Mañana más!"
+        return f"{head}\n\n☀️ Ahora mismo no hay ninguna oportunidad con inscripción abierta. ¡Mañana más!"
     plural = len(opps) != 1
-    parts = [head, f"☀️ {len(opps)} oportunidad{'es' if plural else ''} abierta{'s' if plural else ''}"]
+    parts = [
+        head,
+        f"☀️ {len(opps)} oportunidad{'es' if plural else ''} con inscripción abierta "
+        f"ahora mismo:",
+    ]
 
     by_type: dict[str | None, list[dict[str, Any]]] = {}
     for o in opps:
@@ -162,12 +209,15 @@ def format_daily_summary(opps: list[dict[str, Any]], today: date | None = None) 
         if not items:
             continue
         parts.append(f"<b>{label} ({len(items)})</b>")
-        parts += [format_summary_item(o) for o in items]
+        parts += [format_summary_item(o, show_type=False) for o in items]
 
     otros = [o for items in by_type.values() for o in items]
     if otros:
         parts.append(f"<b>📌 Otras ({len(otros)})</b>")
-        parts += [format_summary_item(o) for o in otros]
+        parts += [format_summary_item(o, show_type=False) for o in otros]
+
+    if cfg.map_public_url:
+        parts.append(f'🗺️ <a href="{cfg.map_public_url}">Verlas todas en el mapa</a>')
 
     return "\n\n".join(parts)
 
@@ -204,7 +254,7 @@ def format_weekly_summary(
 
 def format_daily_summary_whatsapp(opps: list[dict[str, Any]]) -> str:
     if not opps:
-        return "☀️ Hoy no hay oportunidades abiertas nuevas. ¡Mañana más!"
+        return "☀️ Ahora mismo no hay ninguna oportunidad con inscripción abierta. ¡Mañana más!"
     out = [f"☀️ *Oportunidades abiertas ({len(opps)})*\n"]
     for o in opps:
         bits = [b for b in [o.get("topic"), _place(o), _dates(o)] if b]

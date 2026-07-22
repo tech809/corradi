@@ -1,0 +1,38 @@
+# Proxy inverso con HTTPS automático (Let's Encrypt) para el mapa público.
+#
+# MAP_DOMAIN se define en .env (p.ej. mapa.proactivefuture.eu). Caddy pide y renueva el
+# certificado solo, siempre que el dominio apunte por DNS a esta máquina y los puertos
+# 80 y 443 estén abiertos.
+#
+# Si MAP_DOMAIN está vacío, escucha en :80 sin TLS (útil en local / antes de tener DNS).
+
+{$MAP_DOMAIN::80} {
+	encode zstd gzip
+
+	# Superficie pública mínima: solo el mapa y sus datos de lectura.
+	# Todo lo demás (webhooks, docs de la API) se corta aquí como segunda barrera,
+	# además de no estar montado en la app.
+	@publico path / /mapa /corradi-erasmus /og.png /api/map /health /opportunities /opportunities/*
+	handle @publico {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		respond "No encontrado" 404
+	}
+
+	header {
+		# Endurecimiento básico: la página no debe poder embeberse ni filtrar referrer.
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10MB
+			roll_keep 3
+		}
+	}
+}

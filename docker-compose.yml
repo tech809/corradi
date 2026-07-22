@@ -53,8 +53,28 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Sin publicar el puerto al host: el acceso público pasa SIEMPRE por caddy, que filtra
+    # las rutas. Para depurar en local: docker compose exec api ... o el túnel SSH.
+    expose:
+      - "8000"
+
+  # Proxy inverso público: HTTPS automático (Let's Encrypt) y filtro de rutas.
+  caddy:
+    image: caddy:2-alpine
+    container_name: corradi-caddy
+    restart: unless-stopped
+    environment:
+      MAP_DOMAIN: ${MAP_DOMAIN:-}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data          # certificados: NO borrar, evita re-pedirlos a Let's Encrypt
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    depends_on:
+      - api
     ports:
-      - "8000:8000"
+      - "80:80"
+      - "443:443"
 
   bot:
     build:
@@ -75,3 +95,6 @@ services:
 volumes:
   db_data:
   redis_data:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

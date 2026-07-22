@@ -72,16 +72,23 @@ aparcado para esta fase.
    Instagram, lo que sea — no hace falta limpiarlo ni pedir acceso antes). **Una oportunidad
    por mensaje** (si el texto trae varios proyectos a la vez, el bot pide que se separen).
 2. Gemini decide si es una oportunidad real y extrae los campos (título, tipo, fechas, país,
-   deadline, formulario…). Si no trae deadline explícita, se asume +7 días. Si una fecha no
-   trae año, se asume el próximo futuro (nunca en el pasado).
-3. Deduplicación: hash exacto (título+país+fecha) + similitud coseno (pgvector) sobre el
+   deadline, formulario…). Si no trae deadline explícita, se estima **+5 días** (**+2 días**
+   si el mensaje dice "última hora"/"últimas plazas"). Si una fecha no trae año, se asume el
+   próximo futuro (nunca en el pasado).
+3. **Control de plazo:** si la fecha límite que trae el mensaje **ya ha pasado**, la
+   oportunidad no se publica: el bot responde a quien la mandó avisándole de que está fuera
+   de plazo (se registra como `expired` en `submissions`). Y si la deadline final cae **a más
+   de 3 meses vista** (`MAX_DEADLINE_MONTHS`), tampoco se publica — suele ser un año mal
+   inferido (p.ej. "17/07" sin año, procesado después del 17 de julio) — se registra como
+   `deadline_too_far` y se pide revisar el mensaje.
+4. Deduplicación: hash exacto (título+país+fecha) + similitud coseno (pgvector) sobre el
    embedding del mensaje completo.
-4. Se guarda en `projects` con un identificador legible (`CORRADI-2026-0001`) — es **interno**,
+5. Se guarda en `projects` con un identificador legible (`CORRADI-2026-0001`) — es **interno**,
    no se muestra al coordinador ni en el canal; solo se usa en BD/API.
-5. Se publica **automáticamente**, sin intervención humana, en el canal de Telegram
+6. Se publica **automáticamente**, sin intervención humana, en el canal de Telegram
    [@erasmuscorradi](https://t.me/erasmuscorradi).
-6. Cada día a las 20h, un resumen (ver [Resumen diario](#resumen-diario)) lista lo que sigue
-   abierto y expira lo vencido.
+7. Cada día a las 20h, un resumen (ver [Resumen diario](#resumen-diario)) lista **todas las
+   oportunidades con inscripción abierta** (no solo las de ese día) y expira lo vencido.
 
 No hay paso de aprobación manual antes de publicar: si el LLM la valida como oportunidad
 real y no es un duplicado, sale al canal directamente.
@@ -293,7 +300,11 @@ Variables imprescindibles para el lanzamiento actual (ver `.env.example` para el
 | `ADMIN_TELEGRAM_IDS` | IDs numéricos de Telegram con permisos de admin, separados por coma |
 | `GEMINI_API_KEY` | Clave de Google Gemini |
 | `HANDOFF_MODE` | `none` en el lanzamiento actual (WhatsApp aparcado) |
-| `DEFAULT_DEADLINE_DAYS` | Días de margen si no hay deadline explícita en el texto (7 por defecto) |
+| `DEFAULT_DEADLINE_DAYS` | Días de margen si no hay deadline explícita en el texto (5 por defecto) |
+| `LAST_MINUTE_DEADLINE_DAYS` | Igual, pero si el mensaje dice "última hora"/"últimas plazas" (2 por defecto) |
+| `MAX_DEADLINE_MONTHS` | Solo se aceptan oportunidades cuya deadline caiga dentro de estos meses (3 por defecto; red de seguridad ante años mal inferidos) |
+| `MAP_DOMAIN` | Dominio del mapa público; Caddy pide el certificado HTTPS para este nombre (vacío = HTTP sin TLS) |
+| `MAP_PUBLIC_URL` | URL que enlaza el resumen diario al final (vacío = no se enlaza) |
 | `DEDUP_THRESHOLD` | Umbral de similitud coseno para considerar duplicado (0.88 por defecto) |
 | `TELEGRAM_CHANNEL_USERNAME` | Username público del canal (sin @); enlaza cada post del resumen diario a su mensaje original |
 | `MAX_DAILY_OPPORTUNITIES` | Máximo de oportunidades que puede crear un coordinador al día (3 por defecto) |
@@ -312,24 +323,24 @@ Variables imprescindibles para el lanzamiento actual (ver `.env.example` para el
 
 `app/scheduler/daily_summary.py` expira lo vencido (una oportunidad expira el mismo día en
 que llega su fecha límite, no al día siguiente) y publica en el canal, cada día a las 20h,
-un resumen de **solo las oportunidades abiertas** (nunca las expiradas/cerradas), con
-cabecera de fecha. Cada título enlaza directamente al post original en el canal
+un resumen de **todas las oportunidades cuya inscripción sigue abierta** — no solo las
+recibidas ese día, sino todo lo vigente, y nunca las expiradas/cerradas — con cabecera de fecha. Cada título enlaza directamente al post original en el canal
 (`https://t.me/<usuario>/<message_id>`, posible porque el canal es público) — así se
 encuentra fácilmente en el historial aunque haya pasado tiempo. Si una oportunidad se
 publicó antes de tener `TELEGRAM_CHANNEL_USERNAME` configurado, sale sin enlace (solo el
 título en negrita, sin más). Formato por oportunidad (3 líneas):
 
 ```
-📅 Resumen diario — 21 de julio de 2026
+📅 Resumen diario de oportunidades abiertas — 21 de julio de 2026
 
-☀️ 2 oportunidades abiertas
+☀️ 2 oportunidades con inscripción abierta ahora mismo:
 
 • Inclusion & Solidarity In Action
-🏷️ Temática: Inclusion, Solidarity, Arts 🌍 Turin 📅 2026-09-01 → 2027-06-30
-⏳ Fecha límite inscripción: 2026-07-28 (estimada)
+🏷️ ECS: Inclusion, Solidarity, Arts 🌍 Turin 📅 2026-09-01 → 2027-06-30
+⏳ Fecha límite inscripción: 2026-07-26 (estimada: última hora)
 
 • I'M POSSIBLE
-🏷️ Temática: Adventure, personal development 🌍 Asturias 📅 2026-09-05 → 2026-09-15
+🏷️ Youth Exchange: Adventure, personal development 🌍 Asturias 📅 2026-09-05 → 2026-09-15
 ⏳ Fecha límite inscripción: 2026-07-30
 ```
 
@@ -340,6 +351,53 @@ crontab -l   # ver/editar: 0 20 * * * docker exec corradi-bot python -m app.sche
 ```
 > En local esto depende de que el Mac esté encendido a las 20h. En EC2, el mismo cron (o
 > EventBridge Scheduler) corre 24/7 — mover el cron ahí es parte de la migración a producción.
+
+## Mapa público
+
+Mapa interactivo de las oportunidades **abiertas**, servido por la propia API en `GET /mapa`
+(página autocontenida en `app/api/static/mapa.html`, Leaflet + teselas de CARTO/OpenStreetMap,
+sin claves de API ni coste). El resumen diario lo enlaza al final si `MAP_PUBLIC_URL` está
+definida.
+
+**Qué hace:** pines por tipo (Youth Exchange azul · Training Course morado · ECS verde ·
+Workshop naranja), filtros por texto, tipo, país y "cierran pronto" (≤7 días), lista lateral
+sincronizada con el mapa (clic en tarjeta → vuela al pin y abre su ficha), badge de urgencia
+("Cierra hoy", "Cierra en 3 días") y enlaces a inscripción, infopack y post original del canal.
+Responsive y con modo claro/oscuro automático.
+
+### Coordenadas
+
+`app/geo.py` geocodifica en dos escalones y guarda el resultado en `projects.latitude/longitude`
+(columnas que ya existían desde la migración inicial), así que cada ficha se geocodifica **una
+sola vez**, al crearse:
+
+1. **Ciudad exacta** vía Nominatim (OpenStreetMap): gratis, sin clave. Si el `location` es
+   demasiado específico ("Manjirón, Sierra Norte de Madrid") reintenta con la primera parte.
+2. **Centro del país** si no hay ciudad, si Nominatim no encuentra nada o si falla la red.
+   Esos pines se marcan en la ficha como "Ubicación aproximada (país)".
+
+Si todo falla, la oportunidad se publica igual en el canal; solo se queda fuera del mapa.
+
+```bash
+make backfill-geo   # geocodifica las fichas creadas antes de existir el mapa (1 req/s)
+```
+
+### Exposición pública y seguridad
+
+La API **no** se expone directamente. Delante va **Caddy** (`docker/Caddyfile`), que da HTTPS
+automático con Let's Encrypt y actúa de filtro:
+
+| Decisión | Por qué |
+|---|---|
+| El contenedor `api` ya no publica el puerto 8000 al host | Todo el tráfico público entra por Caddy |
+| Caddy solo deja pasar `/`, `/mapa`, `/api/map`, `/health` y `/opportunities*` | Cualquier otra ruta devuelve 404 |
+| El webhook de Twilio solo se monta si `HANDOFF_MODE` es de WhatsApp | Con la API pública y `TWILIO_VALIDATE_SIGNATURE=false`, dejarlo montado permitiría a cualquiera hacer POST y colar oportunidades en el canal. Hoy `HANDOFF_MODE=none`, así que la ruta ni existe |
+| La API serializa con **lista blanca** de campos (`_PUBLIC_FIELDS`) | `submitted_by`, `submitted_by_id`, `raw_message`, `hash` y `embedding` no salen nunca. Al ser lista blanca, una columna nueva no se filtra sola |
+
+Variables: `MAP_DOMAIN` (dominio para el certificado) y `MAP_PUBLIC_URL` (lo que se enlaza en
+el resumen). En Terraform, `expose_web = true` abre 80/443.
+
+> El puerto 80 es imprescindible además del 443: Let's Encrypt lo usa para validar el dominio.
 
 ## Resumen semanal
 

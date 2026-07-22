@@ -10,7 +10,7 @@ from telegram.ext import (
     Application, CommandHandler, ContextTypes, MessageHandler, filters,
 )
 
-from app import pipeline
+from app import alerts, pipeline
 from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
@@ -82,7 +82,8 @@ async def cmd_misenvios(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None
     rows = await repo.list_recent_submissions(user.id, limit=5)
     icons = {
         "created": "✅", "duplicate": "♻️", "duplicate_similar": "♻️",
-        "not_opportunity": "🤔", "rate_limited": "⏳", "error": "⚠️",
+        "not_opportunity": "🤔", "rate_limited": "⏳", "expired": "📅",
+        "deadline_too_far": "📆", "error": "⚠️",
     }
     lines = [f"📊 <b>Tus envíos:</b> {limit_text}\n"]
     if not rows:
@@ -154,6 +155,25 @@ async def on_submission(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None
             if result.get("warn"):
                 text += "\n\n⚠️ Aviso: si vuelve a pasar, se bloqueará tu acceso automáticamente."
             await update.message.reply_text(text)
+    elif status == "expired":
+        dl = result.get("deadline")
+        titulo = f"«{result['title']}» " if result.get("title") else ""
+        await update.message.reply_text(
+            f"📅 Esa oportunidad {titulo}está fuera de plazo: la fecha límite de inscripción "
+            f"({dl}) ya ha pasado, así que no la publico en el canal.\n\n"
+            "Si te has confundido de fecha o la organización ha ampliado el plazo, corrígela "
+            "en el mensaje y vuelve a mandármela."
+        )
+    elif status == "deadline_too_far":
+        dl = result.get("deadline")
+        titulo = f"«{result['title']}» " if result.get("title") else ""
+        meses = result.get("max_months")
+        await update.message.reply_text(
+            f"📆 La fecha límite de inscripción que he extraído para {titulo}es {dl}, "
+            f"dentro de más de {meses} meses. Es un margen inusualmente largo, así que "
+            "probablemente hay un error en la fecha (año equivocado, etc.) y no la publico.\n\n"
+            "Revisa el mensaje original y vuelve a mandármelo si la fecha es correcta."
+        )
     elif status == "duplicate":
         ex = result["existing"]
         await update.message.reply_text(f"♻️ Ya existe: «{ex['title']}». No la republico.")
@@ -176,7 +196,34 @@ async def on_submission(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None
             disable_web_page_preview=True,
         )
     else:  # error
+        # El coordinador ve un mensaje genérico, pero el admin recibe el detalle: estos
+        # fallos suelen ser de infraestructura (cuota de Gemini agotada, BD caída) y
+        # requieren que alguien actúe, no que el usuario reintente.
+        await alerts.alert(
+            "Error procesando una oportunidad",
+            f"Usuario {user.id} (@{user.username}): {result.get('error')}",
+            key="pipeline_error",
+        )
         await update.message.reply_text(f"⚠️ {result.get('error') or 'Error procesando el mensaje.'}")
+
+
+async def on_error(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Red de seguridad: cualquier excepción no capturada en un handler llega aquí.
+    Sin esto, un fallo dejaba al usuario sin respuesta y al admin sin enterarse."""
+    log.exception("Excepción no capturada en un handler", exc_info=ctx.error)
+    await alerts.alert(
+        "Error no controlado en el bot",
+        f"{type(ctx.error).__name__}: {ctx.error}",
+        key="bot_unhandled",
+    )
+    msg = getattr(update, "message", None)
+    if msg:
+        try:
+            await msg.reply_text(
+                f"⚠️ Se me ha ido algo. Ya he avisado a {_CONTACT}; inténtalo de nuevo en un rato."
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
 
 async def _post_init(app: Application) -> None:
@@ -211,6 +258,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("id", cmd_id))
     app.add_handler(CommandHandler("privacidad", cmd_privacidad))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_submission))
+    app.add_error_handler(on_error)
     return app
 
 

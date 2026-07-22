@@ -46,6 +46,12 @@ variable "api_allowed_cidr" {
   default     = "0.0.0.0/0"
 }
 
+variable "expose_web" {
+  description = "Abrir 80/443 para el mapa público servido por Caddy (HTTPS automático). Caddy solo deja pasar las rutas de lectura del mapa; la API cruda NO queda expuesta."
+  type        = bool
+  default     = false
+}
+
 variable "repo_url" {
   description = "URL git del repo a clonar en /opt/corradi durante el arranque (opcional; si vacío, copias el código por scp)"
   type        = string
@@ -56,4 +62,10 @@ variable "use_elastic_ip" {
   description = "Asignar una IP elástica estable (gratis mientras esté asociada a una instancia en marcha)"
   type        = bool
   default     = true
+}
+
+variable "ssm_client_user" {
+  description = "Usuario IAM al que dar permisos de cliente SSM (conectarse a la instancia sin abrir el puerto 22). Vacío = no se crea la política."
+  type        = string
+  default     = ""
 }

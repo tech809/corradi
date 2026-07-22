@@ -68,7 +68,11 @@ def extract(raw_text: str, ref_day: date | None = None) -> dict:
     if not fields.get("is_opportunity"):
         return {"is_opportunity": False, "reason": fields.get("reason")}
 
-    fields = normalize(fields, ref_day, cfg.default_deadline_days)
+    fields = normalize(
+        fields, ref_day, cfg.default_deadline_days,
+        raw_text=raw_text, last_minute_deadline_days=cfg.last_minute_deadline_days,
+        max_deadline_months=cfg.max_deadline_months,
+    )
     fields["is_opportunity"] = True
     fields["raw_message"] = raw_text.strip()
     return fields

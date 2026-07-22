@@ -62,7 +62,11 @@ def extract(raw_text: str, ref_day: date | None = None) -> dict:
         "max_participants": None, "participant_min_age": None, "participant_max_age": None,
         "cost": None, "contact_information": None,
     }
-    fields = normalize(fields, ref_day, cfg.default_deadline_days)
+    fields = normalize(
+        fields, ref_day, cfg.default_deadline_days,
+        raw_text=text, last_minute_deadline_days=cfg.last_minute_deadline_days,
+        max_deadline_months=cfg.max_deadline_months,
+    )
     fields["is_opportunity"] = True
     fields["raw_message"] = text
     return fields

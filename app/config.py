@@ -48,7 +48,14 @@ class Config:
     embed_dim: int = int(os.getenv("EMBED_DIM", "768"))
 
     # Negocio
-    default_deadline_days: int = int(os.getenv("DEFAULT_DEADLINE_DAYS", "7"))
+    # Fecha límite estimada cuando el mensaje no trae ninguna: +5 días normalmente, y solo
+    # +2 días si el mensaje anuncia última hora / últimas plazas.
+    default_deadline_days: int = int(os.getenv("DEFAULT_DEADLINE_DAYS", "5"))
+    last_minute_deadline_days: int = int(os.getenv("LAST_MINUTE_DEADLINE_DAYS", "2"))
+    # Solo se aceptan oportunidades cuya fecha límite de inscripción caiga dentro de estos
+    # meses (red de seguridad ante años mal inferidos, p.ej. "17/07" sin año procesado
+    # después del 17 de julio -> el LLM podría empujarlo un año de más).
+    max_deadline_months: int = int(os.getenv("MAX_DEADLINE_MONTHS", "3"))
     dedup_threshold: float = float(os.getenv("DEDUP_THRESHOLD", "0.88"))
     # Anti-abuso: máximo de oportunidades que puede crear un coordinador al día, y nº de
     # envíos consecutivos que no son oportunidad (spam) antes de bloquear automáticamente
@@ -58,6 +65,8 @@ class Config:
     timezone: str = os.getenv("TIMEZONE", "Europe/Madrid")
     summary_hour: int = int(os.getenv("SUMMARY_HOUR", "20"))
     identifier_prefix: str = os.getenv("IDENTIFIER_PREFIX", "CORRADI")
+    # URL pública del mapa interactivo; si está vacía, el resumen diario no lo enlaza.
+    map_public_url: str = os.getenv("MAP_PUBLIC_URL", "")
 
     # Handoff a WhatsApp: 'telegram' (grupo) | 'whatsapp_cloud' (API oficial) | 'none'
     handoff_mode: str = os.getenv("HANDOFF_MODE", "telegram")

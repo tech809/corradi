@@ -11,6 +11,7 @@ from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from app import geo
 from app.config import cfg
 from app.db import repository as repo
 from app.domain.project import make_hash
@@ -23,6 +24,11 @@ log = logging.getLogger("corradi.pipeline")
 
 def today_start() -> datetime:
     return datetime.now(ZoneInfo(cfg.timezone)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def today() -> date:
+    """Fecha de hoy en la zona horaria del proyecto (no la del servidor)."""
+    return datetime.now(ZoneInfo(cfg.timezone)).date()
 
 
 async def _spam_check(user_id: int) -> dict[str, bool]:
@@ -50,7 +56,8 @@ async def _spam_check(user_id: int) -> dict[str, bool]:
 
 async def ingest(raw_text: str, source: str, submitted_by: str, submitted_by_id: int) -> dict[str, Any]:
     """Procesa un mensaje crudo. Estados posibles:
-    rate_limited | not_opportunity | duplicate | duplicate_similar | created | created_no_publish | error
+    rate_limited | not_opportunity | expired | deadline_too_far | duplicate |
+    duplicate_similar | created | created_no_publish | error
     """
     is_admin = submitted_by_id in cfg.admin_telegram_ids
 
@@ -67,8 +74,9 @@ async def ingest(raw_text: str, source: str, submitted_by: str, submitted_by_id:
             return {"status": "rate_limited", "limit": cfg.max_daily_opportunities}
 
     # 1) Clasificación + extracción
+    ref_day = today()
     try:
-        fields = await asyncio.to_thread(extractor.extract, raw_text, date.today())
+        fields = await asyncio.to_thread(extractor.extract, raw_text, ref_day)
     except extractor.LLMNotConfigured:
         return {"status": "error", "error": "LLM no configurado (falta GEMINI_API_KEY)."}
     except Exception as e:  # noqa: BLE001
@@ -81,6 +89,32 @@ async def ingest(raw_text: str, source: str, submitted_by: str, submitted_by_id:
         await repo.log_submission(submitted_by_id, "not_opportunity")
         spam = {"warn": False, "blocked": False} if is_admin else await _spam_check(submitted_by_id)
         return {"status": "not_opportunity", "reason": fields.get("reason"), **spam}
+
+    # 1bis) Fuera de plazo: si la fecha límite que trae el mensaje ya pasó, no se publica.
+    if fields.get("deadline_in_past"):
+        deadline = fields.get("stated_deadline")
+        log.info("Usuario %s: oportunidad fuera de plazo (deadline %s < %s)",
+                 submitted_by_id, deadline, ref_day)
+        await repo.log_submission(submitted_by_id, "expired")
+        return {
+            "status": "expired",
+            "deadline": deadline,
+            "title": fields.get("title"),
+            "today": ref_day,
+        }
+
+    # 1ter) Fecha límite demasiado lejana: probable error de año/fecha, se rechaza para
+    # que el coordinador la revise en vez de publicar una deadline absurda.
+    if fields.get("deadline_too_far"):
+        log.info("Usuario %s: deadline demasiado lejana (%s, tope %s meses)",
+                 submitted_by_id, fields.get("application_deadline"), cfg.max_deadline_months)
+        await repo.log_submission(submitted_by_id, "deadline_too_far")
+        return {
+            "status": "deadline_too_far",
+            "deadline": fields.get("application_deadline"),
+            "title": fields.get("title"),
+            "max_months": cfg.max_deadline_months,
+        }
 
     # 2) Deduplicación (hash exacto + embedding semántico)
     try:
@@ -113,6 +147,16 @@ async def ingest(raw_text: str, source: str, submitted_by: str, submitted_by_id:
     except Exception as e:  # noqa: BLE001
         log.exception("Error guardando (usuario %s)", submitted_by_id)
         return {"status": "error", "error": str(e)}
+
+    # 3bis) Coordenadas para el mapa público. Es un extra: si la geocodificación falla,
+    # la oportunidad se publica igual (simplemente no sale en el mapa).
+    try:
+        coords = await asyncio.to_thread(geo.geocode, opp.get("location"), opp.get("country_code"))
+        if coords:
+            await repo.set_coords(opp["id"], *coords)
+            opp["latitude"], opp["longitude"] = coords
+    except Exception:  # noqa: BLE001
+        log.warning("No pude geocodificar %s (se publica igual)", opp["identifier"], exc_info=True)
 
     # 4) Publicar (canal Telegram) + handoff (WhatsApp)
     try:
