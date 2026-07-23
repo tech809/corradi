@@ -6,7 +6,7 @@ from datetime import date
 
 from app.config import cfg
 from app.domain.project import normalize
-from app.llm.prompts import EXTRACTION_PROMPT
+from app.llm.prompts import CORRECTIONS_TEMPLATE, EXTRACTION_PROMPT
 
 _client = None
 
@@ -37,18 +37,39 @@ def _strip_fences(text: str) -> str:
     return text.strip()
 
 
-def extract(raw_text: str, ref_day: date | None = None) -> dict:
-    """Devuelve {is_opportunity: False, reason} o un dict de campos normalizados listo para la BD."""
+def _corrections_block(corrections: list[str] | None) -> str:
+    """Bloque de correcciones para el prompt (vacío si no hay). Se usa tanto en la
+    confirmación previa a publicar ('Modificar') como al editar una ya publicada."""
+    if not corrections:
+        return ""
+    items = "\n".join(f"- {c.strip()}" for c in corrections if c and c.strip())
+    if not items:
+        return ""
+    return CORRECTIONS_TEMPLATE.replace("__CORRECTION_LIST__", items)
+
+
+def extract(raw_text: str, ref_day: date | None = None, corrections: list[str] | None = None) -> dict:
+    """Devuelve {is_opportunity: False, reason} o un dict de campos normalizados listo para la BD.
+
+    `corrections`: instrucciones del coordinador para ajustar la extracción (p.ej. "la fecha
+    de fin es el 20 de septiembre"). Se aplican SOBRE el mensaje original; `raw_message` se
+    guarda siempre limpio (solo el texto original), para que la deduplicación no se vea afectada.
+    """
     if cfg.llm_provider == "fake":
         from app.llm import fake
-        return fake.extract(raw_text, ref_day)
+        return fake.extract(raw_text, ref_day, corrections)
 
     from google.genai import types
 
     from app.llm.retry import with_retry
 
     ref_day = ref_day or date.today()
-    prompt = EXTRACTION_PROMPT.replace("__TODAY__", ref_day.isoformat()).replace("__MESSAGE__", raw_text.strip())
+    prompt = (
+        EXTRACTION_PROMPT
+        .replace("__TODAY__", ref_day.isoformat())
+        .replace("__MESSAGE__", raw_text.strip())
+        .replace("__CORRECTIONS__", _corrections_block(corrections))
+    )
     resp = with_retry(lambda: _gemini_client().models.generate_content(
         model=cfg.llm_model,
         contents=prompt,
@@ -74,5 +95,5 @@ def extract(raw_text: str, ref_day: date | None = None) -> dict:
         max_deadline_months=cfg.max_deadline_months,
     )
     fields["is_opportunity"] = True
-    fields["raw_message"] = raw_text.strip()
+    fields["raw_message"] = raw_text.strip()   # limpio, sin las correcciones
     return fields

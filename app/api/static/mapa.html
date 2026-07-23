@@ -473,7 +473,7 @@
       <rect y=".75" width="4" height="1.5" fill="#F1BF00"/>
     </svg>
     <div>
-      <h1>Mapa de oportunidades Corradi Erasmus+</h1>
+      <h1>Corradi Erasmus+ | Mapa de oportunidades</h1>
       <p>Para residentes en España · inscripción abierta ahora mismo</p>
     </div>
   </div>
@@ -512,8 +512,10 @@
 
   <!-- "compact": siempre desplegable (no ocupa fila entera, ni en escritorio); ver CSS -->
   <div class="dd compact" id="datesDd">
+    <!-- Sin badge numérico a propósito: un "9" aquí se leía como aviso/notificación
+         pendiente en vez de "9 disponibles, todos seleccionados". -->
     <button type="button" class="dd-toggle" id="datesToggle" aria-expanded="false" aria-controls="datesPanel">
-      Fechas <span class="dd-count" id="datesCount"></span>
+      Fechas
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
     </button>
     <div class="chips dd-panel date-panel" id="datesPanel">
@@ -531,7 +533,7 @@
 
   <div class="dd compact" id="countryDd">
     <button type="button" class="dd-toggle" id="countryToggle" aria-expanded="false" aria-controls="countryChips">
-      Países <span class="dd-count" id="countryCount"></span>
+      Países
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
     </button>
     <div class="chips dd-panel" id="countryChips" role="group" aria-label="Filtrar por país"></div>
@@ -814,13 +816,10 @@
       n === all.length ? String(n) : n + " de " + all.length;
     document.getElementById("reset").hidden = !isDirty();
 
-    // Nº de filtros activos en cada píldora (en móvil el panel está cerrado, así que
-    // sin este contador no se vería cuántos filtros hay puestos).
+    // Nº de filtros activos SOLO en Tipos (en móvil el panel está cerrado, así que sin
+    // este contador no se vería cuántos hay puestos). Fechas/Países NO llevan número:
+    // con el estado "todos" por defecto, un "9" ahí parecía una notificación pendiente.
     document.getElementById("typesCount").textContent = state.types.size + (state.soon ? 1 : 0);
-    document.getElementById("countryCount").textContent = state.countries.size;
-    document.getElementById("datesCount").textContent = dateMode === "range"
-      ? (state.dateFrom ? 1 : 0) + (state.dateTo ? 1 : 0)
-      : state.months.size;
   }
 
   // ── Lista ────────────────────────────────────────────────────────

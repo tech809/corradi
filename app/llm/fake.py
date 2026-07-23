@@ -29,9 +29,14 @@ _DATE_RE = re.compile(r"\b(\d{1,2}/\d{1,2}/\d{4})\b")
 _URL_RE = re.compile(r"https?://\S+")
 
 
-def extract(raw_text: str, ref_day: date | None = None) -> dict:
+def extract(raw_text: str, ref_day: date | None = None, corrections: list[str] | None = None) -> dict:
     ref_day = ref_day or date.today()
     text = raw_text.strip()
+    # El proveedor real manda las correcciones al LLM; aquí (heurístico) se anexan al
+    # texto para que las fechas/URLs que traigan las pueda pillar el regex — suficiente
+    # para probar el flujo de "Modificar"/"Editar" sin claves.
+    if corrections:
+        text = text + "\n" + "\n".join(c for c in corrections if c)
     low = text.lower()
 
     if len(text) < 15 or low.startswith(("hola", "hi ", "gracias", "thanks")):
@@ -68,7 +73,7 @@ def extract(raw_text: str, ref_day: date | None = None) -> dict:
         max_deadline_months=cfg.max_deadline_months,
     )
     fields["is_opportunity"] = True
-    fields["raw_message"] = text
+    fields["raw_message"] = raw_text.strip()   # limpio, sin las correcciones anexadas
     return fields
 
 

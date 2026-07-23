@@ -143,6 +143,70 @@ async def get_by_identifier(identifier: str) -> dict[str, Any] | None:
             return await cur.fetchone()
 
 
+async def list_open_by_user(user_id: int) -> list[dict[str, Any]]:
+    """Oportunidades ABIERTAS que envió este coordinador (su backlog editable)."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT * FROM projects WHERE status = 'open' AND submitted_by_id = %s "
+                "ORDER BY application_deadline IS NULL, application_deadline ASC",
+                (user_id,),
+            )
+            return await cur.fetchall()
+
+
+async def list_all_by_user(user_id: int, limit: int = 20) -> list[dict[str, Any]]:
+    """TODO lo que ha publicado este coordinador, cualquier estado (histórico)."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT * FROM projects WHERE submitted_by_id = %s ORDER BY created DESC LIMIT %s",
+                (user_id, limit),
+            )
+            return await cur.fetchall()
+
+
+async def close_project(identifier: str) -> None:
+    """Cierra una oportunidad a petición de quien la publicó (o un admin): deja de estar
+    'open', así que desaparece del mapa/lista y de list_open_by_user. No es un DELETE de
+    verdad — no borra la fila ni el hash de dedup — y NO retira el mensaje ya publicado
+    en el canal de Telegram, eso no se puede deshacer."""
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "UPDATE projects SET status = 'closed', updated = now() WHERE identifier = %s",
+            (identifier,),
+        )
+
+
+# Campos que el coordinador puede reeditar (los mismos que extrae el LLM). NO se toca
+# identifier, hash, submitted_by, telegram_message_id, embedding ni created.
+_EDITABLE_COLS = [
+    "title", "type", "topic", "summary", "country_code", "location",
+    "start_date", "end_date", "application_deadline", "deadline_estimated",
+    "infopack_url", "application_url", "max_participants",
+    "participant_min_age", "participant_max_age", "cost", "contact_information",
+    "latitude", "longitude",
+]
+
+
+async def update_project(identifier: str, fields: dict[str, Any]) -> dict[str, Any] | None:
+    """Actualiza los campos editables de una oportunidad ya publicada (edición por el
+    coordinador). Solo cambia lo que aparezca en `fields`; devuelve la fila actualizada."""
+    cols = [c for c in _EDITABLE_COLS if c in fields]
+    if not cols:
+        return await get_by_identifier(identifier)
+    row = {c: fields[c] for c in cols}
+    row["identifier"] = identifier
+    sets = ", ".join(f"{c} = %({c})s" for c in cols)
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                f"UPDATE projects SET {sets}, updated = now() WHERE identifier = %(identifier)s RETURNING *",
+                row,
+            )
+            return await cur.fetchone()
+
+
 async def search(
     *, q: str | None = None, type_: str | None = None, country: str | None = None,
     topic: str | None = None, only_open: bool = True, limit: int = 50,
@@ -351,18 +415,5 @@ async def type_breakdown_since(since: datetime, limit: int = 5) -> list[dict[str
                 "WHERE published_telegram = TRUE AND created >= %s AND type IS NOT NULL "
                 "GROUP BY type ORDER BY n DESC LIMIT %s",
                 (since, limit),
-            )
-            return await cur.fetchall()
-
-
-async def list_recent_submissions(user_id: int, limit: int = 5) -> list[dict[str, Any]]:
-    """Últimos envíos de un usuario con el título de la oportunidad si la creó (para /misenvios)."""
-    async with get_pool().connection() as conn:
-        async with conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(
-                "SELECT s.status, s.created, p.title FROM submissions s "
-                "LEFT JOIN projects p ON p.id = s.project_id "
-                "WHERE s.telegram_user_id = %s ORDER BY s.created DESC LIMIT %s",
-                (user_id, limit),
             )
             return await cur.fetchall()

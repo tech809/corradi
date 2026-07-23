@@ -66,5 +66,14 @@ RULES:
 
 MESSAGE TO PROCESS:
 \"\"\"__MESSAGE__\"\"\"
-
+__CORRECTIONS__
 Respond only with the JSON:""".replace("__TYPES__", _TYPES)
+
+
+# Bloque que se inyecta (en __CORRECTIONS__) cuando el coordinador revisa la ficha y pide
+# cambios. Las correcciones MANDAN sobre lo que diga el mensaje original.
+CORRECTIONS_TEMPLATE = """
+The submitter reviewed the extracted data and asked for the following corrections.
+Apply them exactly; they OVERRIDE anything in the original message above:
+__CORRECTION_LIST__
+"""

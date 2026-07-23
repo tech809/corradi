@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 import logging
-from zoneinfo import ZoneInfo
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
-    Application, CommandHandler, ContextTypes, MessageHandler, filters,
+    Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters,
 )
 
 from app import alerts, pipeline
@@ -24,12 +23,14 @@ _CONTACT = "@pachums97"
 async def cmd_start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "Hola 👋 Soy el bot de CORRADI-BOT: alimento el canal de difusión de Corradi Erasmus+.\n\n"
-        "¿Cómo funciona? Pégame el mensaje de una oportunidad tal cual lo tengas y se publica "
-        "en el canal.\n\n"
+        "¿Cómo funciona? Pégame el mensaje de una oportunidad tal cual lo tengas. Te enseño "
+        "cómo quedaría publicada y tú decides: <b>Enviar</b>, <b>Modificar</b> algo o "
+        "<b>Cancelar</b>. Solo se publica cuando le das a Enviar.\n\n"
         f"⚠️ Manda solo oportunidades reales, una por mensaje (máximo "
         f"{cfg.max_daily_opportunities} al día). Si mandas algo que no es una oportunidad te "
         "aviso; si se repite, se bloquea el acceso automáticamente.\n\n"
         "Usa /ayuda para ver el resto de comandos.",
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -37,90 +38,130 @@ async def cmd_ayuda(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "🤖 <b>Comandos de CORRADI-BOT</b>\n\n"
         "<b>Para publicar una oportunidad:</b> pégame el texto tal cual (con emojis, sin "
-        "limpiar nada), no hace falta ningún comando. Compruebo que es una oportunidad real, "
-        "extraigo título/fechas/país/deadline/formulario, reviso que no esté repetida y la "
-        "publico sola en el canal.\n\n"
+        "limpiar nada), no hace falta ningún comando. Extraigo título/fechas/país/deadline/"
+        "formulario y te enseño <b>cómo quedaría</b>. Tú decides: <b>✅ Enviar</b>, "
+        "<b>✏️ Modificar</b> (me dices qué cambiar y te lo actualizo) o <b>❌ Cancelar</b>.\n\n"
         "📋 <b>Reglas:</b>\n"
         "• Una oportunidad por mensaje (si tienes varias, mándalas por separado)\n"
         f"• Máximo {cfg.max_daily_opportunities} al día\n"
         "• Solo oportunidades reales — si mandas algo que no lo es, te aviso; si se repite, "
         "se bloquea el acceso automáticamente\n\n"
-        "🔎 <b>/buscar &lt;palabra&gt;</b> — busca entre las oportunidades abiertas (país, tema, título...)\n"
-        "📊 <b>/misenvios</b> — cuántas has mandado hoy y tu historial reciente\n\n"
-        '🌍 Canal de difusión: <a href="https://t.me/erasmuscorradi">t.me/erasmuscorradi</a>\n\n'
+        "📂 <b>/editarmisproyectos</b> — tus oportunidades abiertas: editarlas o eliminarlas\n"
+        "📜 <b>/historicomisproyectos</b> — todo lo que has publicado, con su estado\n\n"
+        '🌍 Canal de difusión: <a href="https://t.me/erasmuscorradi">t.me/erasmuscorradi</a> · '
+        '🗺️ Mapa: <a href="https://mapa.proactivefuture.eu/corradi-erasmus">ver oportunidades</a>\n\n'
+        "🔒 Tratamos el texto que envías y tu usuario de Telegram solo para publicar y "
+        "atender incidencias; no se vende a nadie. Dudas de privacidad: "
+        "privacidad@proactivefuture.org.\n\n"
         f"¿Dudas o algún error (p.ej. bloqueo injusto)? Contacta con {_CONTACT}.",
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,
     )
 
 
-async def cmd_buscar(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    if not ctx.args:
-        await update.message.reply_text("Uso: /buscar <palabra> (país, tema, título...)")
-        return
-    q = " ".join(ctx.args)
-    results = await repo.search(q=q, limit=8)
-    if not results:
-        await update.message.reply_text(f"🔎 No he encontrado nada abierto para «{q}».")
-        return
-    parts = [f"🔎 <b>Resultados para «{q}»</b> ({len(results)})"]
-    parts += [pub.format_summary_item(o) for o in results]
-    await update.message.reply_text(
-        "\n\n".join(parts), parse_mode=ParseMode.HTML, disable_web_page_preview=True
-    )
+def _project_keyboard(identifier: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("✏️ Editar", callback_data=f"edit:{identifier}"),
+        InlineKeyboardButton("🗑️ Eliminar", callback_data=f"del:{identifier}"),
+    ]])
 
 
-async def cmd_misenvios(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+async def cmd_editarmisproyectos(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Backlog editable: las oportunidades del coordinador que siguen ABIERTAS."""
     user = update.effective_user
-    is_admin = await repo.is_admin(user.id)
-    if is_admin:
-        limit_text = "sin límite (admin)"
-    else:
-        today_count = await repo.count_created_since(user.id, pipeline.today_start())
-        limit_text = f"{today_count}/{cfg.max_daily_opportunities} hoy"
-
-    rows = await repo.list_recent_submissions(user.id, limit=5)
-    icons = {
-        "created": "✅", "duplicate": "♻️", "duplicate_similar": "♻️",
-        "not_opportunity": "🤔", "rate_limited": "⏳", "expired": "📅",
-        "deadline_too_far": "📆", "error": "⚠️",
-    }
-    lines = [f"📊 <b>Tus envíos:</b> {limit_text}\n"]
+    rows = await repo.list_open_by_user(user.id)
     if not rows:
-        lines.append("Todavía no has mandado nada.")
-    else:
-        lines.append("<b>Últimos envíos:</b>")
-        for r in rows:
-            when = r["created"].astimezone(ZoneInfo(cfg.timezone)).strftime("%d/%m %H:%M")
-            icon = icons.get(r["status"], "•")
-            title = f" — {r['title']}" if r.get("title") else ""
-            lines.append(f"{icon} {when}{title}")
+        await update.message.reply_text(
+            "No tienes ninguna oportunidad publicada y abierta ahora mismo.\n"
+            "Cuando publiques alguna, aquí podrás editarla."
+        )
+        return
+    await update.message.reply_text(
+        f"📂 <b>Tus oportunidades abiertas ({len(rows)})</b>\n"
+        "✏️ Editar cambia el texto (te pregunto qué). 🗑️ Eliminar la retira del mapa y la "
+        "lista (te pido confirmación). En ambos casos, lo que ya salió en el canal se queda "
+        "como estaba: eso no se puede deshacer.",
+        parse_mode=ParseMode.HTML,
+    )
+    for o in rows:
+        await update.message.reply_text(
+            pub.format_summary_item(o),
+            parse_mode=ParseMode.HTML, disable_web_page_preview=True,
+            reply_markup=_project_keyboard(o["identifier"]),
+        )
+
+
+_HISTORY_ICONS = {"open": "🟢 Abierta", "closed": "⚫ Eliminada", "expired": "📅 Caducada"}
+
+
+async def cmd_historicomisproyectos(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Todo lo que ha publicado el coordinador, cualquier estado (solo lectura)."""
+    user = update.effective_user
+    rows = await repo.list_all_by_user(user.id)
+    if not rows:
+        await update.message.reply_text("Todavía no has publicado ninguna oportunidad.")
+        return
+    lines = [f"📜 <b>Histórico de tus oportunidades ({len(rows)})</b>\n"]
+    for o in rows:
+        estado = _HISTORY_ICONS.get(o["status"], o["status"])
+        lines.append(f"{estado} — <b>{o['title']}</b>")
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
-async def cmd_id(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    """Devuelve el ID numérico de Telegram (para ponerlo en ADMIN_TELEGRAM_IDS)."""
-    u = update.effective_user
-    await update.message.reply_text(
-        f"Tu ID de Telegram es <code>{u.id}</code>\n"
-        f"(usuario: @{u.username} · {u.full_name})",
-        parse_mode=ParseMode.HTML,
+def _reject_text(result: dict) -> str | None:
+    """Mensaje para un estado de rechazo del preview (o None si el estado es 'ready')."""
+    status = result["status"]
+    if status == "rate_limited":
+        return (f"⏳ Ya has mandado {result['limit']} oportunidades hoy, el máximo diario. "
+                "Vuelve a intentarlo mañana.")
+    if status == "not_opportunity":
+        if result.get("blocked"):
+            return ("🚫 Se ha bloqueado tu acceso automáticamente por mandar dos mensajes seguidos "
+                    f"que no son oportunidades. Si crees que es un error, contacta con {_CONTACT}.")
+        text = f"🤔 No parece una oportunidad. Motivo: {result.get('reason') or '—'}"
+        if result.get("warn"):
+            text += "\n\n⚠️ Aviso: si vuelve a pasar, se bloqueará tu acceso automáticamente."
+        return text
+    if status == "expired":
+        titulo = f"«{result['title']}» " if result.get("title") else ""
+        return (f"📅 Esa oportunidad {titulo}está fuera de plazo: la fecha límite de inscripción "
+                f"({result.get('deadline')}) ya ha pasado, así que no la publico.\n\n"
+                "Si te has confundido de fecha o han ampliado el plazo, corrígela y vuelve a mandármela.")
+    if status == "deadline_too_far":
+        titulo = f"«{result['title']}» " if result.get("title") else ""
+        return (f"📆 La fecha límite que he extraído para {titulo}es {result.get('deadline')}, dentro de "
+                f"más de {result.get('max_months')} meses. Probablemente hay un error en la fecha "
+                "(año equivocado, etc.) y no la publico.\n\nRevisa el mensaje y vuelve a mandármelo.")
+    if status == "duplicate":
+        return f"♻️ Ya existe: «{result['existing']['title']}». No la republico."
+    if status == "duplicate_similar":
+        dup = result["dup"]
+        return f"♻️ Muy parecida ({dup['similarity']:.0%}) a «{dup['title']}». No la republico."
+    return None
+
+
+_PREVIEW_KEYBOARD = InlineKeyboardMarkup([[
+    InlineKeyboardButton("✅ Enviar", callback_data="send"),
+    InlineKeyboardButton("✏️ Modificar", callback_data="modify"),
+    InlineKeyboardButton("❌ Cancelar", callback_data="cancel"),
+]])
+
+
+async def _show_preview(message, ctx: ContextTypes.DEFAULT_TYPE, result: dict) -> None:
+    """Guarda la ficha pendiente y muestra la vista previa con los botones."""
+    pend = ctx.user_data.get("pending") or {}
+    pend["fields"] = result["fields"]
+    ctx.user_data["pending"] = pend
+    ctx.user_data.pop("awaiting", None)
+    await message.reply_text(
+        "👀 <b>Así quedaría publicada.</b> Revisa que esté todo bien:\n\n"
+        + pub.format_opportunity(result["fields"])
+        + "\n\n¿La <b>envío</b> al canal, quieres <b>modificar</b> algo o la <b>cancelas</b>?",
+        parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=_PREVIEW_KEYBOARD,
     )
 
 
-async def cmd_privacidad(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "🔒 <b>Privacidad de CORRADI-BOT</b>\n\n"
-        "Difundimos oportunidades Erasmus+ para jóvenes. Tratamos el texto público de las "
-        "convocatorias y, de quien las envía, su usuario de Telegram para poder atender "
-        "incidencias. No vendemos datos. El texto se procesa con un LLM solo para "
-        "estructurarlo. Puedes ejercer tus derechos en privacidad@proactivefuture.org.",
-        parse_mode=ParseMode.HTML,
-        disable_web_page_preview=True,
-    )
-
-
-async def on_submission(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+async def on_submission(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     if await repo.is_blocked(user.id):
         log.info("Mensaje rechazado: %s (@%s) está bloqueado", user.id, user.username)
@@ -131,80 +172,172 @@ async def on_submission(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None
 
     raw = update.message.text
     await update.message.chat.send_action("typing")
-    log.info("Procesando mensaje de %s (@%s)", user.id, user.username)
+    awaiting = ctx.user_data.get("awaiting")
 
-    result = await pipeline.ingest(
-        raw, source="gestor", submitted_by=f"{user.full_name} (@{user.username})",
-        submitted_by_id=user.id,
-    )
+    # a) El coordinador está respondiendo a "¿qué cambio?" de una ficha en preview.
+    if awaiting == "modify" and ctx.user_data.get("pending"):
+        pend = ctx.user_data["pending"]
+        pend.setdefault("corrections", []).append(raw)
+        result = await pipeline.preview(pend["raw_text"], user.id, corrections=pend["corrections"])
+        if result["status"] == "ready":
+            await _show_preview(update.message, ctx, result)
+        else:
+            # La corrección la deja inválida (fuera de plazo, etc.): se avisa pero se
+            # mantiene la ficha anterior por si quiere probar otra corrección.
+            pend["corrections"].pop()
+            ctx.user_data["awaiting"] = "modify"
+            await update.message.reply_text(
+                (_reject_text(result) or "No pude aplicar ese cambio.")
+                + "\n\n(La ficha anterior sigue en pie: dime otro cambio o pulsa Cancelar.)"
+            )
+        return
+
+    # b) Está respondiendo a "¿qué cambio?" de una oportunidad YA publicada (edición).
+    if isinstance(awaiting, dict) and awaiting.get("edit"):
+        identifier = awaiting["edit"]
+        ctx.user_data.pop("awaiting", None)
+        result = await pipeline.edit_published(identifier, raw, user.id)
+        if result["status"] == "edited":
+            await update.message.reply_text(
+                "✅ <b>Actualizada.</b> El mapa y la lista ya reflejan el cambio (el mensaje que ya "
+                "salió en el canal se queda como estaba).\n\nAsí queda ahora:\n\n"
+                + pub.format_opportunity(result["opp"]),
+                parse_mode=ParseMode.HTML, disable_web_page_preview=True,
+            )
+        elif result["status"] in ("not_found", "forbidden"):
+            await update.message.reply_text("🚫 No puedo editar esa oportunidad (o no es tuya).")
+        else:
+            await update.message.reply_text(f"⚠️ {result.get('error') or 'No pude aplicar el cambio.'}")
+        return
+
+    # c) Envío nuevo → preview con confirmación.
+    log.info("Procesando mensaje de %s (@%s)", user.id, user.username)
+    result = await pipeline.preview(raw, user.id)
     status = result["status"]
 
-    if status == "rate_limited":
-        await update.message.reply_text(
-            f"⏳ Ya has mandado {result['limit']} oportunidades hoy, el máximo diario. "
-            "Vuelve a intentarlo mañana."
-        )
-    elif status == "not_opportunity":
-        if result.get("blocked"):
-            await update.message.reply_text(
-                "🚫 Se ha bloqueado tu acceso automáticamente por mandar dos mensajes seguidos "
-                f"que no son oportunidades. Si crees que es un error, contacta con {_CONTACT}."
-            )
-        else:
-            text = f"🤔 No parece una oportunidad. Motivo: {result.get('reason') or '—'}"
-            if result.get("warn"):
-                text += "\n\n⚠️ Aviso: si vuelve a pasar, se bloqueará tu acceso automáticamente."
-            await update.message.reply_text(text)
-    elif status == "expired":
-        dl = result.get("deadline")
-        titulo = f"«{result['title']}» " if result.get("title") else ""
-        await update.message.reply_text(
-            f"📅 Esa oportunidad {titulo}está fuera de plazo: la fecha límite de inscripción "
-            f"({dl}) ya ha pasado, así que no la publico en el canal.\n\n"
-            "Si te has confundido de fecha o la organización ha ampliado el plazo, corrígela "
-            "en el mensaje y vuelve a mandármela."
-        )
-    elif status == "deadline_too_far":
-        dl = result.get("deadline")
-        titulo = f"«{result['title']}» " if result.get("title") else ""
-        meses = result.get("max_months")
-        await update.message.reply_text(
-            f"📆 La fecha límite de inscripción que he extraído para {titulo}es {dl}, "
-            f"dentro de más de {meses} meses. Es un margen inusualmente largo, así que "
-            "probablemente hay un error en la fecha (año equivocado, etc.) y no la publico.\n\n"
-            "Revisa el mensaje original y vuelve a mandármelo si la fecha es correcta."
-        )
-    elif status == "duplicate":
-        ex = result["existing"]
-        await update.message.reply_text(f"♻️ Ya existe: «{ex['title']}». No la republico.")
-    elif status == "duplicate_similar":
-        dup = result["dup"]
-        await update.message.reply_text(
-            f"♻️ Muy parecida ({dup['similarity']:.0%}) a «{dup['title']}». No la republico."
-        )
-    elif status in ("created", "created_no_publish"):
-        opp = result["opp"]
-        if status == "created" and result.get("published"):
-            estado = "✅ Publicada en el canal de Telegram."
-        elif status == "created":
-            estado = "💾 Guardada (aún no hay canal configurado: define TELEGRAM_CHANNEL_ID para publicar)."
-        else:
-            estado = f"💾 Guardada, pero falló la publicación/handoff: {result.get('error')}"
-        await update.message.reply_text(
-            f"{estado}\n\nAsí queda:\n\n{pub.format_opportunity(opp)}",
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True,
-        )
-    else:  # error
-        # El coordinador ve un mensaje genérico, pero el admin recibe el detalle: estos
-        # fallos suelen ser de infraestructura (cuota de Gemini agotada, BD caída) y
-        # requieren que alguien actúe, no que el usuario reintente.
+    if status == "ready":
+        ctx.user_data["pending"] = {"raw_text": raw, "corrections": []}
+        await _show_preview(update.message, ctx, result)
+    elif status == "error":
         await alerts.alert(
             "Error procesando una oportunidad",
             f"Usuario {user.id} (@{user.username}): {result.get('error')}",
             key="pipeline_error",
         )
         await update.message.reply_text(f"⚠️ {result.get('error') or 'Error procesando el mensaje.'}")
+    else:
+        await update.message.reply_text(_reject_text(result) or "No he podido procesar el mensaje.")
+
+
+async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Botones de la vista previa (Enviar/Modificar/Cancelar) y de edición/eliminación
+    (/editarmisproyectos)."""
+    query = update.callback_query
+    user = update.effective_user
+    data = query.data or ""
+    await query.answer()
+
+    if data == "cancel":
+        ctx.user_data.pop("pending", None)
+        ctx.user_data.pop("awaiting", None)
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text("❌ Cancelada. No se ha publicado nada.")
+        return
+
+    if data == "modify":
+        if not ctx.user_data.get("pending"):
+            await query.message.reply_text("No hay ninguna ficha pendiente. Mándame la oportunidad otra vez.")
+            return
+        ctx.user_data["awaiting"] = "modify"
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(
+            "✏️ Dime qué cambio en un mensaje. Por ejemplo:\n"
+            "• «la fecha de fin es el 20 de septiembre»\n"
+            "• «el país es Italia, no España»\n"
+            "• «añade el enlace https://…»"
+        )
+        return
+
+    if data == "send":
+        pend = ctx.user_data.get("pending")
+        if not pend or not pend.get("fields"):
+            await query.message.reply_text("Esa ficha ya no está disponible. Mándame la oportunidad otra vez.")
+            return
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.chat.send_action("typing")
+        result = await pipeline.commit(
+            pend["fields"], source="gestor",
+            submitted_by=f"{user.full_name} (@{user.username})", submitted_by_id=user.id,
+        )
+        ctx.user_data.pop("pending", None)
+        ctx.user_data.pop("awaiting", None)
+        if result["status"] == "created" and result.get("published"):
+            await query.message.reply_text("✅ ¡Publicada en el canal! Gracias por contribuir. 🙌")
+        elif result["status"] == "created":
+            await query.message.reply_text("💾 Guardada (aún no hay canal configurado para publicar).")
+        elif result["status"] == "created_no_publish":
+            await query.message.reply_text(
+                f"💾 Guardada, pero falló la publicación: {result.get('error')}. Ya he avisado a {_CONTACT}."
+            )
+            await alerts.alert("Falló publicar tras confirmar", str(result.get("error")), key="commit_publish")
+        else:
+            await query.message.reply_text(f"⚠️ {result.get('error') or 'No pude publicarla.'}")
+        return
+
+    if data.startswith("edit:"):
+        identifier = data.split(":", 1)[1]
+        opp = await repo.get_by_identifier(identifier)
+        if not opp or (opp.get("submitted_by_id") != user.id and not await repo.is_admin(user.id)):
+            await query.message.reply_text("🚫 No puedo editar esa oportunidad (o no es tuya).")
+            return
+        ctx.user_data["awaiting"] = {"edit": identifier}
+        await query.message.reply_text(
+            f"✏️ Editando «{opp['title']}». Dime qué cambio en un mensaje "
+            "(p.ej. «cambia la fecha de fin al 20 de septiembre» o «corrige el país a Italia»).\n\n"
+            "Solo cambiará en el mapa y la lista; el mensaje que ya salió en el canal se queda igual."
+        )
+        return
+
+    # Eliminar: paso 1, pide confirmación (acción difícil de deshacer para el coordinador
+    # — no hay otro botón para volver a abrirla, solo un admin podría reabrirla a mano).
+    if data.startswith("del:"):
+        identifier = data.split(":", 1)[1]
+        opp = await repo.get_by_identifier(identifier)
+        if not opp or (opp.get("submitted_by_id") != user.id and not await repo.is_admin(user.id)):
+            await query.message.reply_text("🚫 No puedo eliminar esa oportunidad (o no es tuya).")
+            return
+        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🗑️ Sí, eliminar", callback_data=f"delyes:{identifier}"),
+            InlineKeyboardButton("↩️ No", callback_data=f"delno:{identifier}"),
+        ]]))
+        await query.message.reply_text(
+            f"⚠️ ¿Seguro que quieres eliminar «{opp['title']}»? Desaparecerá del mapa y la lista. "
+            "El mensaje que ya salió en el canal de Telegram no se puede retirar y se queda como estaba."
+        )
+        return
+
+    if data.startswith("delyes:"):
+        identifier = data.split(":", 1)[1]
+        result = await pipeline.delete_published(identifier, user.id)
+        if result["status"] == "deleted":
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text(f"🗑️ Eliminada «{result['opp']['title']}».")
+        elif result["status"] == "already_closed":
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text("Esa oportunidad ya no estaba abierta (puede que ya se hubiera eliminado o expirado).")
+        elif result["status"] in ("not_found", "forbidden"):
+            await query.message.reply_text("🚫 No he podido eliminarla (o no es tuya).")
+        else:
+            await query.message.reply_text(f"⚠️ {result.get('error') or 'No pude eliminarla.'}")
+        return
+
+    if data.startswith("delno:"):
+        identifier = data.split(":", 1)[1]
+        opp = await repo.get_by_identifier(identifier)
+        if opp:
+            await query.edit_message_reply_markup(reply_markup=_project_keyboard(identifier))
+        await query.message.reply_text("Vale, no se elimina.")
+        return
 
 
 async def on_error(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -232,10 +365,8 @@ async def _post_init(app: Application) -> None:
     await app.bot.set_my_commands([
         ("start", "Info y cómo funciona el bot"),
         ("ayuda", "Ver todos los comandos disponibles"),
-        ("buscar", "Buscar entre las oportunidades abiertas"),
-        ("misenvios", "Ver cuántas has mandado hoy y tu historial"),
-        ("id", "Ver tu ID numérico de Telegram"),
-        ("privacidad", "Política de privacidad"),
+        ("editarmisproyectos", "Editar o eliminar tus oportunidades abiertas"),
+        ("historicomisproyectos", "Histórico de todo lo que has publicado"),
     ])
 
 
@@ -253,10 +384,9 @@ def build_application() -> Application:
     )
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("ayuda", cmd_ayuda))
-    app.add_handler(CommandHandler("buscar", cmd_buscar))
-    app.add_handler(CommandHandler("misenvios", cmd_misenvios))
-    app.add_handler(CommandHandler("id", cmd_id))
-    app.add_handler(CommandHandler("privacidad", cmd_privacidad))
+    app.add_handler(CommandHandler("editarmisproyectos", cmd_editarmisproyectos))
+    app.add_handler(CommandHandler("historicomisproyectos", cmd_historicomisproyectos))
+    app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_submission))
     app.add_error_handler(on_error)
     return app
@@ -266,4 +396,5 @@ def run() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if not cfg.telegram_bot_token:
         raise SystemExit("Falta TELEGRAM_BOT_TOKEN en el entorno (.env).")
-    build_application().run_polling(allowed_updates=["message"])
+    # callback_query hace falta para los botones Enviar/Modificar/Cancelar y Editar.
+    build_application().run_polling(allowed_updates=["message", "callback_query"])

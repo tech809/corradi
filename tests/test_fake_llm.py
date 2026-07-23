@@ -23,6 +23,24 @@ def test_extract_non_opportunity():
     assert f.get("reason")
 
 
+def test_extract_with_corrections_applies_and_keeps_raw_clean():
+    """Las correcciones (flujo Modificar/Editar) ajustan la extracción, pero raw_message
+    se guarda limpio para que no afecte a la deduplicación."""
+    from datetime import date
+    ref = date(2026, 7, 23)
+    base = extractor.extract("YOUTH EXCHANGE en Italia\nInicio 12/09/2026\nhttps://forms.gle/x", ref)
+    assert base["end_date"] is None
+
+    corr = extractor.extract(
+        "YOUTH EXCHANGE en Italia\nInicio 12/09/2026\nhttps://forms.gle/x", ref,
+        corrections=["la fecha de fin es 20/09/2026"],
+    )
+    assert corr["end_date"].isoformat() == "2026-09-20"
+    # La corrección NO entra en el texto guardado:
+    assert "fin es" not in corr["raw_message"]
+    assert corr["raw_message"] == base["raw_message"]
+
+
 def test_embed_dimension_and_determinism():
     a = embeddings.embed("hello world")
     b = embeddings.embed("hello world")
