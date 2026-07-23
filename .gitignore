@@ -19,6 +19,11 @@ __pycache__/
 # Documento de OTRO proyecto (Green Changemakers), no forma parte de CORRADI-BOT
 Gantt Chart.xlsx
 
+# Documentos de gestión del proyecto (Gantt, propuesta de financiación): son archivos de
+# trabajo personales, no código — no deberían versionarse igual que el resto del repo.
+CORRADI-BOT_Gantt_Chart.xlsx
+Proposal.docx
+
 # Datos locales
 *.db
 

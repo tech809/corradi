@@ -48,7 +48,8 @@ flowchart LR
         LLM -->|no es oportunidad| REPLY1[Responde al coordinador]
         LLM -->|oportunidad real| DEDUP{¿Duplicada?\nhash + pgvector}
         DEDUP -->|sí| REPLY2[Avisa: ya existe]
-        DEDUP -->|no| DB[(PostgreSQL\nprojects)]
+        DEDUP -->|no| PREVIEW[Vista previa\nEnviar / Modificar / Cancelar]
+        PREVIEW -->|Enviar| DB[(PostgreSQL\nprojects)]
     end
 
     subgraph "Boca (difusión)"
@@ -59,8 +60,9 @@ flowchart LR
 
 - **Cerebro**: captura → clasificación + extracción con LLM → deduplicación → BD estructurada.
   Es el activo que escala a otros países y canales; no sabe nada de Telegram en sí.
-- **Boca** (adaptadores enchufables): hoy **Telegram**, 100% automático. Mañana: web/PWA,
-  mapa, app móvil, y WhatsApp si vuelve a ser viable (ver [más abajo](#qué-está-aparcado-whatsapp)).
+- **Boca** (adaptadores enchufables): hoy **Telegram**, con confirmación del propio
+  coordinador antes de publicar. Mañana: web/PWA, app móvil, y WhatsApp si vuelve a ser
+  viable (ver [más abajo](#qué-está-aparcado-whatsapp)).
 
 **Lanzamiento: 100% Telegram.** Los Canales de difusión de WhatsApp no tienen API de
 publicación (solo se puede publicar a mano, incluso siendo admin), así que WhatsApp queda
@@ -83,15 +85,19 @@ aparcado para esta fase.
    `deadline_too_far` y se pide revisar el mensaje.
 4. Deduplicación: hash exacto (título+país+fecha) + similitud coseno (pgvector) sobre el
    embedding del mensaje completo.
-5. Se guarda en `projects` con un identificador legible (`CORRADI-2026-0001`) — es **interno**,
-   no se muestra al coordinador ni en el canal; solo se usa en BD/API.
-6. Se publica **automáticamente**, sin intervención humana, en el canal de Telegram
-   [@erasmuscorradi](https://t.me/erasmuscorradi).
+5. El bot muestra una **vista previa** de cómo quedaría publicada y el coordinador decide:
+   **✅ Enviar**, **✏️ Modificar** algo (en lenguaje natural: "cámbiale la fecha de fin al
+   20") o **❌ Cancelar**. Nada se guarda ni se publica hasta que se pulsa Enviar.
+6. Al confirmar, se guarda en `projects` con un identificador legible (`CORRADI-2026-0001`)
+   — es **interno**, no se muestra al coordinador ni en el canal; solo se usa en BD/API — y
+   se publica en el canal de Telegram [@erasmuscorradi](https://t.me/erasmuscorradi).
 7. Cada día a las 20h, un resumen (ver [Resumen diario](#resumen-diario)) lista **todas las
    oportunidades con inscripción abierta** (no solo las de ese día) y expira lo vencido.
 
-No hay paso de aprobación manual antes de publicar: si el LLM la valida como oportunidad
-real y no es un duplicado, sale al canal directamente.
+No hay paso de **aprobación por un tercero** (moderación/admin) antes de publicar: si el LLM
+la valida como oportunidad real, no es un duplicado y el propio coordinador confirma el
+envío, sale al canal directamente. El coordinador puede después editarla o eliminarla con
+`/editarmisproyectos` (ver [más abajo](#el-bot-corradi_erasmus_bot)).
 
 ## El bot: `@corradi_erasmus_bot`
 
@@ -108,17 +114,15 @@ se le bloquea a mano; y el propio bot bloquea solo a quien haga spam (ver
 | Comando | Qué hace |
 |---|---|
 | `/start` | Explica cómo funciona el bot |
-| `/ayuda` | Reglas de uso + enlace al canal de difusión |
-| `/buscar <palabra>` | Busca entre las oportunidades abiertas (país, tema, título...) |
-| `/misenvios` | Cuántas has mandado hoy (de las 3) y tu historial reciente |
-| `/id` | Tu ID numérico de Telegram (útil si hay que desbloquearte a mano) |
-| `/privacidad` | Política de privacidad |
+| `/ayuda` | Reglas de uso, enlace al canal y al mapa |
+| `/editarmisproyectos` | Tus oportunidades **abiertas**: botones para editarlas (en lenguaje natural) o eliminarlas (pide confirmación) |
+| `/historicomisproyectos` | Todo lo que has publicado, con su estado (🟢 abierta / ⚫ eliminada / 📅 caducada), solo lectura |
 
-`/id` y `/privacidad` siguen funcionando pero ya no aparecen listados en `/ayuda` (para no
-saturarla) — solo se usan si hace falta. No hay comandos de administración en el bot —
-bloquear o desbloquear a alguien se hace directamente en la base de datos (tabla
-`blocked_users`), no vía un comando expuesto. Los **admins** (`ADMIN_TELEGRAM_IDS`) no tienen
-límite diario ni pueden auto-bloquearse por spam.
+Editar o eliminar una oportunidad solo cambia la base de datos (y por tanto la web/mapa): el
+mensaje ya publicado en el canal se queda como estaba, eso no se puede deshacer. No hay
+comandos de administración en el bot — bloquear o desbloquear a alguien se hace directamente
+en la base de datos (tabla `blocked_users`), no vía un comando expuesto. Los **admins**
+(`ADMIN_TELEGRAM_IDS`) no tienen límite diario ni pueden auto-bloquearse por spam.
 
 ## Anti-abuso
 
@@ -155,7 +159,7 @@ Para que el canal no se llene de spam ni de mensajes fuera de sitio:
 
 ```
 corradi/
-├── docker-compose.yml          # db (pgvector) + redis + api + bot
+├── docker-compose.yml          # db (pgvector) + api + bot + caddy
 ├── db/migrations/               # esquema (0001) + submissions/tracking (0002)
 ├── docker/                     # api.Dockerfile, bot.Dockerfile
 ├── run_bot.py                  # entrypoint del bot
@@ -216,10 +220,10 @@ Tras cambiar `.env` (token, canal…), reconstruye y recrea el contenedor afecta
 docker compose build bot && docker compose up -d --force-recreate bot
 ```
 
-### Desarrollo de la app en local (BD/Redis en Docker)
+### Desarrollo de la app en local (BD en Docker)
 
 ```bash
-make dev-db              # solo db + redis
+make dev-db              # solo Postgres
 make install
 make bot                 # bot de captura
 make api                 # API con reload
@@ -363,11 +367,14 @@ Mapa interactivo de las oportunidades **abiertas**, servido por la propia API en
 sin claves de API ni coste). El resumen diario lo enlaza al final si `MAP_PUBLIC_URL` está
 definida.
 
-**Qué hace:** pines por tipo (Youth Exchange azul · Training Course morado · ECS verde ·
-Workshop naranja), filtros por texto, tipo, país y "cierran pronto" (≤7 días), lista lateral
-sincronizada con el mapa (clic en tarjeta → vuela al pin y abre su ficha), badge de urgencia
-("Cierra hoy", "Cierra en 3 días") y enlaces a inscripción, infopack y post original del canal.
-Responsive y con modo claro/oscuro automático.
+**Qué hace:** pines por tipo (Youth Exchange azul · Training Course amarillo · ECS verde ·
+Workshop rosa), filtros por texto, tipo, país, fechas (meses o rango de deadline) y "cierran
+pronto" (≤7 días), lista lateral sincronizada con el mapa (clic en tarjeta → vuela al pin y
+abre su ficha), badge "🆕 Nuevo" en lo publicado en las últimas 24h, badge de urgencia
+("Cierra hoy", "Cierra en 3 días"), botón 🔗 para compartir cada ficha, footer con
+estadísticas de visitas y enlaces a inscripción, infopack y post original del canal.
+Responsive; **siempre en modo claro** (a propósito: no sigue el modo oscuro del sistema, para
+mantener consistente la lectura de los colores por tipo).
 
 ### Coordenadas
 
@@ -394,7 +401,7 @@ automático con Let's Encrypt y actúa de filtro:
 | Decisión | Por qué |
 |---|---|
 | El contenedor `api` ya no publica el puerto 8000 al host | Todo el tráfico público entra por Caddy |
-| Caddy solo deja pasar `/`, `/mapa`, `/api/map`, `/health` y `/opportunities*` | Cualquier otra ruta devuelve 404 |
+| Caddy solo deja pasar `/`, `/mapa`, `/corradi-erasmus`, `/og.png`, `/api/map`, `/api/visit`, `/health` y `/opportunities*` | Cualquier otra ruta devuelve 404 |
 | El webhook de Twilio solo se monta si `HANDOFF_MODE` es de WhatsApp | Con la API pública y `TWILIO_VALIDATE_SIGNATURE=false`, dejarlo montado permitiría a cualquiera hacer POST y colar oportunidades en el canal. Hoy `HANDOFF_MODE=none`, así que la ruta ni existe |
 | La API serializa con **lista blanca** de campos (`_PUBLIC_FIELDS`) | `submitted_by`, `submitted_by_id`, `raw_message`, `hash` y `embedding` no salen nunca. Al ser lista blanca, una columna nueva no se filtra sola |
 

@@ -68,7 +68,14 @@ async def _process(from_field: str, body: str) -> None:
         await tw.send_text(digits, "🚫 Tu número no está autorizado para enviar oportunidades. "
                                    "Contacta con un administrador.")
         return
-    result = await pipeline.ingest(body, source="whatsapp", submitted_by=from_field)
+    # submitted_by_id espera un entero (en Telegram, el user_id) para el límite diario y
+    # ADMIN_TELEGRAM_IDS. Aquí no hay uno: se usa el propio número de teléfono como entero.
+    # Efecto colateral correcto, no un parche: nunca coincidirá con un ID real de Telegram,
+    # así que un remitente de WhatsApp no puede colarse como admin por accidente.
+    submitted_by_id = int(digits) if digits.isdigit() else 0
+    result = await pipeline.ingest(
+        body, source="whatsapp", submitted_by=from_field, submitted_by_id=submitted_by_id
+    )
     try:
         await tw.send_text(digits, _reply_text(result))
     except Exception as e:  # noqa: BLE001

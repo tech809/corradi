@@ -77,21 +77,26 @@ async def insert_project(fields: dict[str, Any], embedding: list[float] | None) 
 
 
 async def find_by_hash(hash_: str) -> dict[str, Any] | None:
+    """Solo cuenta como duplicado si la que ya existe sigue ABIERTA — una cerrada
+    (borrada por el coordinador) o expirada no debe bloquear un reenvío nuevo."""
     async with get_pool().connection() as conn:
         async with conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute("SELECT * FROM projects WHERE hash = %s", (hash_,))
+            await cur.execute(
+                "SELECT * FROM projects WHERE hash = %s AND status = 'open'", (hash_,)
+            )
             return await cur.fetchone()
 
 
 async def find_similar(embedding: list[float], threshold: float | None = None) -> dict[str, Any] | None:
-    """Devuelve la oportunidad más parecida (coseno) si supera el umbral de similitud."""
+    """Devuelve la oportunidad ABIERTA más parecida (coseno) si supera el umbral de
+    similitud. Solo entre las abiertas: una cerrada o expirada no bloquea el reenvío."""
     threshold = cfg.dedup_threshold if threshold is None else threshold
     v = _vec(embedding)
     async with get_pool().connection() as conn:
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
                 "SELECT id, identifier, title, 1 - (embedding <=> %s) AS similarity "
-                "FROM projects WHERE embedding IS NOT NULL "
+                "FROM projects WHERE embedding IS NOT NULL AND status = 'open' "
                 "ORDER BY embedding <=> %s LIMIT 1",
                 (v, v),
             )
@@ -104,9 +109,9 @@ async def find_similar(embedding: list[float], threshold: float | None = None) -
 async def find_cross_lang_dup(
     embedding: list[float], country_code: str | None, start_date, threshold: float | None = None
 ) -> dict[str, Any] | None:
-    """Detecta la MISMA oportunidad publicada en otro idioma: busca la más parecida ENTRE las
-    que comparten país y fecha de inicio (señal fuerte) y baja el umbral de similitud, porque
-    con país+fecha ya coincidiendo un coseno moderado basta para ser el mismo proyecto."""
+    """Detecta la MISMA oportunidad ABIERTA publicada en otro idioma: busca la más parecida
+    ENTRE las abiertas que comparten país y fecha de inicio (señal fuerte) y baja el umbral
+    de similitud, porque con país+fecha ya coincidiendo un coseno moderado basta."""
     if not country_code or not start_date:
         return None
     threshold = cfg.dedup_crosslang_threshold if threshold is None else threshold
@@ -115,7 +120,7 @@ async def find_cross_lang_dup(
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
                 "SELECT id, identifier, title, 1 - (embedding <=> %s) AS similarity "
-                "FROM projects WHERE embedding IS NOT NULL "
+                "FROM projects WHERE embedding IS NOT NULL AND status = 'open' "
                 "AND country_code = %s AND start_date = %s "
                 "ORDER BY embedding <=> %s LIMIT 1",
                 (v, country_code, start_date, v),

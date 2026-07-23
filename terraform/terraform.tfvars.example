@@ -2,11 +2,19 @@
 region          = "eu-west-1"
 public_key_path = "~/.ssh/id_ed25519.pub"
 
-# ¡Importante! Pon TU IP pública con /32 (https://ifconfig.me) para no dejar SSH abierto.
-ssh_allowed_cidr = "TU.IP.PUBLICA.AQUI/32"
+# Recomendado en producción: vacío cierra el puerto 22 del todo, el acceso es solo por SSM
+# (ver terraform/README.md). Si prefieres SSH directo mientras pruebas, pon TU IP con /32
+# (https://ifconfig.me) — nunca 0.0.0.0/0.
+ssh_allowed_cidr = ""
 
-# API: déjala cerrada (acceso por túnel SSH). Ponla a true solo si añades auth.
+# Tu usuario IAM, para poder hacer SSM StartSession sin abrir el puerto 22.
+ssm_client_user = "tu-usuario-iam"
+
+# API: déjala cerrada (no tiene auth). Ponla a true solo si añades auth delante.
 expose_api = false
+
+# Mapa público (Caddy, HTTPS automático con Let's Encrypt) — necesita DNS apuntando aquí.
+expose_web = true
 
 # Opcional: si subes el repo a git, ponlo aquí para que se clone solo.
 # repo_url = "https://github.com/tu-org/corradi.git"

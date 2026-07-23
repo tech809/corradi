@@ -2,12 +2,19 @@
 
     LLM_PROVIDER=fake python -m app.seed     # sin claves
     python -m app.seed                       # con Gemini real (si hay GEMINI_API_KEY)
+
+No pasa por `pipeline.preview()`/`commit()` a propósito: los mensajes de ejemplo son
+datos curados, no envíos de un coordinador, así que no hace falta repetir aquí las
+comprobaciones pensadas para input de usuario (deadline pasada, deadline demasiado
+lejana, límite diario). Sí se geocodifica, igual que `commit()`, para que las fichas
+sembradas aparezcan en el mapa y no solo en el canal.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 
+from app import geo
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
 from app.domain.project import make_hash
@@ -36,6 +43,9 @@ async def run() -> None:
                 continue
             fields["source"] = "seed"
             opp = await repo.insert_project(fields, vec)
+            coords = await asyncio.to_thread(geo.geocode, opp.get("location"), opp.get("country_code"))
+            if coords:
+                await repo.set_coords(opp["id"], *coords)
             inserted += 1
             log.info("Insertada %s — %s", opp["identifier"], opp["title"])
     finally:

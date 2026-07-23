@@ -1,7 +1,7 @@
 .PHONY: up down logs build bot api summary weekly-summary backfill-geo install dev-db test demo seed
 
 # ─── Docker (local = EC2: mismo compose) ───────────────────────────────────
-up:        ## Levanta toda la pila (db, redis, api, bot)
+up:        ## Levanta toda la pila (db, api, bot, caddy)
 	docker compose up -d --build
 
 down:      ## Para la pila
@@ -13,12 +13,12 @@ logs:      ## Sigue los logs
 build:     ## Reconstruye imágenes
 	docker compose build
 
-# ─── Ejecución local sin Docker (necesita Postgres+Redis y .env) ───────────
+# ─── Ejecución local sin Docker (necesita Postgres y .env) ─────────────────
 install:
 	pip install -r requirements.txt
 
-dev-db:    ## Solo db + redis en Docker (para desarrollar la app en local)
-	docker compose up -d db redis
+dev-db:    ## Solo Postgres en Docker (para desarrollar la app en local)
+	docker compose up -d db
 
 bot:
 	python run_bot.py

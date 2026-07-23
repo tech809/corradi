@@ -10,7 +10,7 @@ línea, por eso se mandan campos de una sola línea (la estructura va en la prop
 Crea en Meta una plantilla (categoría UTILITY) con 5 parámetros de cuerpo {{1}}..{{5}}:
   {{1}} título · {{2}} info (tipo · lugar · fechas) · {{3}} deadline · {{4}} formulario · {{5}} id
 
-Ver docs/whatsapp_cloud_setup.md.
+Ver docs/archive/whatsapp_cloud_setup.md.
 """
 from __future__ import annotations
 

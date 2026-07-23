@@ -165,8 +165,8 @@ def _header(today: date) -> str:
 
 def format_summary_item(o: dict[str, Any], show_type: bool = True) -> str:
     """Bloque de una oportunidad. En el resumen diario va agrupada por tipo, así que ahí
-    NO se repite el tipo en cada línea (show_type=False); en /buscar la lista es plana y
-    sí interesa verlo (show_type=True, por defecto)."""
+    NO se repite el tipo en cada línea (show_type=False); en /editarmisproyectos la lista es
+    plana y sí interesa verlo (show_type=True, por defecto)."""
     link = _channel_link(o)
     title = f'<a href="{link}">{o["title"]}</a>' if link else o["title"]
     if o.get("topic"):

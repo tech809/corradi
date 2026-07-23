@@ -30,7 +30,6 @@ def _phones(raw: str | None) -> list[str]:
 class Config:
     # Infra
     database_url: str = os.getenv("DATABASE_URL", "postgresql://corradi:corradi@localhost:5432/corradi")
-    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
     # Telegram
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")

@@ -60,7 +60,7 @@ def test_compact_dates():
     assert "5 oct - 15 nov" in same               # meses distintos
     cross = pub.format_summary_item({**OPP, "start_date": date(2026, 12, 28), "end_date": date(2027, 1, 5)})
     assert "28 dic - 5 ene" in cross              # distinto año, se sobreentiende
-    # En /buscar (show_type por defecto) sí se ve el tipo
+    # En /editarmisproyectos (show_type por defecto) sí se ve el tipo
     assert "Youth Exchange:" in pub.format_summary_item(OPP)
 
 

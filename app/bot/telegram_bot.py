@@ -38,9 +38,10 @@ async def cmd_ayuda(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "🤖 <b>Comandos de CORRADI-BOT</b>\n\n"
         "<b>Para publicar una oportunidad:</b> pégame el texto tal cual (con emojis, sin "
-        "limpiar nada), no hace falta ningún comando. Extraigo título/fechas/país/deadline/"
-        "formulario y te enseño <b>cómo quedaría</b>. Tú decides: <b>✅ Enviar</b>, "
-        "<b>✏️ Modificar</b> (me dices qué cambiar y te lo actualizo) o <b>❌ Cancelar</b>.\n\n"
+        "limpiar nada). Yo extraigo estos campos, asegúrate de que están: título/fechas/"
+        "país/deadline/formulario/infopack/contacto.\n\n"
+        "Te enseño cómo quedaría. Tú decides: <b>✅ Enviar</b>, <b>✏️ Modificar</b> o "
+        "<b>❌ Cancelar</b>.\n\n"
         "📋 <b>Reglas:</b>\n"
         "• Una oportunidad por mensaje (si tienes varias, mándalas por separado)\n"
         f"• Máximo {cfg.max_daily_opportunities} al día\n"
@@ -50,9 +51,6 @@ async def cmd_ayuda(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "📜 <b>/historicomisproyectos</b> — todo lo que has publicado, con su estado\n\n"
         '🌍 Canal de difusión: <a href="https://t.me/erasmuscorradi">t.me/erasmuscorradi</a> · '
         '🗺️ Mapa: <a href="https://mapa.proactivefuture.eu/corradi-erasmus">ver oportunidades</a>\n\n'
-        "🔒 Tratamos el texto que envías y tu usuario de Telegram solo para publicar y "
-        "atender incidencias; no se vende a nadie. Dudas de privacidad: "
-        "privacidad@proactivefuture.org.\n\n"
         f"¿Dudas o algún error (p.ej. bloqueo injusto)? Contacta con {_CONTACT}.",
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,

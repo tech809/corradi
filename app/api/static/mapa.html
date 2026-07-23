@@ -42,7 +42,7 @@
     --line: #e1e0d9;
     --shadow: 0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.07);
     --radius: 14px;
-    --ye: #2a78d6; --tc: #e87ba4; --ecs: #008300; --ws: #eda100; --other: #898781;
+    --ye: #2a78d6; --tc: #eda100; --ecs: #008300; --ws: #e87ba4; --other: #898781;
     --critical: #d03b3b; --warn: #fab219;
   }
   * { box-sizing: border-box; }
@@ -199,6 +199,10 @@
   .month-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px; width: 232px; }
   .dd.compact .dd-panel .month-chips .chip { justify-content: center; flex: none; border-radius: 10px; }
   .dd.compact .dd-panel .month-chips .chip::after { content: none; }
+  /* "Todos los meses" no es un mes: ocupa las 2 columnas y va primero, como acción de
+     reset — sin esto, una vez aislado un mes concreto no había forma de volver a "todos"
+     salvo el botón general de Limpiar filtros (que además borra el resto de filtros). */
+  .dd.compact .dd-panel .month-chips .chip.all-months { grid-column: 1 / -1; font-weight: 650; }
   /* Con el mismo prefijo (y una clase más) que la regla genérica de "chip activo del
      panel" — si no, esta pierde el empate de especificidad y el border-color de la
      genérica (transparent) gana, dejando los meses elegidos sin marcar visualmente. */
@@ -296,6 +300,7 @@
 
   /* ── Tarjetas ─────────────────────────────────────────────────── */
   .card {
+    position: relative;
     background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c, var(--other));
     border-radius: var(--radius); padding: 13px 15px; cursor: pointer;
     transition: transform .12s, box-shadow .12s, border-color .12s;
@@ -306,7 +311,18 @@
   .card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
   .card[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
   .card[data-type="WORKSHOP"]        { --c: var(--ws); }
-  .card h3 { margin: 0 0 7px; font-size: 15px; font-weight: 640; line-height: 1.35; letter-spacing: -.01em; }
+  /* padding-right: deja hueco para que el título no se meta debajo del botón
+     de compartir, que va flotando en la esquina superior derecha (ver .share-btn). */
+  .card h3 { margin: 0 0 7px; padding-right: 34px; font-size: 15px; font-weight: 640; line-height: 1.35; letter-spacing: -.01em; }
+  /* Compartir: solo icono, flotando arriba a la derecha — igual en la tarjeta y en el
+     popup del mapa (ahí queda cerca de la ✕ de cerrar que ya pone Leaflet). */
+  .share-btn {
+    position: absolute; top: 10px; right: 10px; z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer; padding: 0;
+    background: var(--bg); border: 1px solid var(--line); color: var(--muted); font-size: 14px;
+  }
+  .share-btn:hover { border-color: var(--brand); color: var(--brand); }
   .badge {
     display: inline-block; font-size: 11.5px; font-weight: 650; letter-spacing: .02em;
     color: var(--c, var(--other)); background: color-mix(in srgb, var(--c, var(--other)) 12%, transparent);
@@ -374,8 +390,13 @@
   .leaflet-popup-content-wrapper { border-radius: var(--radius); box-shadow: var(--shadow); padding: 2px; }
   .leaflet-popup-content { margin: 13px 15px; font: inherit; width: 268px !important; }
   .leaflet-popup-tip-container .leaflet-popup-tip { box-shadow: none; }
-  .popup h3 { margin: 0 0 7px; font-size: 14.5px; font-weight: 640; line-height: 1.35; }
+  .popup { position: relative; }
+  .popup h3 { margin: 0 0 7px; padding-right: 34px; font-size: 14.5px; font-weight: 640; line-height: 1.35; }
   .popup .meta { font-size: 12.5px; }
+  /* El popup mide 268px fijos (más estrecho que la barra lateral): con el padding
+     normal los 3 botones no cabían en una línea y "Form" se caía a la siguiente. */
+  .popup .actions { gap: 6px; }
+  .popup .btn { padding: 7px 8px; font-size: 12px; }
   .approx { font-size: 11.5px; color: var(--muted-2); font-style: italic; margin-top: 7px; }
 
   /* ── Móvil ────────────────────────────────────────────────────────────────
@@ -625,9 +646,9 @@
   // el oscuro gracias al contorno blanco del propio pin (ver pinIcon).
   var TYPES = {
     YOUTH_EXCHANGE:  { label: "Youth Exchange",  color: "var(--ye)",    hex: "#3987e5" },
-    TRAINING_COURSE: { label: "Training Course", color: "var(--tc)",    hex: "#d55181" },
+    TRAINING_COURSE: { label: "Training Course", color: "var(--tc)",    hex: "#c98500" },
     VOLUNTEERING:    { label: "ECS",             color: "var(--ecs)",   hex: "#008300" },
-    WORKSHOP:        { label: "Workshop",        color: "var(--ws)",    hex: "#c98500" }
+    WORKSHOP:        { label: "Workshop",        color: "var(--ws)",    hex: "#d55181" }
   };
   var OTHER = { label: "Otras", color: "var(--other)", hex: "#898781" };
   var COUNTRIES = {
@@ -687,10 +708,10 @@
     if (one) { var c = p(one); return c.d + " " + MESES[c.m - 1]; }
     return "Fechas por confirmar";
   }
-  // "Nuevo" = publicada/creada en las últimas 48h (created viene de la API en ISO).
+  // "Nuevo" = publicada/creada en las últimas 24h (created viene de la API en ISO).
   function isNew(o) {
     if (!o.created) return false;
-    return (Date.now() - new Date(o.created).getTime()) < 48 * 3600 * 1000;
+    return (Date.now() - new Date(o.created).getTime()) < 24 * 3600 * 1000;
   }
 
   function daysLeft(iso) {
@@ -849,11 +870,12 @@
         '<div class="deadline ' + dl.cls + '"><i>⏳</i>' + esc(dl.text) +
           (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
         '<div class="actions">' +
-          (o.application_url ? '<a class="btn primary" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">Inscribirme</a>' : "") +
-          (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">Infopack</a>' : "") +
-          (o.channel_url ? '<a class="btn" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">Más info</a>' : "") +
-          '<button type="button" class="btn" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">Compartir</button>' +
-        "</div></article>";
+          (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
+          (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
+          (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
+        "</div>" +
+        '<button type="button" class="share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
+      "</article>";
     }).join("");
 
     Array.prototype.forEach.call(list.querySelectorAll(".card"), function (el) {
@@ -902,11 +924,12 @@
       '<div class="deadline ' + dl.cls + '"><i>⏳</i>' + esc(dl.text) +
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
       '<div class="actions">' +
-        (o.application_url ? '<a class="btn primary" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">Inscribirme</a>' : "") +
-        (o.channel_url ? '<a class="btn" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">Más info</a>' : "") +
-        '<button type="button" class="btn" onclick="shareOpp(\'' + esc(o.identifier) + '\')">Compartir</button>' +
+        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
+        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
+        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
       "</div>" +
       (o.approx_location ? '<div class="approx">📍 Ubicación aproximada (país)</div>' : "") +
+      '<button type="button" class="share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
       "</div>";
   }
 
@@ -1044,27 +1067,40 @@
     return MESES[Number(p[1]) - 1] + " " + p[0].slice(2);   // "sep 26"
   }
 
+  // Refresca el ✓ de todos los chips de mes a la vez, incluido "Todos los meses" (que no
+  // es un mes de verdad — se marca activo cuando el set actual coincide con el completo).
+  function syncMonthChips() {
+    var all = sameSet(state.months, defaultMonthSet());
+    Array.prototype.forEach.call(document.querySelectorAll("#monthChips .chip"), function (c) {
+      c.setAttribute("aria-pressed", c.dataset.month === "ALL" ? String(all) : String(state.months.has(c.dataset.month)));
+    });
+  }
+
   function buildMonths() {
     var box = document.getElementById("monthChips");
     var keys = nextMonthsKeys(8);
-    box.innerHTML = keys.map(function (k) {
+    // "Todos los meses" primero: sin él, una vez aislado un mes concreto no había forma
+    // de volver al estado "sin filtrar" salvo el botón general de Limpiar filtros.
+    var html = '<button class="chip all-months" data-month="ALL" aria-pressed="false">Todos los meses</button>';
+    html += keys.map(function (k) {
       return '<button class="chip" data-month="' + k + '" aria-pressed="false">' + monthLabel(k) + "</button>";
     }).join("");
+    box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
       chip.addEventListener("click", function () {
         var k = chip.dataset.month;
-        // Mismo criterio que países: con "todos" activos, el primer clic AÍSLA ese
-        // mes; a partir de ahí, toggle normal (sumar/quitar).
-        if (sameSet(state.months, defaultMonthSet())) {
+        if (k === "ALL") {
+          state.months = defaultMonthSet();
+        } else if (sameSet(state.months, defaultMonthSet())) {
+          // Mismo criterio que países: con "todos" activos, el primer clic AÍSLA ese
+          // mes; a partir de ahí, toggle normal (sumar/quitar).
           state.months = new Set([k]);
         } else if (state.months.has(k)) {
           state.months.delete(k);
         } else {
           state.months.add(k);
         }
-        Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (c) {
-          c.setAttribute("aria-pressed", String(state.months.has(c.dataset.month)));
-        });
+        syncMonthChips();
         apply();
       });
     });
@@ -1115,9 +1151,7 @@
     Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) {
       c.setAttribute("aria-pressed", String(state.countries.has(c.dataset.country)));
     });
-    Array.prototype.forEach.call(document.querySelectorAll("#monthChips .chip"), function (c) {
-      c.setAttribute("aria-pressed", String(state.months.has(c.dataset.month)));
-    });
+    syncMonthChips();
     apply();
   }
 

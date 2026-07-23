@@ -1,41 +1,51 @@
 # Terraform — infraestructura AWS de CORRADI-BOT
 
 Provisiona una **EC2 t4g.small** (ARM, Ubuntu 24.04) con Docker + Compose ya instalados,
-en la VPC por defecto (sin NAT Gateway → sin coste extra), con IP elástica estable y un
-security group que solo abre SSH (restringido a tu IP) y, opcionalmente, la API.
+en la VPC por defecto (sin NAT Gateway → sin coste extra), con IP elástica estable, un rol
+IAM para **SSM Session Manager** y un security group que en producción **no abre el puerto
+22** (el acceso es solo por SSM, ver abajo) y opcionalmente 80/443 para el mapa (Caddy).
 
-El despliegue de la app es tu `docker-compose.yml`: Postgres+pgvector, Redis, API y bot.
+El despliegue de la app es tu `docker-compose.yml`: Postgres+pgvector, API, bot y Caddy.
 
 ## Requisitos (en tu máquina)
 
 - **Terraform** ≥ 1.5 (`brew install terraform`).
 - **AWS CLI** configurado con credenciales (`aws configure`) de un IAM user con permisos
-  EC2/VPC. Terraform usa esas credenciales.
-- Una **clave SSH** (`ssh-keygen -t ed25519`). Por defecto se sube `~/.ssh/id_ed25519.pub`.
+  EC2/VPC/IAM. Terraform usa esas credenciales.
+- **`session-manager-plugin`** de AWS (`brew install --cask session-manager-plugin`), para
+  poder hacer SSH sobre SSM (ver [Acceso a la instancia](#acceso-a-la-instancia-ssm) más abajo).
+- Una **clave SSH** (`ssh-keygen -t ed25519`). Por defecto se sube `~/.ssh/id_ed25519.pub` —
+  la usa el propio túnel SSM, no hace falta el puerto 22 abierto en el security group.
 
 ## Uso
 
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-#  -> edita ssh_allowed_cidr con TU IP/32 (mira https://ifconfig.me)
+#  -> pon ssh_allowed_cidr = ""  (cierra el 22 del todo; el acceso real es por SSM)
+#  -> pon ssm_client_user con tu usuario IAM, para que puedas hacer SSM StartSession
+#  -> pon expose_web = true si quieres el mapa público (Caddy con HTTPS automático)
 
 terraform init
 terraform plan
 terraform apply        # crea la instancia; imprime la IP y los próximos pasos
 ```
 
-Tras el `apply` (espera ~2 min al bootstrap):
+Tras el `apply` (espera ~2 min al bootstrap, hasta que el agente SSM registra la instancia):
 
 ```bash
-# Sube el código y el .env (los secretos NO van en Terraform)
-rsync -av --exclude .git --exclude .venv --exclude erasmusbot ../ ubuntu@<IP>:/opt/corradi/
-scp ../.env ubuntu@<IP>:/opt/corradi/.env
+# Sube el código y el .env (los secretos NO van en Terraform) — ver el bloque SSM de abajo
+# para $SSM. Los secretos van en /opt/corradi/.env, nunca en git.
+rsync -a -e "$SSM" --exclude .env --exclude .git --exclude '__pycache__' ../ ubuntu@<IP>:/opt/corradi/
+scp -o ProxyCommand="aws ssm start-session --target <instance-id> --document-name AWS-StartSSHSession --parameters portNumber=%p --region eu-west-1" ../.env ubuntu@<IP>:/opt/corradi/.env
 
 # Arranca todo
-ssh ubuntu@<IP> 'cd /opt/corradi && make up'
-ssh ubuntu@<IP> 'cd /opt/corradi && make logs'
+eval $SSM ubuntu@<IP> 'cd /opt/corradi && docker compose up -d --build'
 ```
+
+Para el flujo completo de edición/despliegue día a día (una vez la instancia ya existe), ver
+la sección [Producción (AWS EC2)](../README.md#producción-aws-ec2--ya-desplegado) del README
+principal.
 
 ## Coste
 
@@ -44,14 +54,30 @@ EBS gp3 30 GB ~2,5 €/mes. Sin NAT Gateway. La IP elástica es gratis mientras 
 
 ## Resumen diario y semanal (cron)
 
-Por SSH, añade los dos crons en la instancia:
+Por SSM (ver acceso abajo), añade los dos crons en la instancia:
 ```bash
 (crontab -l 2>/dev/null; \
- echo "0 20 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.daily_summary"; \
- echo "30 20 * * 0 cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.weekly_summary" \
+ echo "0 20 * * * docker exec corradi-bot python -m app.scheduler.daily_summary"; \
+ echo "30 20 * * 0 docker exec corradi-bot python -m app.scheduler.weekly_summary" \
 ) | crontab -
 ```
 (o usa EventBridge Scheduler + una tarea, como evolución).
+
+## Acceso a la instancia (SSM)
+
+Con `ssh_allowed_cidr = ""` el security group **no abre el puerto 22** — la instancia no es
+alcanzable por SSH directo desde ningún sitio, ni siquiera tu propia IP. El acceso real es
+**SSH sobre SSM**: el agente SSM (preinstalado en la AMI de Ubuntu) tuneliza la sesión a
+través de la API de AWS, autenticada con tus credenciales IAM en vez de con la red.
+
+```bash
+IID=<instance-id>          # lo imprime `terraform apply` / `terraform output`
+SSM='ssh -o ProxyCommand="aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p --region eu-west-1"'
+eval $SSM ubuntu@$IID
+```
+
+Requiere que tu usuario IAM tenga la política de `ssm_client_user` (o permisos equivalentes
+de `ssm:StartSession`), y `session-manager-plugin` instalado en tu máquina.
 
 ## Destruir
 
@@ -61,9 +87,12 @@ terraform destroy
 
 ## Seguridad / notas
 
-- **Pon tu IP en `ssh_allowed_cidr`** (`/32`). 0.0.0.0/0 deja SSH abierto al mundo.
-- La **API (8000) está cerrada** por defecto (no tiene auth). Accede por túnel:
-  `ssh -L 8000:localhost:8000 ubuntu@<IP>` y abre http://localhost:8000.
+- **`ssh_allowed_cidr = ""` en producción**: cierra el puerto 22 del todo; el acceso es solo
+  por SSM (ver arriba). El default del `.tfvars.example` (`0.0.0.0/0`) es solo para pruebas
+  rápidas de bootstrap — no lo dejes así en un despliegue real.
+- La **API (8000) está cerrada** por defecto (`expose_api = false`, no tiene auth). El mapa
+  público va por `expose_web = true` (80/443, Caddy con HTTPS automático, filtra las rutas
+  de lectura) — la API cruda nunca queda expuesta directamente.
 - El **state de Terraform** puede contener metadatos sensibles: no lo subas a git
   (`.gitignore` ya lo excluye). Para equipo, usa un backend remoto (S3 + DynamoDB lock).
 - Los secretos (`GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`) viven solo en el `.env` de la
