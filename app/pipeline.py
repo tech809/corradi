@@ -17,6 +17,7 @@ from app.db import repository as repo
 from app.domain.project import make_hash
 from app.llm import embeddings, extractor
 from app.publisher import handoff
+from app.publisher import opportunity_card
 from app.publisher import telegram_publisher as pub
 
 log = logging.getLogger("corradi.pipeline")
@@ -165,9 +166,14 @@ async def commit(
     except Exception:  # noqa: BLE001
         log.warning("No pude geocodificar %s (se publica igual)", opp["identifier"], exc_info=True)
 
-    # Publicar (canal Telegram) + handoff (WhatsApp)
+    # Publicar (canal Telegram, como foto+pie — bandera/título/categoría van en la imagen,
+    # el resto en el pie) + handoff (WhatsApp)
     try:
-        message_id = await pub.publish_to_channel(pub.format_opportunity(opp))
+        caption = pub.format_opportunity(opp, buttons=True, show_title=False, show_type=False)
+        image = await asyncio.to_thread(opportunity_card.render, opp)
+        message_id = await pub.publish_photo_to_channel(
+            image, caption, reply_markup=pub.opportunity_keyboard(opp)
+        )
         if message_id:
             await repo.mark_published(opp["id"], message_id)
         await handoff.opportunity(opp)

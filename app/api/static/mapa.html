@@ -119,6 +119,7 @@
   .chip[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
   .chip[data-type="WORKSHOP"]        { --c: var(--ws); }
   .chip[data-type="soon"]            { --c: var(--critical); }
+  .chip[data-type="new"]             { --c: var(--critical); }
   .reset {
     font: inherit; font-size: 13px; background: none; border: 0; color: var(--muted);
     cursor: pointer; padding: 8px 6px; text-decoration: underline; text-underline-offset: 3px;
@@ -287,6 +288,12 @@
   .info-body ul { margin: 0; padding-left: 18px; }
   .info-body a { color: var(--brand); font-weight: 600; text-decoration: none; }
   .info-body a:hover { text-decoration: underline; }
+  .info-stats {
+    display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px;
+  }
+  .info-stats span { white-space: nowrap; }
+  .info-stats b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
   .info-btn { cursor: pointer; }
 
   /* ── Layout principal ─────────────────────────────────────────── */
@@ -630,6 +637,12 @@
     <a href="https://www.instagram.com/proactivefuture_eu/" target="_blank" rel="noopener">@proactivefuture_eu</a>
     — si quieres colaborar o ayudarnos a difundir esta herramienta, escríbenos por ahí:
     encantados de echarte una mano.</p>
+
+    <div class="info-stats">
+      <span><span aria-hidden="true">🎯</span> <b id="statOpenModal">…</b> abiertas</span>
+      <span><span aria-hidden="true">📢</span> <b id="statPublishedModal">…</b> publicadas</span>
+      <span><span aria-hidden="true">👁️</span> <b id="statVisitsModal">…</b> visitas</span>
+    </div>
   </div>
 </dialog>
 
@@ -664,7 +677,7 @@
   var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
   var SOON_DAYS = 7;
 
-  var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false };
+  var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false };
   var dateMode = "months";   // "months" | "range" — submodo del filtro de fechas
   var all = [], shown = [], markers = {}, map, layer, activeId = null;
   var isMobileQuery = window.matchMedia && window.matchMedia("(max-width: 880px)");
@@ -724,7 +737,6 @@
     if (d === null) return { text: "Sin fecha límite", cls: "" };
     if (d <= 0) return { text: "Cierra hoy", cls: "urgent" };
     if (d === 1) return { text: "Cierra mañana", cls: "urgent" };
-    if (d <= 3) return { text: "Cierra en " + d + " días", cls: "urgent" };
     if (d <= SOON_DAYS) return { text: "Cierra en " + d + " días", cls: "soon" };
     return { text: "Hasta el " + fmtDate(o.application_deadline), cls: "" };
   }
@@ -785,6 +797,7 @@
     if (state.countries.size && !state.countries.has(o.country_code || "OTHER")) return false;
     if (!matchesDate(o)) return false;
     if (state.soon) { var d = daysLeft(o.application_deadline); if (d === null || d > SOON_DAYS) return false; }
+    if (state.isNewFilter && !isNew(o)) return false;
     if (state.q) {
       var hay = [o.title, o.topic, o.location, countryName(o.country_code), o.summary,
                  typeOf(o).label].join(" ").toLowerCase();
@@ -824,7 +837,7 @@
     var dateDirty = dateMode === "range"
       ? !!(state.dateFrom || state.dateTo)
       : !sameSet(state.months, defaultMonthSet());
-    return !!(state.q || state.soon || !sameTypes || !sameCountries || dateDirty);
+    return !!(state.q || state.soon || state.isNewFilter || !sameTypes || !sameCountries || dateDirty);
   }
 
   function apply() {
@@ -833,14 +846,16 @@
     renderMarkers();
     // Nº de abiertas en el pie: el total si no hay filtro, o "n de N" si se ha filtrado.
     var n = shown.length;
-    document.getElementById("statOpen").textContent =
-      n === all.length ? String(n) : n + " de " + all.length;
+    var openText = n === all.length ? String(n) : n + " de " + all.length;
+    document.getElementById("statOpen").textContent = openText;
+    document.getElementById("statOpenModal").textContent = openText;
     document.getElementById("reset").hidden = !isDirty();
 
     // Nº de filtros activos SOLO en Tipos (en móvil el panel está cerrado, así que sin
     // este contador no se vería cuántos hay puestos). Fechas/Países NO llevan número:
     // con el estado "todos" por defecto, un "9" ahí parecía una notificación pendiente.
-    document.getElementById("typesCount").textContent = state.types.size + (state.soon ? 1 : 0);
+    document.getElementById("typesCount").textContent =
+      state.types.size + (state.soon ? 1 : 0) + (state.isNewFilter ? 1 : 0);
   }
 
   // ── Lista ────────────────────────────────────────────────────────
@@ -1006,11 +1021,13 @@
               '<span class="dot"></span>' + TYPES[k].label + "</button>";
     });
     html += '<button class="chip" data-type="soon" aria-pressed="false">⏳ Cierran pronto</button>';
+    html += '<button class="chip" data-type="new" aria-pressed="false">🆕 Nuevo</button>';
     box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
       chip.addEventListener("click", function () {
         var k = chip.dataset.type, on;
         if (k === "soon") { state.soon = on = !state.soon; }
+        else if (k === "new") { state.isNewFilter = on = !state.isNewFilter; }
         else {
           on = !state.types.has(k);
           if (on) state.types.add(k); else state.types.delete(k);
@@ -1133,7 +1150,7 @@
   function resetFilters() {
     state = {
       q: "", types: defaultTypeSet(), countries: defaultCountrySet(),
-      months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false
+      months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false
     };
     dateMode = "months";
     document.getElementById("q").value = "";
@@ -1146,7 +1163,7 @@
     });
     Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (c) {
       var k = c.dataset.type;
-      c.setAttribute("aria-pressed", String(k !== "soon" && state.types.has(k)));
+      c.setAttribute("aria-pressed", String(k !== "soon" && k !== "new" && state.types.has(k)));
     });
     Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) {
       c.setAttribute("aria-pressed", String(state.countries.has(c.dataset.country)));
@@ -1335,14 +1352,20 @@
     fetch("/api/visit", { method: "POST", headers: { Accept: "application/json" } })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (s) {
-        if (!s) { document.getElementById("statVisits").textContent = "—";
-                  document.getElementById("statPublished").textContent = "—"; return; }
+        if (!s) {
+          ["statVisits", "statVisitsModal"].forEach(function (id) { document.getElementById(id).textContent = "—"; });
+          ["statPublished", "statPublishedModal"].forEach(function (id) { document.getElementById(id).textContent = "—"; });
+          return;
+        }
         countUp(document.getElementById("statVisits"), s.visits || 0);
+        countUp(document.getElementById("statVisitsModal"), s.visits || 0);
         countUp(document.getElementById("statPublished"), s.published || 0);
+        countUp(document.getElementById("statPublishedModal"), s.published || 0);
       })
       .catch(function () {
-        document.getElementById("statVisits").textContent = "—";
-        document.getElementById("statPublished").textContent = "—";
+        ["statVisits", "statVisitsModal", "statPublished", "statPublishedModal"].forEach(function (id) {
+          document.getElementById(id).textContent = "—";
+        });
       });
   }
 
@@ -1369,6 +1392,7 @@
       })
       .catch(function (err) {
         document.getElementById("statOpen").textContent = "—";
+        document.getElementById("statOpenModal").textContent = "—";
         document.getElementById("list").innerHTML =
           '<div class="empty"><strong>No he podido cargar las oportunidades</strong>' +
           "Vuelve a intentarlo en un momento.</div>";

@@ -4,6 +4,8 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 from app.config import cfg
 from app.domain.project import is_last_minute
 
@@ -60,6 +62,45 @@ def _flag(country_code: str | None) -> str:
     return "".join(chr(0x1F1E6 + ord(ch) - ord("A")) for ch in cc)
 
 
+def _days_left(deadline: str | date, today: date | None = None) -> str:
+    """'quedan N días' / 'cierra mañana' / 'cierra hoy', a partir de la fecha límite (str
+    ISO o date — según el caller, viene de la BD como date o ya serializada como str)."""
+    today = today or date.today()
+    if isinstance(deadline, str):
+        y, m, d = (int(x) for x in deadline.split("-"))
+        deadline = date(y, m, d)
+    delta = (deadline - today).days
+    if delta <= 0:
+        return "cierra hoy"
+    if delta == 1:
+        return "cierra mañana"
+    return f"quedan {delta} días"
+
+
+def opportunity_keyboard(o: dict[str, Any]) -> InlineKeyboardMarkup | None:
+    """Botones para el post del canal: formulario, infopack y "Ver en el mapa" (solo si hay
+    MAP_PUBLIC_URL configurada), todos en UNA fila (como columnas). Cada oportunidad trae
+    los campos que trae, así que salen solo los botones que aplican — nunca uno vacío.
+
+    El contacto NUNCA es un botón, a propósito — siempre se queda como texto en el pie
+    (ver `format_opportunity`). Motivo: Telegram rechaza botones `tel:` ("wrong port number
+    specified in the url", visto en producción — un coordinador con
+    contact_information="653743157, correo@x.com" hizo fallar la publicación entera). En
+    vez de mantener una detección frágil de qué formatos de contacto son "seguros" para
+    botón, más simple y sin ese riesgo: contacto siempre texto, punto.
+
+    El botón del mapa enlaza directo a esa ficha (`?o=identifier`, deep link ya soportado
+    por `mapa.html`: centra el pin y abre su popup, no solo abre el mapa en general)."""
+    row = []
+    if o.get("application_url"):
+        row.append(InlineKeyboardButton("👉 Formulario", url=o["application_url"]))
+    if o.get("infopack_url"):
+        row.append(InlineKeyboardButton("📄 Infopack", url=o["infopack_url"]))
+    if cfg.map_public_url and o.get("identifier"):
+        row.append(InlineKeyboardButton("🗺️ Mapa", url=f"{cfg.map_public_url}?o={o['identifier']}"))
+    return InlineKeyboardMarkup([row]) if row else None
+
+
 def _est(o: dict[str, Any]) -> str:
     """Sufijo de la fecha límite cuando la hemos estimado nosotros (no venía en el mensaje).
 
@@ -103,26 +144,50 @@ def _compact_dates(o: dict[str, Any]) -> str:
 
 
 def _place(o: dict[str, Any]) -> str:
-    return o.get("location") or ""
+    """Ubicación, simplificada a como máximo "Ciudad/Región, País": una localización con
+    más de 2 segmentos separados por coma (p.ej. "Campotenese, Parque Nacional del
+    Pollino, Italia") se recorta al primero y al último ("Campotenese, Italia") — el
+    detalle intermedio no aporta en un post corto."""
+    loc = o.get("location") or ""
+    parts = [p.strip() for p in loc.split(",") if p.strip()]
+    if len(parts) > 2:
+        return f"{parts[0]}, {parts[-1]}"
+    return loc
 
 
-def format_opportunity(o: dict[str, Any]) -> str:
-    """Mensaje HTML para el canal de Telegram."""
-    lead = _flag(o.get("country_code")) or "🌍"
-    lines = [f"{lead} <b>{o['title']}</b>"]
+def format_opportunity(
+    o: dict[str, Any], *, buttons: bool = False, show_title: bool = True, show_type: bool = True,
+) -> str:
+    """Mensaje HTML para el canal de Telegram. Con `buttons=True` (publicación real en el
+    canal) formulario/infopack se omiten del texto porque van como botones (ver
+    `opportunity_keyboard`); con `buttons=False` (vista previa al coordinador, donde ese
+    hueco de botones ya lo usa Enviar/Modificar/Cancelar) se quedan como texto. El contacto
+    SIEMPRE va como texto, nunca como botón (ver `opportunity_keyboard`).
+    `show_title=False`/`show_type=False`: la publicación real va con imagen (ver
+    `opportunity_card.py`) y la bandera+título y la categoría ya están ahí — se omiten del
+    pie para no repetirlos."""
+    lines = []
+    if show_title:
+        lead = _flag(o.get("country_code")) or "🌍"
+        lines.append(f"{lead} <b>{o['title']}</b>")
     if o.get("topic"):
-        lines.append(f"🏷️ {_topic_label(o)}: {o['topic']}")
+        tema = f"🏷️ {_topic_label(o)}: {o['topic']}" if show_type else f"🏷️ Temática: {o['topic']}"
+        lines.append(tema)
     if _place(o):
         lines.append(f"📍 {_place(o)}")
     lines.append(f"🗓️ {_compact_dates(o)}")
     if o.get("summary"):
         lines.append(f"\n{o['summary']}")
     if o.get("application_deadline"):
-        lines.append(f"\n⏳ Fecha límite: <b>{o['application_deadline']}{_est(o)}</b>")
-    if o.get("application_url"):
-        lines.append(f'👉 <a href="{o["application_url"]}">Formulario de inscripción</a>')
-    if o.get("infopack_url"):
-        lines.append(f'📄 <a href="{o["infopack_url"]}">Infopack</a>')
+        lines.append(
+            f"\n⏳ Fecha límite: <b>{o['application_deadline']}{_est(o)}</b> "
+            f"({_days_left(o['application_deadline'])})"
+        )
+    if not buttons:
+        if o.get("application_url"):
+            lines.append(f'👉 <a href="{o["application_url"]}">Formulario de inscripción</a>')
+        if o.get("infopack_url"):
+            lines.append(f'📄 <a href="{o["infopack_url"]}">Infopack</a>')
     if o.get("contact_information"):
         lines.append(f"✉️ {o['contact_information']}")
     return "\n".join(lines)
@@ -180,7 +245,7 @@ def format_summary_item(o: dict[str, Any], show_type: bool = True) -> str:
     ] if s]
     return (
         f"• <b>{title}</b>\n{' '.join(segs)}\n"
-        f"⏳ Fecha límite: {o['application_deadline']}{_est(o)}"
+        f"⏳ Fecha límite: {o['application_deadline']}{_est(o)} ({_days_left(o['application_deadline'])})"
     )
 
 
@@ -265,7 +330,7 @@ def format_daily_summary_whatsapp(opps: list[dict[str, Any]]) -> str:
     return "\n".join(out)
 
 
-async def publish_to_channel(text: str) -> int | None:
+async def publish_to_channel(text: str, reply_markup: InlineKeyboardMarkup | None = None) -> int | None:
     """Publica en el canal. Devuelve el message_id (para enlazarla luego) o None si no hay
     canal configurado todavía."""
     if not cfg.telegram_channel_id:
@@ -276,7 +341,27 @@ async def publish_to_channel(text: str) -> int | None:
     bot = Bot(cfg.telegram_bot_token)
     msg = await bot.send_message(
         chat_id=cfg.telegram_channel_id, text=text,
-        parse_mode=ParseMode.HTML, disable_web_page_preview=True,
+        parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=reply_markup,
+    )
+    return msg.message_id
+
+
+async def publish_photo_to_channel(
+    photo: bytes, caption: str, reply_markup: InlineKeyboardMarkup | None = None,
+) -> int | None:
+    """Publica en el canal como foto+pie (imagen de `opportunity_card.render()`). Igual que
+    `publish_to_channel` pero con `send_photo`; el pie tiene el límite de Telegram de 1024
+    caracteres (los mensajes de solo texto llegan a 4096) — hay margen de sobra porque el
+    pie ya no lleva bandera+título ni la categoría (van en la imagen)."""
+    if not cfg.telegram_channel_id:
+        return None
+    from telegram import Bot
+    from telegram.constants import ParseMode
+
+    bot = Bot(cfg.telegram_bot_token)
+    msg = await bot.send_photo(
+        chat_id=cfg.telegram_channel_id, photo=photo, caption=caption,
+        parse_mode=ParseMode.HTML, reply_markup=reply_markup,
     )
     return msg.message_id
 
