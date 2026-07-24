@@ -1,6 +1,7 @@
 """Formatea y publica oportunidades en Telegram y prepara el handoff a WhatsApp."""
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Any
 
@@ -77,10 +78,22 @@ def _days_left(deadline: str | date, today: date | None = None) -> str:
     return f"quedan {delta} días"
 
 
+def _valid_url(u: str | None) -> bool:
+    """True solo si es una URL http(s) con pinta razonable. Usarlo SIEMPRE antes de meter
+    un valor extraído por el LLM en un botón: Telegram rechaza la publicación ENTERA si la
+    URL no es válida ("Button_url_invalid", visto en producción — el extractor puso un
+    email en `application_url` en vez de un enlace real, y tumbó la publicación)."""
+    return bool(u) and bool(re.fullmatch(r"https?://\S+", u.strip(), re.I))
+
+
 def opportunity_keyboard(o: dict[str, Any]) -> InlineKeyboardMarkup | None:
     """Botones para el post del canal: formulario, infopack y "Ver en el mapa" (solo si hay
     MAP_PUBLIC_URL configurada), todos en UNA fila (como columnas). Cada oportunidad trae
     los campos que trae, así que salen solo los botones que aplican — nunca uno vacío.
+
+    Formulario/Infopack solo se convierten en botón si `_valid_url()` los aprueba — si no
+    (el LLM a veces mete un email o texto suelto en vez de una URL real), se quedan como
+    texto en el pie (ver `format_opportunity`) en vez de tumbar la publicación entera.
 
     El contacto NUNCA es un botón, a propósito — siempre se queda como texto en el pie
     (ver `format_opportunity`). Motivo: Telegram rechaza botones `tel:` ("wrong port number
@@ -92,9 +105,9 @@ def opportunity_keyboard(o: dict[str, Any]) -> InlineKeyboardMarkup | None:
     El botón del mapa enlaza directo a esa ficha (`?o=identifier`, deep link ya soportado
     por `mapa.html`: centra el pin y abre su popup, no solo abre el mapa en general)."""
     row = []
-    if o.get("application_url"):
+    if _valid_url(o.get("application_url")):
         row.append(InlineKeyboardButton("👉 Formulario", url=o["application_url"]))
-    if o.get("infopack_url"):
+    if _valid_url(o.get("infopack_url")):
         row.append(InlineKeyboardButton("📄 Infopack", url=o["infopack_url"]))
     if cfg.map_public_url and o.get("identifier"):
         row.append(InlineKeyboardButton("🗺️ Mapa", url=f"{cfg.map_public_url}?o={o['identifier']}"))
@@ -183,11 +196,23 @@ def format_opportunity(
             f"\n⏳ Fecha límite: <b>{o['application_deadline']}{_est(o)}</b> "
             f"({_days_left(o['application_deadline'])})"
         )
+    app_url, info_url = o.get("application_url"), o.get("infopack_url")
     if not buttons:
-        if o.get("application_url"):
-            lines.append(f'👉 <a href="{o["application_url"]}">Formulario de inscripción</a>')
-        if o.get("infopack_url"):
-            lines.append(f'📄 <a href="{o["infopack_url"]}">Infopack</a>')
+        # Vista previa/edición: enlace clicable si es una URL de verdad; si no (el LLM a
+        # veces mete un email o texto suelto), texto plano — nunca se pierde el dato, y
+        # nunca se manda un <a href> roto.
+        if app_url:
+            lines.append(f'👉 <a href="{app_url}">Formulario de inscripción</a>' if _valid_url(app_url)
+                          else f"👉 Formulario de inscripción: {app_url}")
+        if info_url:
+            lines.append(f'📄 <a href="{info_url}">Infopack</a>' if _valid_url(info_url)
+                          else f"📄 Infopack: {info_url}")
+    else:
+        # Publicación real: si no valen como botón, que no desaparezcan sin más — texto.
+        if app_url and not _valid_url(app_url):
+            lines.append(f"👉 Formulario de inscripción: {app_url}")
+        if info_url and not _valid_url(info_url):
+            lines.append(f"📄 Infopack: {info_url}")
     if o.get("contact_information"):
         lines.append(f"✉️ {o['contact_information']}")
     return "\n".join(lines)

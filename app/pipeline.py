@@ -179,6 +179,14 @@ async def commit(
         await handoff.opportunity(opp)
     except Exception as e:  # noqa: BLE001
         log.exception("Error publicando/handoff (%s)", opp["identifier"])
+        # La cerramos ya mismo: si se queda 'open' pero nunca llegó a publicarse, el propio
+        # dedup (que solo mira status='open') bloquearía un reenvío del coordinador con un
+        # "ya existe" — dejándolo atascado sin la oportunidad publicada y sin poder
+        # reintentarlo. Cerrada, un reenvío genera una ficha nueva sin chocar con esta.
+        try:
+            await repo.close_project(opp["identifier"])
+        except Exception:  # noqa: BLE001
+            log.exception("No pude cerrar %s tras el fallo de publicación", opp["identifier"])
         return {"status": "created_no_publish", "opp": opp, "error": str(e)}
 
     log.info("Usuario %s: creada y publicada %s", submitted_by_id, opp["identifier"])

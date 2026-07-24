@@ -275,7 +275,9 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             await query.message.reply_text("💾 Guardada (aún no hay canal configurado para publicar).")
         elif result["status"] == "created_no_publish":
             await query.message.reply_text(
-                f"💾 Guardada, pero falló la publicación: {result.get('error')}. Ya he avisado a {_CONTACT}."
+                f"⚠️ No se pudo publicar ({result.get('error')}). Ya he avisado a {_CONTACT} para "
+                "arreglarlo. Puedes volver a mandarme el mismo texto cuando quieras — no se ha "
+                "quedado a medias bloqueando el reenvío."
             )
             await alerts.alert("Falló publicar tras confirmar", str(result.get("error")), key="commit_publish")
         else:

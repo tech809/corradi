@@ -149,12 +149,14 @@ async def get_by_identifier(identifier: str) -> dict[str, Any] | None:
 
 
 async def list_open_by_user(user_id: int) -> list[dict[str, Any]]:
-    """Oportunidades ABIERTAS que envió este coordinador (su backlog editable)."""
+    """Oportunidades ABIERTAS que envió este coordinador (su backlog editable), la más
+    reciente arriba — mismo orden que el histórico, para encontrar de un vistazo lo que
+    acabas de mandar."""
     async with get_pool().connection() as conn:
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
                 "SELECT * FROM projects WHERE status = 'open' AND submitted_by_id = %s "
-                "ORDER BY application_deadline IS NULL, application_deadline ASC",
+                "ORDER BY created DESC",
                 (user_id,),
             )
             return await cur.fetchall()
