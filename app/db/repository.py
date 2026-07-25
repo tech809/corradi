@@ -1,6 +1,7 @@
 """Repositorio de oportunidades y lista blanca (async, psycopg3 + pgvector)."""
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -386,6 +387,18 @@ async def recent_statuses(user_id: int, limit: int) -> list[str]:
         return [r[0] for r in rows]
 
 
+async def list_published_since(start: datetime, end: datetime) -> list[dict[str, Any]]:
+    """Oportunidades publicadas con éxito en el rango [start, end) (resumen diario WhatsApp)."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT * FROM projects WHERE published_telegram = TRUE "
+                "AND created >= %s AND created < %s ORDER BY created ASC",
+                (start, end),
+            )
+            return await cur.fetchall()
+
+
 async def count_published_since(since: datetime) -> int:
     """Cuántas oportunidades se han publicado con éxito desde `since` (resumen semanal)."""
     async with get_pool().connection() as conn:
@@ -424,3 +437,47 @@ async def type_breakdown_since(since: datetime, limit: int = 5) -> list[dict[str
                 (since, limit),
             )
             return await cur.fetchall()
+
+
+async def mark_salto_seen(url: str) -> bool:
+    """Registra una URL de la ficha de SALTO-YOUTH como ya notificada. Devuelve True si era
+    nueva (no estaba antes) — así el scraper (`app/scheduler/scrape_salto.py`) sabe si debe
+    avisar de ella o saltarla."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "INSERT INTO salto_seen (url) VALUES (%s) ON CONFLICT (url) DO NOTHING", (url,)
+        )
+        return cur.rowcount > 0
+
+
+async def enqueue_salto_backlog(url: str, fields: dict, scheduled_at: datetime) -> None:
+    """Cola temporal (`salto_backlog`, ver migración 0006) para publicar el backlog inicial
+    de SALTO-YOUTH de forma escalonada. `fields` ya viene normalizado por
+    `pipeline.preview()` — se serializa a mano (con `default=str`) porque trae objetos
+    `date` que el adaptador jsonb no sabe convertir solo."""
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "INSERT INTO salto_backlog (url, fields, scheduled_at) VALUES (%s, %s::jsonb, %s)",
+            (url, json.dumps(fields, default=str), scheduled_at),
+        )
+
+
+async def due_salto_backlog(now: datetime) -> list[dict[str, Any]]:
+    """Fichas en cola cuya hora programada ya llegó y aún no se han publicado."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT id, url, fields FROM salto_backlog "
+                "WHERE scheduled_at <= %s AND published_identifier IS NULL "
+                "ORDER BY scheduled_at ASC",
+                (now,),
+            )
+            return await cur.fetchall()
+
+
+async def mark_salto_backlog_published(backlog_id: int, identifier: str) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "UPDATE salto_backlog SET published_identifier = %s WHERE id = %s",
+            (identifier, backlog_id),
+        )

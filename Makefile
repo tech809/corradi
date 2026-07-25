@@ -35,6 +35,9 @@ weekly-summary:
 backfill-geo:  ## Geocodifica las fichas antiguas que aún no tienen coordenadas (mapa)
 	python -m app.scheduler.backfill_geo
 
+scrape-salto:  ## Busca oportunidades nuevas de Training Course en SALTO-YOUTH y avisa por DM
+	python -m app.scheduler.scrape_salto
+
 # ─── Pruebas / demo sin claves ─────────────────────────────────────────────
 test:      ## Ejecuta los tests (no necesitan BD ni claves)
 	LLM_PROVIDER=fake python -m pytest

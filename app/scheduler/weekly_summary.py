@@ -32,11 +32,13 @@ async def run() -> None:
         open_count = await repo.count_open()
         countries = await repo.country_breakdown_since(week_start)
         types = await repo.type_breakdown_since(week_start)
+        open_opps = await repo.list_open()
 
-        text = pub.format_weekly_summary(
-            published, open_count, countries, types, week_start.date(), now.date()
+        text = pub.format_weekly_full_summary(
+            open_count, countries, types, week_start.date(), now.date(), open_opps
         )
         await pub.publish_to_channel(text)
+
         log.info("Resumen semanal publicado: %s nuevas, %s abiertas.", published, open_count)
     except Exception as e:  # noqa: BLE001
         log.exception("Falló el resumen semanal")

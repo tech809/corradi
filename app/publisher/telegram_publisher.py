@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date
 from typing import Any
+from urllib.parse import urlsplit
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -49,6 +51,58 @@ _GRUPOS_RESUMEN = [
     ("VOLUNTEERING", "🤝 ECS"),
     ("WORKSHOP", "🛠️ Workshop"),
 ]
+
+# Taxonomía para el resumen semanal de temáticas: el `topic` que manda el extractor es
+# texto libre (varias etiquetas por ficha, casi nunca coincide literal entre dos fichas —
+# comprobado con datos reales: 29 topics únicos para 29 fichas), así que agrupar por texto
+# exacto no agrupa nada. En su lugar, cada ficha se asigna al tema con más palabras clave
+# coincidentes (basada en los topics reales vistos en producción; empate → el primero de
+# la lista). Sin acentos y en minúsculas, comparado contra `_strip_accents(topic.lower())`.
+_TEMAS = [
+    ("🌱 Medioambiente y sostenibilidad",
+     ["sostenib", "medio ambiente", "ecolog", "cambio climatic", "clima", "naturaleza",
+      "economia circular", "agua", "green"]),
+    ("🤝 Inclusión y diversidad",
+     ["inclusi", "diversidad", "discapacidad", "igualdad", "equidad"]),
+    ("🌍 Interculturalidad y participación juvenil",
+     ["intercultural", "participacion juvenil", "youth exchange", "international", "ciudadania"]),
+    ("🌟 Desarrollo personal y liderazgo",
+     ["desarrollo personal", "liderazgo", "autoconocimiento", "inteligencia emocional",
+      "asertividad", "bienestar", "well-being", "valores", "confianza"]),
+    ("💻 Digital, IA y pensamiento crítico",
+     ["digital", "inteligencia artificial", "artificial intelligence", "fake news",
+      "critical thinking", "pensamiento critico", "tecnolog", "ai literacy"]),
+    ("🎨 Arte, narrativa y creatividad",
+     ["arte", "art", "storytelling", "narrac", "narrativ", "cine", "creativ", "teatro"]),
+    ("📋 Gestión de proyectos y educación no formal",
+     ["gestion de proyectos", "project management", "non-formal", "no formal",
+      "proposal writing", "partnership", "diseno de proyectos", "gamification", "facilitation"]),
+    ("⚖️ Justicia social y derechos humanos",
+     ["justicia social", "derechos humanos", "colonialismo", "memoria", "activismo", "paz"]),
+]
+_OTRAS_TEMA = "📌 Otras temáticas"
+
+
+def _strip_accents(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+
+
+def _classify_topic(topic: str | None) -> str:
+    """Clasifica SOLO por la etiqueta principal (la primera del `topic`, coma-separado) —
+    el prompt del extractor (`app/llm/prompts.py`) ya pide que venga ordenado por
+    importancia, así que la primera es la temática central de la oportunidad; las
+    secundarias no se usan aquí para no diluir la agrupación. `_OTRAS_TEMA` si la principal
+    no encaja en ningún tema conocido de `_TEMAS`.
+
+    Las palabras clave se buscan con límite de palabra a la izquierda (no substring suelto):
+    un bug real lo encontró — la keyword "art" (para cazar "arte"/"artístico") hacía match
+    dentro de "partnership building", clasificando mal "Waves of Cooperation" como Arte."""
+    primary = (topic or "").split(",")[0].strip()
+    t = _strip_accents(primary.lower())
+    for label, keywords in _TEMAS:
+        if any(re.search(r"\b" + re.escape(kw), t) for kw in keywords):
+            return label
+    return _OTRAS_TEMA
 
 
 def _topic_label(o: dict[str, Any]) -> str:
@@ -102,15 +156,13 @@ def opportunity_keyboard(o: dict[str, Any]) -> InlineKeyboardMarkup | None:
     vez de mantener una detección frágil de qué formatos de contacto son "seguros" para
     botón, más simple y sin ese riesgo: contacto siempre texto, punto.
 
-    El botón del mapa enlaza directo a esa ficha (`?o=identifier`, deep link ya soportado
-    por `mapa.html`: centra el pin y abre su popup, no solo abre el mapa en general)."""
+    Sin botón de mapa (quitado a petición del usuario, 2026-07-25) — solo Infopack y
+    Formulario, en ese orden (infopack primero si hay los dos)."""
     row = []
-    if _valid_url(o.get("application_url")):
-        row.append(InlineKeyboardButton("👉 Formulario", url=o["application_url"]))
     if _valid_url(o.get("infopack_url")):
         row.append(InlineKeyboardButton("📄 Infopack", url=o["infopack_url"]))
-    if cfg.map_public_url and o.get("identifier"):
-        row.append(InlineKeyboardButton("🗺️ Mapa", url=f"{cfg.map_public_url}?o={o['identifier']}"))
+    if _valid_url(o.get("application_url")):
+        row.append(InlineKeyboardButton("👉 Formulario", url=o["application_url"]))
     return InlineKeyboardMarkup([row]) if row else None
 
 
@@ -219,24 +271,57 @@ def format_opportunity(
 
 
 def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
-    """Texto en formato WhatsApp (*negrita*, URLs en plano) para copiar y pegar."""
+    """Texto compacto en formato WhatsApp (*negrita*, URLs en plano) para copiar y pegar en
+    el canal de difusión. WhatsApp NO soporta texto-ancla (un link con una etiqueta propia
+    como en HTML) en mensajes de texto normales — solo detecta URLs "en crudo" y las hace
+    tocables tal cual. En vez de volcar los enlaces externos crudos (a veces larguísimos y
+    feos, tipo Microsoft/Google Forms o descargas de SALTO con la URL escapada), se manda
+    UN enlace limpio a la ficha en el mapa público (`?o=identifier`, deep link ya soportado
+    por `mapa.html`: centra el pin y abre su popup con los botones reales de Infopack/Form)."""
     lines = [f"🌍 *{o['title']}*"]
-    if o.get("topic"):
-        lines.append(f"🏷️ {_topic_label(o)}: {o['topic']}")
-    if _place(o):
-        lines.append(f"📍 {_place(o)}")
-    lines.append(f"🗓️ {_dates(o)}")
-    if o.get("summary"):
-        lines.append(f"\n{o['summary']}")
+
+    segs = [s for s in [
+        f"🏷️ {_topic_label(o)}: {o['topic']}" if o.get("topic") else "",
+        f"📍 {_place(o)}" if _place(o) else "",
+        f"🗓️ {_compact_dates(o)}",
+    ] if s]
+    lines.append(" ".join(segs))
+
     if o.get("application_deadline"):
-        lines.append(f"⏳ Inscripción hasta: *{o['application_deadline']}{_est(o)}*")
-    if o.get("application_url"):
-        lines.append(f"👉 {o['application_url']}")
-    if o.get("infopack_url"):
-        lines.append(f"📄 {o['infopack_url']}")
+        lines.append(f"⏳ Límite *{o['application_deadline']}{_est(o)}*")
+
+    app_url, info_url = o.get("application_url"), o.get("infopack_url")
+    short_link = _short_map_link(o.get("identifier"))
+    if app_url or info_url:
+        label = "Infopack y form." if (app_url and info_url) else ("Formulario" if app_url else "Infopack")
+        if short_link:
+            lines.append(f"👉 {label} en: {short_link}")
+        else:
+            # Sin mapa configurado (p.ej. local sin MAP_PUBLIC_URL): no perder el dato,
+            # enlaces crudos como respaldo.
+            links = [app_url] if app_url == info_url else [u for u in [app_url, info_url] if u]
+            lines.append(f"👉 {label}: " + " · ".join(links))
+    elif short_link:
+        # Sin formulario/infopack de verdad (p.ej. solo un "apúntate por Instagram" sin
+        # URL) — el mapa sigue siendo útil (ubicación, fechas, contacto), así que TODA
+        # oportunidad lleva enlace, no solo las que tienen enlace externo real.
+        lines.append(f"🗺️ Más información en: {short_link}")
+
     if o.get("contact_information"):
         lines.append(f"✉️ {o['contact_information']}")
     return "\n".join(lines)
+
+
+def _short_map_link(identifier: str | None) -> str | None:
+    """Enlace corto tipo `mapa.proactivefuture.eu/2026-0040` (en vez de la URL con `?o=`) —
+    más presentable para compartir a mano en WhatsApp. Redirige a la ficha en el mapa vía
+    la ruta `/{short_id}` de `api/main.py`. `cfg.map_public_url` incluye un path propio
+    (p.ej. `.../corradi-erasmus`), así que se reconstruye solo el origen (esquema+host)."""
+    if not cfg.map_public_url or not identifier or not identifier.startswith("CORRADI-"):
+        return None
+    root = urlsplit(cfg.map_public_url)
+    short_id = identifier.removeprefix("CORRADI-")
+    return f"{root.scheme}://{root.netloc}/{short_id}"
 
 
 def _channel_link(o: dict[str, Any]) -> str | None:
@@ -355,6 +440,115 @@ def format_daily_summary_whatsapp(opps: list[dict[str, Any]]) -> str:
     return "\n".join(out)
 
 
+def format_daily_digest_whatsapp(opps: list[dict[str, Any]]) -> str:
+    """Resumen diario en formato WhatsApp de SOLO lo publicado hoy (no lo abierto en
+    general), pensado para copiar y pegar a mano en el canal de difusión de WhatsApp
+    (no automatizable, ver `handoff.py`). Se manda por DM a los admins vía `notify_admin`."""
+    if not opps:
+        return "☀️ Resumen del día — ninguna oportunidad nueva hoy."
+    plural = len(opps) != 1
+    parts = [f"☀️ Resumen del día — Nueva{'s' if plural else ''} oportunidad{'es' if plural else ''}: {len(opps)}"]
+    parts += [format_opportunity_whatsapp(o) for o in opps]
+    return "\n\n".join(parts)
+
+
+def _theme_groups_lines(opps: list[dict[str, Any]], max_per_group: int = 20) -> list[str]:
+    """Líneas del bloque agrupado por TEMÁTICA similar (`_classify_topic`, no por las 4
+    categorías fijas de tipo), con una línea en blanco entre grupos para que respiren. Un
+    tema con una sola ficha no es un grupo real, así que se funde en `_OTRAS_TEMA` en vez de
+    mostrarse suelto. `max_per_group` es un tope de seguridad por si algún grupo crece
+    mucho: se recortan los últimos con un "+N más" para no arriesgar el límite de 4096
+    caracteres de Telegram. Compartido por `format_weekly_topics_summary` (standalone) y
+    `format_weekly_full_summary` (el resumen semanal combinado que de verdad se publica)."""
+    if not opps:
+        return ["Ahora mismo no hay ninguna oportunidad con inscripción abierta."]
+
+    by_theme: dict[str, list[dict[str, Any]]] = {}
+    for o in opps:
+        by_theme.setdefault(_classify_topic(o.get("topic")), []).append(o)
+
+    otras = by_theme.pop(_OTRAS_TEMA, [])
+    for label in [l for l, items in by_theme.items() if len(items) == 1]:
+        otras += by_theme.pop(label)
+
+    def _item_line(o: dict[str, Any]) -> str:
+        link = _channel_link(o)
+        title = f'<a href="{link}">{o["title"]}</a>' if link else o["title"]
+        return f"• {title}"
+
+    groups = sorted(by_theme.items(), key=lambda kv: -len(kv[1]))
+    if otras:
+        groups.append((_OTRAS_TEMA, otras))
+
+    lines: list[str] = []
+    for i, (label, items) in enumerate(groups):
+        if i > 0:
+            lines.append("")  # espacio entre temáticas
+        lines.append(f"<b>{label} ({len(items)})</b>")
+        lines += [_item_line(o) for o in items[:max_per_group]]
+        if len(items) > max_per_group:
+            lines.append(f"+{len(items) - max_per_group} más en este grupo")
+    return lines
+
+
+def format_weekly_topics_summary(opps: list[dict[str, Any]], max_per_group: int = 20) -> str:
+    """Resumen semanal agrupado por temática, standalone (con su propia cabecera y conteo)
+    — ver `_theme_groups_lines` para el cuerpo. La entrega real los combina en un único
+    mensaje (`format_weekly_full_summary`); esta función se conserva para tests/reuso."""
+    head = "📊 <b>Resumen semanal — temáticas</b>"
+    if not opps:
+        return f"{head}\n\nAhora mismo no hay ninguna oportunidad con inscripción abierta."
+    plural = len(opps) != 1
+    lines = [head, f"{len(opps)} oportunidad{'es' if plural else ''} abierta{'s' if plural else ''} ahora mismo", ""]
+    lines += _theme_groups_lines(opps, max_per_group)
+    if cfg.map_public_url:
+        lines.append(f'\n🗺️ <a href="{cfg.map_public_url}">Ver todas en el mapa</a>')
+    return "\n".join(lines)
+
+
+def _week_range_label(week_start: date, week_end: date) -> str:
+    if week_start.month == week_end.month:
+        return f"{week_start.day} - {week_end.day} de {_MESES[week_start.month - 1]}"
+    return (f"{week_start.day} {_MES_ABBR[week_start.month - 1]} - "
+            f"{week_end.day} de {_MESES[week_end.month - 1]}")
+
+
+def format_weekly_full_summary(
+    open_count: int,
+    countries: list[dict[str, Any]], types: list[dict[str, Any]],
+    week_start: date, week_end: date,
+    open_opps: list[dict[str, Any]], max_per_group: int = 20,
+) -> str:
+    """Resumen semanal ÚNICO (antes eran dos mensajes de domingo separados, fusionados a
+    petición del usuario): abiertas ahora mismo + top países/tipos, seguido del agrupado
+    por temática de todo lo abierto. El conteo de "nuevas publicadas esta semana" se quitó
+    del texto a petición del usuario (2026-07-25) — se sigue calculando y registrando en el
+    log del scheduler, solo no se muestra en el mensaje."""
+    head = f"📊 <b>RESUMEN SEMANAL · {_week_range_label(week_start, week_end)}</b>"
+    open_pl = open_count != 1
+    lines = [
+        head, "",
+        f"☀️ {open_count} abierta{'s' if open_pl else ''} ahora mismo. "
+        f"Los domingos te las recordamos todas agrupadas por TEMÁTICA:",
+    ]
+    if countries:
+        paises = " · ".join(
+            f"{_flag(c['country_code'])} {_PAISES_ES.get(c['country_code'].upper(), c['country_code'])} ({c['n']})"
+            for c in countries
+        )
+        lines.append(f"\n🌍 Top países: {paises}")
+    if types:
+        temas = " · ".join(f"{_TIPOS_ES.get(t['type'], t['type'])} ({t['n']})" for t in types)
+        lines.append(f"🏷️ Por tipo: {temas}")
+
+    lines.append("")
+    lines += _theme_groups_lines(open_opps, max_per_group)
+
+    if cfg.map_public_url:
+        lines.append(f'\n🗺️ <a href="{cfg.map_public_url}">Ver todas en el mapa</a>')
+    return "\n".join(lines)
+
+
 async def publish_to_channel(text: str, reply_markup: InlineKeyboardMarkup | None = None) -> int | None:
     """Publica en el canal. Devuelve el message_id (para enlazarla luego) o None si no hay
     canal configurado todavía."""
@@ -400,6 +594,31 @@ async def notify_admin(admin_id: int, text: str) -> None:
     await bot.send_message(
         chat_id=admin_id, text=text, parse_mode=ParseMode.HTML, disable_web_page_preview=True
     )
+
+
+_DM_MAX_LEN = 3900  # margen de seguridad bajo el límite real de Telegram (4096)
+
+
+async def send_chunked_dm(admin_id: int, text: str) -> None:
+    """Como `notify_admin`, pero trocea en varios DMs si `text` no cabe en un solo mensaje
+    de Telegram — cortando siempre por saltos de línea completos, nunca a mitad de una
+    línea. Encontrado en pruebas reales del scraper de SALTO-YOUTH: una descripción larga
+    (objetivos, perfil de participantes, costes...) tumbaba el envío entero con
+    `BadRequest: Message is too long`."""
+    if len(text) <= _DM_MAX_LEN:
+        await notify_admin(admin_id, text)
+        return
+    chunk = ""
+    for line in text.split("\n"):
+        candidate = f"{chunk}\n{line}" if chunk else line
+        if len(candidate) > _DM_MAX_LEN:
+            if chunk:
+                await notify_admin(admin_id, chunk)
+            chunk = line
+        else:
+            chunk = candidate
+    if chunk:
+        await notify_admin(admin_id, chunk)
 
 
 async def send_to_handoff_group(whatsapp_text: str) -> None:

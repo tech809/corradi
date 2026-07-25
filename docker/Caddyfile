@@ -17,6 +17,13 @@
 		reverse_proxy api:8000
 	}
 
+	# Enlace corto para compartir (p.ej. WhatsApp): /2026-0040 redirige a la ficha en el
+	# mapa. Patrón exacto AAAA-NNNN, nada más pasa por aquí.
+	@enlace_corto path_regexp ^/\d{4}-\d{4}$
+	handle @enlace_corto {
+		reverse_proxy api:8000
+	}
+
 	handle {
 		respond "No encontrado" 404
 	}

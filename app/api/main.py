@@ -7,6 +7,7 @@ una columna a `projects`, no se filtra sola. Los datos de quien envía la oportu
 """
 from __future__ import annotations
 
+import re
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
@@ -14,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app import geo
 from app.config import cfg
@@ -181,3 +182,23 @@ async def get_opportunity(identifier: str) -> dict[str, Any]:
     if not row:
         raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
     return _serialize(row)
+
+
+_SHORT_ID_RE = re.compile(r"^\d{4}-\d{4}$")
+
+
+# Enlace corto para compartir a mano (WhatsApp, etc.): "mapa.proactivefuture.eu/2026-0040"
+# en vez de la URL con `?o=` — bastante más presentable en un mensaje de texto plano.
+# Va al final del fichero y con un patrón MUY concreto (\d{4}-\d{4}) a propósito: FastAPI
+# resuelve las rutas en orden de registro, así que cualquier ruta exacta ya definida arriba
+# (/mapa, /health, /opportunities...) gana siempre; esta solo atrapa lo que sobra Y además
+# encaja en el patrón, así que no puede colisionar con nada existente ni futuro razonable.
+@app.get("/{short_id}", include_in_schema=False)
+async def short_link(short_id: str) -> RedirectResponse:
+    if not _SHORT_ID_RE.fullmatch(short_id):
+        raise HTTPException(status_code=404)
+    identifier = f"CORRADI-{short_id}"
+    row = await repo.get_by_identifier(identifier)
+    if not row:
+        raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
+    return RedirectResponse(f"/mapa?o={identifier}", status_code=302)

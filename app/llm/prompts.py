@@ -59,9 +59,12 @@ RULES:
   Keep the title in its ORIGINAL language (do NOT translate it).
 - summary = 1-2 neutral sentences describing the opportunity, ALWAYS written in Spanish (castellano),
   regardless of the language of the original message. Do not translate proper nouns or the project title.
-- topic = short comma-separated list of themes, preferably in Spanish. You MAY keep a term in English only
-  if its Spanish translation would sound awkward or unnatural. Do NOT translate the keywords
-  "youth exchange", "training course" or "ECS" (leave them as-is if they appear).
+- topic = short comma-separated list of themes, preferably in Spanish, ORDERED BY IMPORTANCE: the FIRST
+  tag must be the single most central theme of the opportunity (used downstream to group it with similar
+  opportunities), the rest are secondary themes in descending relevance. Judge which theme the activity is
+  actually about, don't just list themes in the order they happen to appear in the text. You MAY keep a
+  term in English only if its Spanish translation would sound awkward or unnatural. Do NOT translate the
+  keywords "youth exchange", "training course" or "ECS" (leave them as-is if they appear).
 - max_participants / ages = integers as strings; cost = signup fee in euros (number) or null.
 
 MESSAGE TO PROCESS:
