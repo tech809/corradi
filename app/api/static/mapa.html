@@ -367,6 +367,10 @@
   .btn:hover { border-color: var(--brand); }
   .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
   .btn.primary:hover { opacity: .88; }
+  /* Recordar cierre en Google Calendar: mismo estilo base, un toque de color de marca
+     en el borde para que no se confunda con "Form" o "Infopack" a simple vista. */
+  .btn.cal { border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); }
+  .btn.cal:hover { background: color-mix(in srgb, var(--brand) 8%, var(--bg)); }
 
   .empty { text-align: center; color: var(--muted); padding: 44px 20px; font-size: 14px; }
   .empty strong { display: block; color: var(--text); font-size: 15px; margin-bottom: 6px; }
@@ -741,6 +745,26 @@
     return { text: "Hasta el " + fmtDate(o.application_deadline), cls: "" };
   }
 
+  // Evento de un día en Google Calendar para recordar la fecha límite de inscripción
+  // (NO las fechas de realización): lo que de verdad se le olvida a la gente es
+  // apuntarse a tiempo. Formato "dates" de día completo: fin = inicio + 1 día.
+  function gcalUrl(o) {
+    if (!o.application_deadline) return null;
+    var start = o.application_deadline.replace(/-/g, "");
+    var d = new Date(o.application_deadline + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    var end = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+    var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
+    var details = "Última fecha para inscribirse: \"" + o.title + "\" (Erasmus+, vía Corradi).";
+    var link = o.channel_url || o.application_url || o.infopack_url;
+    if (link) details += "\n" + link;
+    var params = new URLSearchParams({
+      action: "TEMPLATE", text: "⏰ Cierra: " + o.title, dates: start + "/" + end, details: details
+    });
+    if (place) params.set("location", place);
+    return "https://calendar.google.com/calendar/render?" + params.toString();
+  }
+
   // ── Fechas ───────────────────────────────────────────────────────
   // Fechas de REALIZACIÓN del proyecto (start_date/end_date), no la fecha límite de
   // inscripción — es un filtro de "cuándo pasa la oportunidad", no de "cuándo hay
@@ -888,6 +912,7 @@
           (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
           (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
           (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
+          (gcalUrl(o) ? '<a class="btn cal" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" title="Añadir el cierre de inscripción a Google Calendar">📅 Recordar</a>' : "") +
         "</div>" +
         '<button type="button" class="share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
       "</article>";
@@ -942,6 +967,7 @@
         (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
         (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
         (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
+        (gcalUrl(o) ? '<a class="btn cal" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" title="Añadir el cierre de inscripción a Google Calendar">📅</a>' : "") +
       "</div>" +
       (o.approx_location ? '<div class="approx">📍 Ubicación aproximada (país)</div>' : "") +
       '<button type="button" class="share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
