@@ -19,7 +19,7 @@ def _vec(embedding):
 
 # Columnas que se escriben al insertar (las normaliza app.domain.project.normalize)
 _INSERT_COLS = [
-    "identifier", "hash", "title", "type", "topic", "summary", "raw_message",
+    "identifier", "hash", "title", "type", "topic", "organiser_name", "summary", "raw_message",
     "country_code", "location", "start_date", "end_date", "application_deadline",
     "deadline_estimated", "infopack_url", "application_url", "max_participants",
     "participant_min_age", "participant_max_age", "cost", "contact_information",
@@ -50,6 +50,7 @@ async def insert_project(fields: dict[str, Any], embedding: list[float] | None) 
                 "title": fields.get("title") or "(sin título)",
                 "type": fields.get("type"),
                 "topic": fields.get("topic"),
+                "organiser_name": fields.get("organiser_name"),
                 "summary": fields.get("summary"),
                 "raw_message": fields["raw_message"],
                 "country_code": fields.get("country_code"),
@@ -189,7 +190,7 @@ async def close_project(identifier: str) -> None:
 # Campos que el coordinador puede reeditar (los mismos que extrae el LLM). NO se toca
 # identifier, hash, submitted_by, telegram_message_id, embedding ni created.
 _EDITABLE_COLS = [
-    "title", "type", "topic", "summary", "country_code", "location",
+    "title", "type", "topic", "organiser_name", "summary", "country_code", "location",
     "start_date", "end_date", "application_deadline", "deadline_estimated",
     "infopack_url", "application_url", "max_participants",
     "participant_min_age", "participant_max_age", "cost", "contact_information",

@@ -318,18 +318,20 @@
   .card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
   .card[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
   .card[data-type="WORKSHOP"]        { --c: var(--ws); }
-  /* padding-right: deja hueco para que el título no se meta debajo del botón
-     de compartir, que va flotando en la esquina superior derecha (ver .share-btn). */
-  .card h3 { margin: 0 0 7px; padding-right: 34px; font-size: 15px; font-weight: 640; line-height: 1.35; letter-spacing: -.01em; }
-  /* Compartir: solo icono, flotando arriba a la derecha — igual en la tarjeta y en el
-     popup del mapa (ahí queda cerca de la ✕ de cerrar que ya pone Leaflet). */
-  .share-btn {
-    position: absolute; top: 10px; right: 10px; z-index: 5;
+  /* padding-right: deja hueco para que el título no se meta debajo del grupo de
+     iconos (recordar + compartir) flotando en la esquina superior derecha. */
+  .card h3 { margin: 0 0 7px; padding-right: 66px; font-size: 15px; font-weight: 640; line-height: 1.35; letter-spacing: -.01em; }
+  /* Recordar (Google Calendar) + Compartir: solo icono, agrupados arriba a la derecha —
+     igual en la tarjeta y en el popup del mapa (ahí queda cerca de la ✕ de Leaflet). */
+  .corner-actions { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; gap: 6px; }
+  .corner-btn {
     display: flex; align-items: center; justify-content: center;
     width: 28px; height: 28px; border-radius: 50%; cursor: pointer; padding: 0;
     background: var(--bg); border: 1px solid var(--line); color: var(--muted); font-size: 14px;
+    text-decoration: none;
   }
-  .share-btn:hover { border-color: var(--brand); color: var(--brand); }
+  .corner-btn:hover { border-color: var(--brand); color: var(--brand); }
+  .corner-btn.cal-btn { border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); }
   .badge {
     display: inline-block; font-size: 11.5px; font-weight: 650; letter-spacing: .02em;
     color: var(--c, var(--other)); background: color-mix(in srgb, var(--c, var(--other)) 12%, transparent);
@@ -367,10 +369,6 @@
   .btn:hover { border-color: var(--brand); }
   .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
   .btn.primary:hover { opacity: .88; }
-  /* Recordar cierre en Google Calendar: mismo estilo base, un toque de color de marca
-     en el borde para que no se confunda con "Form" o "Infopack" a simple vista. */
-  .btn.cal { border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); }
-  .btn.cal:hover { background: color-mix(in srgb, var(--brand) 8%, var(--bg)); }
 
   .empty { text-align: center; color: var(--muted); padding: 44px 20px; font-size: 14px; }
   .empty strong { display: block; color: var(--text); font-size: 15px; margin-bottom: 6px; }
@@ -402,7 +400,7 @@
   .leaflet-popup-content { margin: 13px 15px; font: inherit; width: 268px !important; }
   .leaflet-popup-tip-container .leaflet-popup-tip { box-shadow: none; }
   .popup { position: relative; }
-  .popup h3 { margin: 0 0 7px; padding-right: 34px; font-size: 14.5px; font-weight: 640; line-height: 1.35; }
+  .popup h3 { margin: 0 0 7px; padding-right: 62px; font-size: 14.5px; font-weight: 640; line-height: 1.35; }
   .popup .meta { font-size: 12.5px; }
   /* El popup mide 268px fijos (más estrecho que la barra lateral): con el padding
      normal los 3 botones no cabían en una línea y "Form" se caía a la siguiente. */
@@ -627,10 +625,28 @@
     </ul>
 
     <h3>Cómo apuntarse</h3>
-    <p>El botón <strong>Inscribirme</strong> lleva al formulario de la organización que
-    ofrece la plaza. Corradi <strong>solo difunde</strong>: no gestionamos las inscripciones
-    ni seleccionamos a los participantes. Cualquier duda sobre una plaza concreta va
-    directa a quien la organiza.</p>
+    <p>Cada tarjeta puede traer hasta tres botones, según lo que haya compartido quien
+    organiza: <strong>ℹ️ Más info</strong> lleva al post original en el canal de Telegram,
+    <strong>📄 Infopack</strong> abre el dossier completo (fechas, requisitos, programa) y
+    <strong>✍️ Form</strong> es el formulario de inscripción en sí. Corradi <strong>solo
+    difunde</strong>: no gestionamos las inscripciones ni seleccionamos a los participantes.
+    Cualquier duda sobre una plaza concreta va directa a quien la organiza.</p>
+
+    <h3>Saca el máximo partido al mapa</h3>
+    <ul>
+      <li><strong>🔍 Buscar</strong> — por país, ciudad o temática, arriba a la izquierda.</li>
+      <li><strong>Filtros de tipo, fechas y país</strong> — combínalos: por ejemplo
+      "Training Course" + "Italia" + "próximos 2 meses" a la vez.</li>
+      <li><strong>⏳ Cierran pronto</strong> y <strong>🆕 Nuevo</strong> — para ver primero lo
+      que tiene más prisa o lo que se acaba de publicar.</li>
+      <li><strong>☰ Lista / Mapa</strong> — en el móvil alternas entre las dos vistas con la
+      burbuja de abajo; en escritorio se ven a la vez.</li>
+      <li><strong>🔗 Compartir</strong> (arriba a la derecha de cada tarjeta) — genera un
+      enlace directo a esa oportunidad concreta, ideal para pasarlo por WhatsApp o Telegram.</li>
+      <li><strong>📅 Recordar</strong> (junto al de compartir) — añade la <strong>fecha límite
+      de inscripción</strong> a tu Google Calendar en un clic, para que no se te pase el
+      plazo. No guarda nada en nuestro lado: el recordatorio queda solo en tu calendario.</li>
+    </ul>
 
     <h3>¿Tienes una oportunidad?</h3>
     <p>Si organizas o conoces una, puedes mandárnosla por el bot con el botón
@@ -912,9 +928,11 @@
           (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
           (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
           (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
-          (gcalUrl(o) ? '<a class="btn cal" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" title="Añadir el cierre de inscripción a Google Calendar">📅 Recordar</a>' : "") +
         "</div>" +
-        '<button type="button" class="share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
+        '<div class="corner-actions">' +
+          (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" aria-label="Recordar cierre" title="Añadir el cierre de inscripción a Google Calendar">📅</a>' : "") +
+          '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
+        "</div>" +
       "</article>";
     }).join("");
 
@@ -967,10 +985,12 @@
         (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
         (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
         (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
-        (gcalUrl(o) ? '<a class="btn cal" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" title="Añadir el cierre de inscripción a Google Calendar">📅</a>' : "") +
       "</div>" +
       (o.approx_location ? '<div class="approx">📍 Ubicación aproximada (país)</div>' : "") +
-      '<button type="button" class="share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
+      '<div class="corner-actions">' +
+        (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" aria-label="Recordar cierre" title="Añadir el cierre de inscripción a Google Calendar">📅</a>' : "") +
+        '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
+      "</div>" +
       "</div>";
   }
 

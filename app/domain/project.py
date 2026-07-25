@@ -18,7 +18,7 @@ def _add_months(d: date, months: int) -> date:
 
 # Campos que el LLM debe extraer del mensaje (orden = el del prompt).
 EXTRACTABLE_FIELDS = [
-    "title", "type", "topic", "country_code", "location",
+    "title", "type", "topic", "organiser_name", "country_code", "location",
     "start_date", "end_date", "application_deadline",
     "infopack_url", "application_url",
     "max_participants", "participant_min_age", "participant_max_age",
@@ -143,4 +143,7 @@ def normalize(
     # country en mayúsculas alpha-2 si parece un código
     cc = (fields.get("country_code") or fields.get("country") or "")
     out["country_code"] = cc.strip().upper()[:2] or None
+
+    organiser = fields.get("organiser_name")
+    out["organiser_name"] = organiser.strip() if isinstance(organiser, str) and organiser.strip() else None
     return out

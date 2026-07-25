@@ -60,7 +60,7 @@ def extract(raw_text: str, ref_day: date | None = None, corrections: list[str] |
     ptype = next((t for t, hints in _TYPE_HINTS.items() if any(h in low for h in hints)), None)
 
     fields = {
-        "title": title, "type": ptype, "topic": None, "summary": lines[0][:160],
+        "title": title, "type": ptype, "topic": None, "organiser_name": None, "summary": lines[0][:160],
         "country_code": country, "location": None,
         "start_date": start, "end_date": end, "application_deadline": deadline,
         "infopack_url": None, "application_url": url_m.group(0) if url_m else None,

@@ -27,6 +27,7 @@ EXACTLY this structure:
   "summary": "...",
   "type": "...",
   "topic": "...",
+  "organiser_name": "...",
   "country_code": "...",
   "location": "...",
   "start_date": "...",
@@ -66,6 +67,11 @@ RULES:
   term in English only if its Spanish translation would sound awkward or unnatural. Do NOT translate the
   keywords "youth exchange", "training course" or "ECS" (leave them as-is if they appear).
 - max_participants / ages = integers as strings; cost = signup fee in euros (number) or null.
+- organiser_name = the name of the organisation/association/entity RUNNING the opportunity
+  (e.g. "Asociación Xanela", "COSI", a school, a municipality), NOT the project title and NOT
+  a person's name. Look for phrases like "organizado por", "hosted by", a signature line, or
+  a sender identity distinct from the project name. If the text only names the project and
+  never says who runs it, use null — do NOT guess or infer it from the project name.
 
 MESSAGE TO PROCESS:
 \"\"\"__MESSAGE__\"\"\"
