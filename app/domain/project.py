@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import unicodedata
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -79,6 +80,21 @@ def is_last_minute(text: str | None) -> bool:
     return any(hint in folded for hint in _LAST_MINUTE_HINTS)
 
 
+_ONLINE_HINTS = ["online", "zoom", "virtual", "remoto", "remote", "teams", "webinar", "e-learning", "elearning"]
+
+
+def is_online_only(location: str | None) -> bool:
+    """True si la ubicación indica una actividad 100% online, sin lugar físico — CORRADI-
+    BOT es sobre movilidad presencial, así que estas se descartan. Bug real encontrado
+    (2026-07-26): "ID Talks: Social Sport" (location="Online (Zoom)") se coló publicada vía
+    el scraper de SALTO. Ubicación vacía/desconocida NO cuenta como online (eso es un dato
+    que falta, no una señal de que sea online) — se necesita una pista positiva."""
+    if not location:
+        return False
+    folded = _fold(location)
+    return any(re.search(rf"\b{hint}\b", folded) for hint in _ONLINE_HINTS)
+
+
 def make_hash(title: str | None, country_code: str | None, start_date: date | None) -> str:
     content = f"{title or ''}{country_code or ''}{start_date or ''}"
     return hashlib.md5(content.encode()).hexdigest()
@@ -111,6 +127,8 @@ def normalize(
         hoy (red de seguridad frente a años mal inferidos, p.ej. un LLM que empuja una fecha
         un año de más; se rechaza el envío en vez de publicar una deadline absurda).
       - `last_minute`: el mensaje habla de última hora / últimas plazas.
+      - `is_online`: la ubicación indica una actividad 100% online, sin lugar físico (se
+        rechaza el envío — ver `is_online_only`).
     """
     out = dict(fields)
     out["start_date"] = _future(parse_date(fields.get("start_date")), ref_day)
@@ -134,6 +152,7 @@ def normalize(
         out["deadline_estimated"] = False
     out["application_deadline"] = deadline
     out["deadline_too_far"] = deadline > _add_months(ref_day, max_deadline_months)
+    out["is_online"] = is_online_only(fields.get("location"))
 
     out["max_participants"] = parse_int(fields.get("max_participants"))
     out["participant_min_age"] = parse_int(fields.get("participant_min_age"))

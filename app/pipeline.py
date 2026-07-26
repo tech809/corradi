@@ -113,6 +113,14 @@ async def preview(
             "title": fields.get("title"), "max_months": cfg.max_deadline_months,
         }
 
+    # 1quater) Sin lugar físico: CORRADI-BOT es sobre movilidad presencial, no se publican
+    # actividades 100% online (bug real: "ID Talks: Social Sport" se coló vía SALTO).
+    if fields.get("is_online"):
+        log.info("Usuario %s: '%s' es online (ubicación: %s), no se publica",
+                 submitted_by_id, fields.get("title"), fields.get("location"))
+        await repo.log_submission(submitted_by_id, "online_not_allowed")
+        return {"status": "online_not_allowed", "title": fields.get("title"), "location": fields.get("location")}
+
     # 2) Deduplicación (hash exacto + embedding semántico)
     try:
         existing = await repo.find_by_hash(

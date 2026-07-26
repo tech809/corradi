@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.domain.project import (
-    is_last_minute, make_hash, normalize, parse_date, parse_decimal, parse_int,
+    is_last_minute, is_online_only, make_hash, normalize, parse_date, parse_decimal, parse_int,
 )
 
 
@@ -96,3 +96,38 @@ def test_normalize_deadline_within_3_months_is_fine():
 def test_normalize_deadline_too_far_respects_custom_months():
     f = normalize({"application_deadline": "15/12/2026"}, date(2026, 7, 22), 5, max_deadline_months=6)
     assert f["deadline_too_far"] is False
+
+
+def test_is_online_only_detects_common_hints():
+    """Bug real: 'ID Talks: Social Sport' (location='Online (Zoom)') se coló publicada."""
+    assert is_online_only("Online (Zoom)") is True
+    assert is_online_only("Virtual") is True
+    assert is_online_only("Webinar") is True
+    assert is_online_only("Remoto") is True
+
+
+def test_is_online_only_false_for_physical_location():
+    assert is_online_only("Oviedo, España") is False
+    assert is_online_only("Jastrzębia Góra, Poland") is False
+
+
+def test_is_online_only_false_for_missing_location():
+    """Sin ubicación no es lo mismo que online — es un dato que falta, no una señal
+    positiva de que sea online. No se debe rechazar por esto."""
+    assert is_online_only(None) is False
+    assert is_online_only("") is False
+
+
+def test_is_online_only_word_boundary_no_false_positive():
+    """'Skopje' no debe disparar por contener una subcadena parecida a ninguna pista."""
+    assert is_online_only("Skopje, North Macedonia") is False
+
+
+def test_normalize_flags_online_location():
+    f = normalize({"location": "Online (Zoom)"}, date(2026, 7, 22), 5)
+    assert f["is_online"] is True
+
+
+def test_normalize_does_not_flag_physical_location():
+    f = normalize({"location": "Vilnius, Lithuania"}, date(2026, 7, 22), 5)
+    assert f["is_online"] is False

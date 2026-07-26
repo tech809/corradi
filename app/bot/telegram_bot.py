@@ -130,6 +130,10 @@ def _reject_text(result: dict) -> str | None:
         return (f"📆 La fecha límite que he extraído para {titulo}es {result.get('deadline')}, dentro de "
                 f"más de {result.get('max_months')} meses. Probablemente hay un error en la fecha "
                 "(año equivocado, etc.) y no la publico.\n\nRevisa el mensaje y vuelve a mandármelo.")
+    if status == "online_not_allowed":
+        titulo = f"«{result['title']}» " if result.get("title") else ""
+        return (f"💻 {titulo}parece ser 100% online (ubicación: {result.get('location') or '—'}). "
+                "Este canal es para movilidad presencial, así que no la publico.")
     if status == "duplicate":
         return f"♻️ Ya existe: «{result['existing']['title']}». No la republico."
     if status == "duplicate_similar":
