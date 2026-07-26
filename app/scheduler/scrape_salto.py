@@ -1,27 +1,27 @@
-"""Descubre oportunidades nuevas de Training Course en SALTO-YOUTH (España) y avisa por
-DM a los admins con una vista previa — NO publica nada sola. Si el admin quiere publicarla
-de verdad, reenvía el texto tal cual al bot (mismo flujo Enviar/Modificar/Cancelar que
-cualquier otra oportunidad) — cero código nuevo en el bot, misma vía de siempre.
+"""Descubre y PUBLICA automáticamente oportunidades de Training Course en SALTO-YOUTH
+(España) escaneando IDs secuenciales de fichas (`trainings.salto-youth.net/<id>`) — ver
+`app/sources/salto_youth.py` para el porqué de este enfoque (evita el listado paginado,
+prohibido por robots.txt para b_offset/b_order/b_limit, y detecta lo nuevo al momento en
+vez de con semanas de retraso).
 
-Solo la página 1 del listado, SIN `b_offset`/`b_order`/`b_limit` (prohibidos por el
-`robots.txt` del sitio, investigado 2026-07-25) — ver `app/sources/salto_youth.py`.
-Reutiliza `pipeline.preview()`: filtra automáticamente duplicados (frecuente — algunos
-coordinadores ya mandan oportunidades de SALTO a mano) y fuera de plazo, antes de
-molestar a nadie.
+Decisión 2026-07-26: publica DE VERDAD, sin aviso previo por DM — cada ficha que pasa el
+filtro barato (Training Course + España) y luego `pipeline.preview()` (dedup, plazo) se
+publica sola con `pipeline.commit()`, igual que si un coordinador la hubiera confirmado.
 
-Límite conocido y aceptado por el usuario: con solo la página 1 (~10 resultados), si
-algún día entraran más de 10 oportunidades nuevas en un solo día, las que caigan fuera de
-esa página no se detectarían hasta que "suban" en el orden por defecto.
+Cada corrida:
+1. Reintenta los IDs marcados "draft" (existían pero redirigían a login — puede que ya se
+   hayan hecho públicos).
+2. Escanea hacia arriba desde el cursor guardado (`salto_scan_cursor`), hasta encontrar
+   `_MAX_CONSECUTIVE_MISSING` 404 seguidos (margen de seguridad: alguna ficha "hueco" en
+   medio del rango poblado no debe cortar el escaneo antes de tiempo).
 
-Ejecutar por cron en la EC2, a mediodía:
+Ejecutar por cron en la EC2 (mediodía):
     python -m app.scheduler.scrape_salto
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -29,78 +29,111 @@ from app import alerts, pipeline
 from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
-from app.publisher import telegram_publisher as pub
 from app.sources import salto_youth as salto
 
 log = logging.getLogger("corradi.scrape_salto")
 
+# Primer ID nunca visto por nosotros (2026-07-26, ver memoria del proyecto) — solo se usa
+# la primera vez, antes de que exista un cursor guardado.
+_START_ID = 15121
+_MAX_CONSECUTIVE_MISSING = 8
 
-async def _notify_candidate(raw_text: str, fields: dict) -> None:
-    """Dos DMs por candidato (mejor que uno solo largo, para no arriesgar el límite de
-    4096 caracteres de Telegram con descripciones extensas): vista previa formateada, y
-    el texto en bruto listo para copiar y reenviar al bot. Encontrado en pruebas reales:
-    algunas descripciones de SALTO (objetivos, perfil de participantes, costes...) por sí
-    solas ya superan el límite — `pub.send_chunked_dm` trocea en líneas enteras si hace
-    falta."""
-    preview_text = pub.format_opportunity(fields)
-    header = "🆕 <b>Nueva oportunidad detectada en SALTO-YOUTH</b>"
-    footer = "Si quieres publicarla, reenvía el siguiente texto tal cual al bot:"
-    for admin_id in cfg.admin_telegram_ids:
-        await pub.send_chunked_dm(admin_id, f"{header}\n\n{preview_text}")
-        await pub.send_chunked_dm(admin_id, f"{footer}\n\n{raw_text}")
+
+async def _process_id(client: httpx.AsyncClient, id_num: int, admin_id: int) -> str:
+    """Sonda y procesa un ID. Devuelve el status final (para loggear/contar).
+
+    Bug real encontrado y arreglado (2026-07-26): un fallo transitorio de red en la sonda
+    (probe["status"] == "error") no se registraba en absoluto — el ID quedaba por debajo
+    del cursor del día siguiente, así que nunca se volvía a intentar, silenciosamente.
+    Ahora se guarda como 'error' y se reintenta cada día junto a los borradores."""
+    probe = await salto.probe_id(client, id_num)
+    if probe["status"] == "missing":
+        return "missing"
+    if probe["status"] == "error":
+        await repo.upsert_salto_id(id_num, "error")
+        return "error"
+    if probe["status"] == "draft":
+        await repo.upsert_salto_id(id_num, "draft")
+        return "draft"
+
+    html, url = probe["html"], probe["url"]
+    if salto.quick_relevance_check(html) is False:
+        await repo.upsert_salto_id(id_num, "not_relevant")
+        return "not_relevant"
+
+    raw_text = await salto.build_opportunity_text(client, html, url)
+    if not raw_text:
+        await repo.upsert_salto_id(id_num, "error")
+        return "unexpected_page"
+
+    try:
+        result = await pipeline.preview(raw_text, submitted_by_id=admin_id)
+    except Exception:  # noqa: BLE001
+        log.exception("Fallo evaluando SALTO id %s", id_num)
+        await repo.upsert_salto_id(id_num, "error")
+        return "error"
+
+    if result["status"] != "ready":
+        await repo.upsert_salto_id(id_num, result["status"])
+        return result["status"]
+
+    try:
+        commit_result = await pipeline.commit(
+            result["fields"], source="salto",
+            submitted_by="SALTO-YOUTH (auto)", submitted_by_id=admin_id,
+        )
+        if commit_result["status"] == "error":
+            raise RuntimeError(commit_result.get("error"))
+        identifier = commit_result["opp"]["identifier"]
+        await repo.upsert_salto_id(id_num, "published", identifier)
+        log.info("SALTO id %s publicada como %s (%s)", id_num, identifier, commit_result["status"])
+        return "published"
+    except Exception:  # noqa: BLE001
+        log.exception("Fallo publicando SALTO id %s", id_num)
+        await repo.upsert_salto_id(id_num, "error")
+        return "error"
 
 
 async def run() -> None:
-    if not cfg.admin_telegram_ids:
-        log.warning("Sin ADMIN_TELEGRAM_IDS configurado: nadie recibiría los avisos, no ejecuto el scraping.")
-        return
-
     await open_pool()
     try:
-        today = datetime.now(ZoneInfo(cfg.timezone)).date()
         admin_id = cfg.admin_telegram_ids[0]
-        seen = ready = skipped = 0
+        async with httpx.AsyncClient(timeout=20) as client:
+            retry_ids = await repo.list_salto_retry_ids()
+            for id_num in retry_ids:
+                status = await _process_id(client, id_num, admin_id)
+                if status == "missing":
+                    # Un borrador/error que desaparece (retirado, nunca llegó a
+                    # publicarse) no debe quedar reintentándose para siempre.
+                    await repo.upsert_salto_id(id_num, "gone")
+                log.info("SALTO id %s (reintento): %s", id_num, status)
 
-        async with httpx.AsyncClient(follow_redirects=True) as client:
-            urls = await salto.fetch_listing(client, today)
-            for url in urls:
-                if not await repo.mark_salto_seen(url):
-                    continue
-                seen += 1
+            cursor = await repo.get_salto_scan_cursor(default=_START_ID - 1)
+            id_num = cursor + 1
+            consecutive_missing = 0
+            scanned = published = 0
+            while consecutive_missing < _MAX_CONSECUTIVE_MISSING:
+                status = await _process_id(client, id_num, admin_id)
+                if status == "missing":
+                    consecutive_missing += 1
+                else:
+                    consecutive_missing = 0
+                    scanned += 1
+                    if status == "published":
+                        published += 1
+                id_num += 1
 
-                try:
-                    raw_text = await salto.fetch_opportunity_text(client, url)
-                except httpx.HTTPError as e:
-                    log.warning("No pude leer la ficha de SALTO %s: %s", url, e)
-                    continue
-                if not raw_text:
-                    log.warning("Ficha de SALTO con forma inesperada, saltada: %s", url)
-                    continue
+            # El cursor se deja justo antes de la racha de "missing" con la que se paró,
+            # para que mañana se vuelvan a probar esos últimos IDs (podrían existir ya).
+            new_cursor = id_num - 1 - _MAX_CONSECUTIVE_MISSING
+            await repo.set_salto_scan_cursor(max(new_cursor, cursor))
 
-                try:
-                    result = await pipeline.preview(raw_text, submitted_by_id=admin_id)
-                except Exception:  # noqa: BLE001
-                    log.exception("Fallo evaluando la ficha de SALTO %s", url)
-                    continue
-
-                if result["status"] != "ready":
-                    log.info("SALTO %s descartada (%s)", url, result["status"])
-                    skipped += 1
-                    continue
-
-                try:
-                    await _notify_candidate(raw_text, result["fields"])
-                except Exception:  # noqa: BLE001
-                    # Que un DM falle (Telegram caído, admin bloqueó al bot...) no debe
-                    # tumbar el resto de candidatos del día.
-                    log.exception("No pude avisar de la ficha de SALTO %s", url)
-                    continue
-                ready += 1
-
-        log.info("Scraping SALTO-YOUTH: %s fichas nuevas, %s avisadas, %s descartadas.", seen, ready, skipped)
+            log.info("Escaneo SALTO: %s fichas nuevas evaluadas (%s reintentos de borrador/error), "
+                      "%s publicadas, techo alcanzado en id %s.",
+                      scanned, len(retry_ids), published, id_num - 1)
     except Exception as e:  # noqa: BLE001
-        log.exception("Falló el scraping de SALTO-YOUTH")
-        await alerts.alert("El scraping diario de SALTO-YOUTH ha fallado", f"{type(e).__name__}: {e}")
+        log.exception("Falló el escaneo de SALTO-YOUTH")
+        await alerts.alert("El escaneo diario de SALTO-YOUTH ha fallado", f"{type(e).__name__}: {e}")
         raise
     finally:
         await close_pool()

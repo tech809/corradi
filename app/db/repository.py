@@ -440,19 +440,10 @@ async def type_breakdown_since(since: datetime, limit: int = 5) -> list[dict[str
             return await cur.fetchall()
 
 
-async def mark_salto_seen(url: str) -> bool:
-    """Registra una URL de la ficha de SALTO-YOUTH como ya notificada. Devuelve True si era
-    nueva (no estaba antes) — así el scraper (`app/scheduler/scrape_salto.py`) sabe si debe
-    avisar de ella o saltarla."""
-    async with get_pool().connection() as conn:
-        cur = await conn.execute(
-            "INSERT INTO salto_seen (url) VALUES (%s) ON CONFLICT (url) DO NOTHING", (url,)
-        )
-        return cur.rowcount > 0
 
 
 async def enqueue_salto_backlog(url: str, fields: dict, scheduled_at: datetime) -> None:
-    """Cola temporal (`salto_backlog`, ver migración 0006) para publicar el backlog inicial
+    """Cola temporal (`salto_backlog`, ver migración 0007) para publicar el backlog inicial
     de SALTO-YOUTH de forma escalonada. `fields` ya viene normalizado por
     `pipeline.preview()` — se serializa a mano (con `default=str`) porque trae objetos
     `date` que el adaptador jsonb no sabe convertir solo."""
@@ -481,4 +472,44 @@ async def mark_salto_backlog_published(backlog_id: int, identifier: str) -> None
         await conn.execute(
             "UPDATE salto_backlog SET published_identifier = %s WHERE id = %s",
             (identifier, backlog_id),
+        )
+
+
+async def list_salto_retry_ids() -> list[int]:
+    """IDs de SALTO a reintentar cada día: "borrador" (redirige a login, aún no público) o
+    "error" (fallo transitorio de red/extracción la vez anterior) — ambos quedarían fuera
+    del rango que el escaneo por cursor vuelve a mirar, así que sin este reintento se
+    perderían para siempre (ver migración 0008 y bug real corregido 2026-07-26)."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "SELECT id_num FROM salto_ids WHERE status IN ('draft', 'error') ORDER BY id_num"
+        )
+        rows = await cur.fetchall()
+        return [r[0] for r in rows]
+
+
+async def upsert_salto_id(id_num: int, status: str, identifier: str | None = None) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "INSERT INTO salto_ids (id_num, status, identifier, checked_at) VALUES (%s, %s, %s, now()) "
+            "ON CONFLICT (id_num) DO UPDATE SET status = EXCLUDED.status, "
+            "identifier = EXCLUDED.identifier, checked_at = now()",
+            (id_num, status, identifier),
+        )
+
+
+async def get_salto_scan_cursor(default: int) -> int:
+    """Último id_num probado (exista o no) — punto de partida del escaneo de mañana."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute("SELECT last_checked_id FROM salto_scan_cursor WHERE id = 1")
+        row = await cur.fetchone()
+        return row[0] if row else default
+
+
+async def set_salto_scan_cursor(last_checked_id: int) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "INSERT INTO salto_scan_cursor (id, last_checked_id) VALUES (1, %s) "
+            "ON CONFLICT (id) DO UPDATE SET last_checked_id = EXCLUDED.last_checked_id",
+            (last_checked_id,),
         )

@@ -1,53 +1,52 @@
-"""Scraper conservador del European Training Calendar de SALTO-YOUTH (Training Course,
-España) para `app/scheduler/scrape_salto.py`.
+"""Descubre oportunidades de SALTO-YOUTH escaneando IDs secuenciales de fichas
+(`trainings.salto-youth.net/<id>`) para `app/scheduler/scrape_salto.py`.
 
-SOLO la página 1, en el orden y offset por defecto — NUNCA se tocan `b_offset`, `b_order`
-ni `b_limit`: el `robots.txt` de salto-youth.net prohíbe explícitamente esos tres
-parámetros (investigado 2026-07-25). Con ~10 resultados por página y un filtro tan
-concreto (Training Course + España), es muy poco probable que entren más de 10
-oportunidades nuevas en un solo día — límite conocido y aceptado por el usuario, no una
-sorpresa.
+NUNCA se usa el listado paginado/ordenado (`.../browse/?b_offset=...`): el `robots.txt` de
+salto-youth.net prohíbe explícitamente `b_offset`, `b_order` y `b_limit` (investigado
+2026-07-25). El atajo `trainings.salto-youth.net/<id>` no lleva ninguno de esos tres
+parámetros, así que no cae bajo esa prohibición — y como los IDs son correlativos con el
+alta de cada ficha, escanear hacia arriba desde el último conocido detecta lo nuevo al
+momento, incluso con fecha límite lejana (punto ciego real del enfoque anterior por
+listado, que ordenaba por fecha límite y podía tardar semanas en mostrar algo nuevo).
 
-Cada ficha da un texto en bruto listo para `app.llm.extractor.extract()`, igual que si un
-coordinador lo hubiera escrito a mano — el "cerebro" de extracción es el mismo para
-cualquier fuente, esto solo hace de "boca" nueva (mismo patrón que Telegram/WhatsApp).
+Cada ID probado puede salir:
+- "missing" (404): el ID aún no existe.
+- "draft": existe pero redirige a login — ficha aún no pública, se reintenta más adelante.
+- "public": ficha real, con su HTML.
+
+Cada ficha pública da un texto en bruto listo para `app.llm.extractor.extract()`, igual
+que si un coordinador lo hubiera escrito a mano — el "cerebro" de extracción es el mismo
+para cualquier fuente, esto solo hace de "boca" nueva (mismo patrón que Telegram/WhatsApp).
 """
 from __future__ import annotations
 
 import html as html_lib
 import re
-from datetime import date
 
 import httpx
 
 _UA = "Mozilla/5.0 (compatible; CorradiBot/1.0; +https://proactivefuture.eu)"
 _BASE = "https://www.salto-youth.net"
-_LISTING_PATH = "/tools/european-training-calendar/browse/"
+_TRAININGS_HOST = "trainings.salto-youth.net"
 
-_DETAIL_RE = re.compile(
-    r'href="(https://www\.salto-youth\.net/tools/european-training-calendar/training/[^"]+)"'
-)
 _APPLY_HREF_RE = re.compile(r'href="([^"]+)"[^>]*class="[^"]*callforaction[^"]*"')
 _INFOPACK_RE = re.compile(r'INFOPACK.{0,120}?href="([^"]+)"', re.S)
 _FORWARDED_RE = re.compile(r"forwarded to (https?://\S+?)\.?\)")
-# Párrafo fijo de disclaimer que SALTO mete en TODAS las fichas — bug real encontrado:
-# su posición varía según la ficha (a veces antes del bloque "Apply now!"/fecha límite, a
-# veces después), así que cortar el cuerpo en su posición se comía la fecha límite real en
-# la mitad de los casos (el extractor caía en la estimación por defecto sin avisar). Ahora
-# se ELIMINA el párrafo tal cual, sin importar dónde caiga, en vez de truncar ahí.
+# Párrafo fijo de disclaimer que SALTO mete en TODAS las fichas — su posición varía según
+# la ficha (a veces antes del bloque "Apply now!"/fecha límite, a veces después), así que
+# se ELIMINA el párrafo tal cual en vez de truncar el cuerpo en su posición (bug real
+# encontrado: truncar ahí se comía la fecha límite real en la mitad de los casos).
 _DISCLAIMER_RE = re.compile(r"Disclaimer!.*?for the latest information\.", re.S)
 
-
-def listing_url(today: date) -> str:
-    """Filtro: Training Course (`b_activity_type=4`), España (`b_participating_countries=
-    country-27`), actividades que empiecen desde hoy. Sin `b_offset`/`b_order`/`b_limit`."""
-    return (
-        f"{_BASE}{_LISTING_PATH}?b_keyword=&b_funded_by_yia=0&b_country="
-        f"&b_participating_countries=country-27&b_activity_type=4"
-        f"&b_accessible_for_disabled=0"
-        f"&b_begin_date_after_day={today.day}&b_begin_date_after_month={today.month}"
-        f"&b_begin_date_after_year={today.year}&b_browse=Search+training+offers"
-    )
+# Filtro barato (sin LLM) de tipo + país elegible, sobre la frase fija que SALTO genera en
+# cada ficha ("This <tipo> is for N participants from <países> and recommended for..."):
+# ahorra la llamada a Gemini en fichas claramente irrelevantes. Si no se puede determinar
+# (formato inesperado), se deja pasar — mejor gastar una llamada de más que descartar algo
+# bueno por un fallo de esta detección barata.
+_TYPE_COUNTRY_RE = re.compile(
+    r"This (.+?) is for \d+ participants from (.+?) and recommended for"
+)
+_ELIGIBLE_HINTS = ("spain", "erasmus+ youth programme countries")
 
 
 def _strip_tags(raw_html: str) -> str:
@@ -59,19 +58,35 @@ def _strip_tags(raw_html: str) -> str:
     return "\n".join(line.strip() for line in text.split("\n") if line.strip())
 
 
-async def fetch_listing(client: httpx.AsyncClient, today: date) -> list[str]:
-    """URLs de ficha en la página 1 (orden/offset por defecto), sin duplicados, en el
-    orden en que aparecen."""
-    r = await client.get(listing_url(today), headers={"User-Agent": _UA}, timeout=20)
-    r.raise_for_status()
-    seen: set[str] = set()
-    urls: list[str] = []
-    for m in _DETAIL_RE.finditer(r.text):
-        u = m.group(1)
-        if u not in seen:
-            seen.add(u)
-            urls.append(u)
-    return urls
+def quick_relevance_check(raw_html: str) -> bool | None:
+    """True/False si está claro que (no) es un Training Course abierto a España; None si
+    no se pudo determinar (formato inesperado) — en ese caso, procesar de todas formas."""
+    flat = re.sub(r"\s+", " ", _strip_tags(raw_html))
+    m = _TYPE_COUNTRY_RE.search(flat)
+    if not m:
+        return None
+    activity_type, countries = m.group(1).lower(), m.group(2).lower()
+    if "training course" not in activity_type:
+        return False
+    return any(hint in countries for hint in _ELIGIBLE_HINTS)
+
+
+async def probe_id(client: httpx.AsyncClient, id_num: int) -> dict:
+    """Sonda un ID de ficha. Devuelve {"status": "missing"} | {"status": "draft"} |
+    {"status": "public", "url": ..., "html": ...} | {"status": "error"}."""
+    url = f"http://{_TRAININGS_HOST}/{id_num}"
+    try:
+        r = await client.get(url, headers={"User-Agent": _UA}, timeout=15, follow_redirects=True)
+    except httpx.HTTPError:
+        return {"status": "error"}
+    if r.status_code == 404:
+        return {"status": "missing"}
+    final_url = str(r.url)
+    if "/mysalto/login/" in final_url:
+        return {"status": "draft"}
+    if r.status_code != 200:
+        return {"status": "missing"}
+    return {"status": "public", "url": final_url, "html": r.text}
 
 
 async def _resolve_application_url(client: httpx.AsyncClient, apply_page_url: str) -> str:
@@ -90,15 +105,12 @@ async def _resolve_application_url(client: httpx.AsyncClient, apply_page_url: st
     return apply_page_url
 
 
-async def fetch_opportunity_text(client: httpx.AsyncClient, detail_url: str) -> str | None:
-    """Texto en bruto de una ficha (título, tipo, fechas, lugar, descripción + enlaces de
-    infopack/inscripción añadidos como texto plano al final), listo para el extractor.
-    `None` si la página no tiene la forma esperada — protección ante un cambio de
-    estructura del sitio: mejor no procesar nada que procesar basura."""
-    r = await client.get(detail_url, headers={"User-Agent": _UA}, timeout=20)
-    r.raise_for_status()
-    html = r.text
-    text = _strip_tags(html)
+async def build_opportunity_text(client: httpx.AsyncClient, raw_html: str, detail_url: str) -> str | None:
+    """Texto en bruto de una ficha ya descargada (título, tipo, fechas, lugar, descripción
+    + enlaces de infopack/inscripción añadidos como texto plano al final), listo para el
+    extractor. `None` si la página no tiene la forma esperada — protección ante un cambio
+    de estructura del sitio: mejor no procesar nada que procesar basura."""
+    text = _strip_tags(raw_html)
 
     # El contenido real (título, tipo, fechas, descripción, Apply now!/fecha límite...)
     # empieza justo después de la promo de suscripción por email que precede a toda ficha.
@@ -111,11 +123,11 @@ async def fetch_opportunity_text(client: httpx.AsyncClient, detail_url: str) -> 
 
     lines = [body]
 
-    infopack_m = _INFOPACK_RE.search(html)
+    infopack_m = _INFOPACK_RE.search(raw_html)
     if infopack_m:
         lines.append(f"\nInfopack: {html_lib.unescape(infopack_m.group(1))}")
 
-    apply_m = _APPLY_HREF_RE.search(html)
+    apply_m = _APPLY_HREF_RE.search(raw_html)
     if apply_m:
         apply_url = html_lib.unescape(apply_m.group(1))
         if not apply_url.startswith("http"):
