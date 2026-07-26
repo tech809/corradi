@@ -27,8 +27,28 @@ from app import alerts, pipeline
 from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
+from app.domain.project import make_hash
+from app.llm import embeddings
 
 log = logging.getLogger("corradi.publish_salto_backlog")
+
+
+async def _already_published(fields: dict) -> str | None:
+    """Repite el mismo chequeo de duplicados de `pipeline.preview()` justo antes de
+    publicar de verdad. Bug real encontrado (2026-07-26): las fichas de la cola se vetaron
+    hace días con `preview()`, pero `commit()` no vuelve a comprobar duplicados — si
+    mientras tanto alguien reenvía a mano esa misma oportunidad al bot, se publicaría dos
+    veces sin este chequeo. Devuelve el identifier existente si es duplicado, si no None."""
+    existing = await repo.find_by_hash(
+        make_hash(fields.get("title"), fields.get("country_code"), fields.get("start_date"))
+    )
+    if existing:
+        return existing["identifier"]
+    vec = await asyncio.to_thread(embeddings.embed, fields["raw_message"])
+    dup = await repo.find_similar(vec)
+    if not dup:
+        dup = await repo.find_cross_lang_dup(vec, fields.get("country_code"), fields.get("start_date"))
+    return dup["identifier"] if dup else None
 
 
 async def run() -> None:
@@ -40,9 +60,18 @@ async def run() -> None:
         if not due:
             return
 
-        published = failed = 0
+        published = failed = skipped_dup = 0
         for item in due:
             try:
+                dup_identifier = await _already_published(item["fields"])
+                if dup_identifier:
+                    await repo.mark_salto_backlog_published(item["id"], dup_identifier)
+                    skipped_dup += 1
+                    log.info("Backlog SALTO %s ya estaba publicada como %s (reenviada a mano "
+                              "mientras esperaba en la cola) — saltada, no duplicada.",
+                              item["url"], dup_identifier)
+                    continue
+
                 result = await pipeline.commit(
                     item["fields"], source="salto",
                     submitted_by="SALTO-YOUTH (backlog)", submitted_by_id=admin_id,
@@ -58,8 +87,8 @@ async def run() -> None:
                 log.exception("Fallo publicando ficha del backlog SALTO: %s", item["url"])
                 failed += 1
 
-        log.info("Backlog SALTO: %s publicadas, %s fallidas de %s pendientes.",
-                  published, failed, len(due))
+        log.info("Backlog SALTO: %s publicadas, %s ya existían (saltadas), %s fallidas de %s pendientes.",
+                  published, skipped_dup, failed, len(due))
         if failed:
             await alerts.alert(
                 "Publicación del backlog de SALTO con fallos",
