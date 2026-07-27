@@ -17,6 +17,28 @@ STEP 1 - CLASSIFY: decide if it is a REAL opportunity someone can apply to (not 
 chit-chat, not a generic call without an action). Set "is_opportunity": true or false.
 If false, set "reason" to a short explanation and leave the rest null.
 
+- Spain eligibility (READ THE WHOLE TEXT TO THE END, not just the first paragraph): this map
+  is ONLY for people who can actually apply FROM SPAIN. Many listings open with a generic
+  sentence like "for participants from Erasmus+ Programme countries" (which technically
+  includes Spain) but then, further down in the SAME text, narrow it to a SPECIFIC shortlist
+  of target/partner countries via a "participant profile" / "we are looking for" / "who can
+  apply" bullet list (e.g. a named consortium, "SNAC countries", a table of partner
+  countries, "residents of one of the following countries: ..."). Scan the ENTIRE text,
+  including any bullet list of participant requirements, for such a narrower country list.
+  - Treat a country list inside a "participants who are / must be / should be" requirements
+    bullet list as a HARD eligibility requirement for THIS call, even if it was introduced
+    by softer wording earlier such as "priority will be given to..." — in practice a named
+    residency/nationality bullet under "who we are looking for" is the real cutoff, the
+    softer lead-in sentence does not make it optional.
+  - If such a list exists anywhere and Spain is NOT one of the countries named in it, set
+    "is_opportunity": false, with "reason" naming which countries it's actually restricted to.
+  - If you are genuinely unsure whether a mentioned restriction is a hard requirement or a
+    non-binding preference, treat it as a hard requirement and exclude: publishing something
+    Spanish residents can't actually join is worse than skipping something they might have
+    been able to join.
+  - If no such narrower list appears anywhere, or Spain is explicitly one of the countries
+    named in it, treat it as normally open.
+
 STEP 2 - EXTRACT (only if is_opportunity is true). Return ONLY a valid, parseable JSON with
 EXACTLY this structure:
 
