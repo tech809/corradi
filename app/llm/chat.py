@@ -224,7 +224,13 @@ async def _ask_gemini(pregunta: str, catalogo: str) -> dict[str, Any]:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json", temperature=0.2,
-                    max_output_tokens=600,
+                    # 600 se quedaba corto: con catálogos grandes (visto en vivo, 37/49
+                    # abiertas cerrando en <=7 días) el modelo enumeraba cada coincidencia
+                    # una a una y el JSON se cortaba a mitad, rompiendo el parseo. El tope
+                    # real está ahora en el prompt (máx. ~10 ids + resumen); esto es margen
+                    # de seguridad, no la solución — la salida sigue siendo barata (4x el
+                    # precio de la entrada, pero seguimos hablando de fracciones de céntimo).
+                    max_output_tokens=1200,
                 ),
             ),
             attempts=2,  # NO 4: esto es una petición web síncrona, no puede tardar ~15s de backoff
