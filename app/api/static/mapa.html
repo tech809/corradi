@@ -145,7 +145,7 @@
      uno con su propio criterio de cuándo mostrarse en línea o colapsado; un único
      punto de entrada es más simple y dado que ahora también vive aquí Edad y
      Urgencia, agruparlos así escala mejor que seguir añadiendo botones a la barra.
-     Misma clase para "✨ Preguntar" — Buscar / Preguntar / Filtros son las tres
+     Misma clase para "💬 Preguntar" — Buscar / Preguntar / Filtros son las tres
      formas de encontrar algo, agrupadas donde ya mira el usuario. */
   .filters-btn {
     display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 13px;
@@ -264,7 +264,14 @@
      (ver cardHTML()) — el chat no es una pantalla aparte, es otra puerta a las
      mismas fichas. */
   .chat-body { padding: 16px 20px 4px; }
-  .chat-suggestions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  /* Una sola fila SIEMPRE (escritorio y móvil) — en vez de envolver a varias líneas,
+     si no caben todas se desliza en horizontal (más notorio en móvil, pero mismo
+     mecanismo en los dos). Chips más compactos que los del resto del panel. */
+  .chat-suggestions {
+    display: flex; flex-wrap: nowrap; gap: 4px; margin-top: 12px;
+    overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin;
+  }
+  .chat-suggestions .chip { flex: none; white-space: nowrap; padding: 6px 8px; font-size: 11.5px; gap: 4px; }
   .chat-log { display: flex; flex-direction: column; gap: 18px; padding: 16px 20px; max-height: calc(70vh - 158px); overflow-y: auto; }
   .chat-turn { display: flex; flex-direction: column; gap: 10px; }
   .chat-q {
@@ -615,7 +622,7 @@
   </div>
 
   <button type="button" class="filters-btn" id="chatToggle" aria-haspopup="dialog">
-    <span aria-hidden="true">✨</span> Preguntar
+    <span aria-hidden="true">💬</span> Preguntar
   </button>
   <button type="button" class="filters-btn" id="filtersToggle" aria-haspopup="dialog">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
@@ -626,7 +633,7 @@
 
 <dialog id="chatDialog" class="info-dialog" aria-labelledby="chatTitle">
   <div class="info-head">
-    <h2 id="chatTitle">Preguntar sobre las oportunidades</h2>
+    <h2 id="chatTitle">Encuentra lo que mejor te encaja</h2>
     <button type="button" class="info-close" id="chatClose" aria-label="Cerrar">✕</button>
   </div>
 
@@ -639,8 +646,8 @@
       compartas datos personales en el mensaje.</p>
       <div class="chat-suggestions" id="chatSuggestions">
         <button type="button" class="chip" data-q="¿Qué cierra esta semana?">⏳ ¿Qué cierra esta semana?</button>
-        <button type="button" class="chip" data-q="Busco algo de medio ambiente">🌱 Busco algo de medio ambiente</button>
-        <button type="button" class="chip" data-q="Busco algo en Italia">🇮🇹 Busco algo en Italia</button>
+        <button type="button" class="chip" data-q="Formación en juventud">🎓 Formación en juventud</button>
+        <button type="button" class="chip" data-q="YE en el sur de Europa">🧭 YE en el sur de Europa</button>
       </div>
     </div>
     <div class="chat-log" id="chatLog"></div>
@@ -782,10 +789,11 @@
     <h3>Saca el máximo partido al mapa</h3>
     <ul>
       <li><strong>🔍 Buscar</strong> — por país, ciudad o temática, arriba a la izquierda.</li>
-      <li><strong>✨ Preguntar</strong> — pregunta con tus palabras qué buscas ("algo en Italia
+      <li><strong>💬 Preguntar</strong> — pregunta con tus palabras qué buscas ("algo en Italia
       para mayores de 25", "qué hay de medio ambiente") y responde solo sobre las
-      oportunidades abiertas ahora mismo, citando fichas reales. La pregunta se envía a
-      Google Gemini para interpretarla — no escribas datos personales ahí.</li>
+      oportunidades abiertas ahora mismo, citando fichas reales. No escribas datos
+      personales ahí — la pregunta se procesa fuera para interpretarla (más detalle en
+      la política de privacidad).</li>
       <li><strong>Filtros</strong> — tipo, urgencia, edad, fechas y país, todos juntos en un
       solo panel: combínalos, por ejemplo "Training Course" + "tengo 22 años" + "Italia"
       + "próximos 2 meses" a la vez. <strong>⏳ Cierran pronto</strong> y <strong>🆕 Nuevo</strong>
@@ -1528,7 +1536,10 @@
     }
 
     log.appendChild(turn);
-    log.scrollTop = log.scrollHeight;
+    // El PRINCIPIO del turno nuevo queda arriba del todo, no el final — con
+    // varias tarjetas de resultado, saltar al fondo del log escondía la
+    // respuesta y el aviso por encima del scroll.
+    turn.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   function sendChatQuestion(q) {
@@ -1549,7 +1560,7 @@
     pending.appendChild(qEl);
     pending.appendChild(skel);
     log.appendChild(pending);
-    log.scrollTop = log.scrollHeight;
+    pending.scrollIntoView({ block: "start", behavior: "smooth" });
 
     fetch("/api/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -1838,11 +1849,23 @@
         buildCountries();
         buildMonths();
         resetFilters();
+        var params = new URLSearchParams(location.search);
         // Enlace profundo (?o=IDENTIFICADOR): abre esa oportunidad directamente.
-        var wanted = new URLSearchParams(location.search).get("o");
+        var wanted = params.get("o");
         if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
           if (isMobileQuery && isMobileQuery.matches) setMobileView("map");
           focusOpportunity(wanted, true);
+        }
+        // Enlace directo al chat (?preguntar o ?preguntar=texto) — para promocionarlo
+        // sin depender de que la gente encuentre el botón sola. NO se autoenvía la
+        // pregunta (evitaría gastar Gemini con crawlers/previas de enlaces): solo abre
+        // el diálogo y, si trae texto, lo deja escrito listo para enviar a mano.
+        if (params.has("preguntar")) {
+          openChat();
+          var prefill = params.get("preguntar");
+          if (prefill && prefill !== "1" && prefill !== "true") {
+            document.getElementById("chatInput").value = prefill;
+          }
         }
       })
       .catch(function (err) {
