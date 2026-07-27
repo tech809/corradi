@@ -135,52 +135,42 @@
   .icon-btn:hover { border-color: var(--muted); color: var(--text); }
   .search-close { display: none; }
 
-  /* Desplegable de tipos. En escritorio el panel va suelto (chips en línea) y el
-     botón se oculta; en móvil pasa a ser un desplegable de verdad (ver media query). */
-  .dd { position: relative; display: flex; }
-  .dd-toggle {
-    display: none; align-items: center; gap: 7px; font: inherit; font-size: 13px;
+  /* Botón único que abre TODOS los filtros agrupados en un solo panel (ver
+     #filtersDialog) — antes eran 3 desplegables sueltos (Tipos/Fechas/Países), cada
+     uno con su propio criterio de cuándo mostrarse en línea o colapsado; un único
+     punto de entrada es más simple y dado que ahora también vive aquí Edad y
+     Urgencia, agruparlos así escala mejor que seguir añadiendo botones a la barra. */
+  .filters-btn {
+    display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 13px;
     font-weight: 550; cursor: pointer; white-space: nowrap;
     background: var(--bg); color: var(--text); border: 1px solid var(--line);
-    padding: 10px 14px; border-radius: 999px;
+    padding: 10px 14px; border-radius: 999px; margin-left: auto;
   }
-  .dd-toggle[aria-expanded="true"] { border-color: var(--brand); }
+  .filters-btn:hover { border-color: var(--muted); }
   .dd-count {
     background: var(--brand); color: #fff; font-size: 11px; font-weight: 700;
     min-width: 18px; height: 18px; border-radius: 999px;
     display: inline-flex; align-items: center; justify-content: center; padding: 0 5px;
   }
 
-  /* "Compact": SIEMPRE colapsado en un desplegable (Países, Fechas), a diferencia de
-     Tipos, que en escritorio se enseña expandido en línea y solo se colapsa en móvil
-     (ver media query más abajo). Así no ocupan una fila entera, viven en la misma
-     barra que el buscador y se agrupan al borde derecho. Selectores con varias clases
-     a propósito: más especificidad que las reglas de `.chips` de la media query, para
-     que estas ganen siempre sin depender del orden de aparición en el CSS. */
-  .dd.compact .dd-toggle { display: inline-flex; }
-  .dd.compact .dd-panel {
-    display: flex; position: absolute; top: calc(100% + 8px); right: 0; left: auto; z-index: 600;
-    flex-direction: column; align-items: stretch; gap: 2px; min-width: 230px;
-    max-height: 60vh; overflow-y: auto;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
-    padding: 8px; box-shadow: var(--shadow);
-    opacity: 0; transform: scale(.97) translateY(-6px); pointer-events: none;
-    transition: opacity .14s ease, transform .14s ease;
+  /* ── Panel de filtros (dialog) ────────────────────────────────────────────
+     Reutiliza la misma "chrome" que la ventana de información (cabecera fija +
+     cuerpo con scroll + fondo oscurecido) — mismo componente visual, contenido
+     distinto — y le añade un pie fijo con "Limpiar" + nº de resultados en vivo. */
+  .fp-section:not(:first-child) { margin-top: 4px; }
+  .fp-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted-2); }
+  .age-field { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 550; }
+  .age-field input {
+    width: 76px; font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); text-align: center;
   }
-  .dd.compact.open .dd-panel { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
-  .dd.compact .dd-panel .chip {
-    border-radius: 9px; border-color: transparent; background: transparent;
-    justify-content: flex-start; padding: 11px 12px; font-size: 13.5px;
+  .fp-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 20px; border-top: 1px solid var(--line);
+    position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 16px 16px;
   }
-  .dd.compact .dd-panel .chip:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
-  .dd.compact .dd-panel .chip[aria-pressed="true"] { border-color: transparent; }
-  .dd.compact .dd-panel .chip::after {
-    content: "✓"; margin-left: auto; font-weight: 700; color: var(--brand); opacity: 0;
-  }
-  .dd.compact .dd-panel .chip[aria-pressed="true"]::after { opacity: 1; }
-  /* El primero del grupo de la derecha (Fechas) absorbe el hueco y empuja a los dos
-     (Fechas + Países) hasta el borde derecho de la barra, sin ocupar fila propia. */
-  #datesDd { margin-left: auto; }
+  .fp-foot .reset { padding: 8px 4px; }
+  .fp-foot .btn.primary { padding: 10px 18px; font-size: 13.5px; font-weight: 650; }
 
   /* Filtro de fechas: dos submodos, meses (por defecto, más simple) o rango exacto. */
   .date-mode-switch {
@@ -195,22 +185,13 @@
   .mode-btn[aria-pressed="true"] {
     background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand);
   }
-  /* Rejilla 2×4 con los próximos 8 meses: alineados y del mismo tamaño (más limpio que
-     el flex-wrap irregular de antes). */
-  .month-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px; width: 232px; }
-  .dd.compact .dd-panel .month-chips .chip { justify-content: center; flex: none; border-radius: 10px; }
-  .dd.compact .dd-panel .month-chips .chip::after { content: none; }
+  /* Rejilla 2 columnas con los próximos 8 meses: alineados y del mismo tamaño. */
+  .month-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .month-chips .chip { justify-content: center; }
   /* "Todos los meses" no es un mes: ocupa las 2 columnas y va primero, como acción de
      reset — sin esto, una vez aislado un mes concreto no había forma de volver a "todos"
      salvo el botón general de Limpiar filtros (que además borra el resto de filtros). */
-  .dd.compact .dd-panel .month-chips .chip.all-months { grid-column: 1 / -1; font-weight: 650; }
-  /* Con el mismo prefijo (y una clase más) que la regla genérica de "chip activo del
-     panel" — si no, esta pierde el empate de especificidad y el border-color de la
-     genérica (transparent) gana, dejando los meses elegidos sin marcar visualmente. */
-  .dd.compact .dd-panel .month-chips .chip[aria-pressed="true"] {
-    background: color-mix(in srgb, var(--brand) 16%, var(--surface));
-    border-color: color-mix(in srgb, var(--brand) 45%, transparent); color: var(--text);
-  }
+  .month-chips .chip.all-months { grid-column: 1 / -1; font-weight: 650; }
   .range-inputs { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 2px; }
   /* El atributo HTML `hidden` por sí solo pierde contra el `display:flex` de arriba (mi
      regla tiene más especificidad que la hoja de estilos por defecto) — hay que
@@ -432,13 +413,15 @@
        nada en esta segunda línea — sin esto, el "?" quedaba pegado a "Ver canal" en
        vez de ir al borde derecho del todo. */
     #infoBtn { margin-left: auto; }
-    /* UNA sola fila de filtros: [lupa] [Tipos ▾] [Países ▾]. El buscador vive
-       colapsado tras la lupa y, al abrirlo, ocupa la fila entera tapando a los otros
-       dos — así nunca hay dos filas compitiendo por el ancho. */
+    /* UNA sola fila de filtros: [lupa] [Filtros]. El buscador vive colapsado tras la
+       lupa y, al abrirlo, ocupa la fila entera tapando al botón de Filtros — así
+       nunca hay dos filas compitiendo por el ancho. El panel de Filtros en sí es el
+       mismo <dialog> centrado que en escritorio (ver #filtersDialog), no hace falta
+       una variante "flotante" aparte para móvil. */
     .filters { padding: 9px 14px; gap: 8px; flex-wrap: nowrap; }
     .icon-btn { display: inline-flex; }
     .search { display: none; }
-    body.searching .icon-btn, body.searching .dd { display: none; }
+    body.searching .icon-btn, body.searching .filters-btn { display: none; }
     body.searching .search { display: block; flex: 1 1 auto; max-width: none; min-width: 0; }
     .search-close {
       display: block; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
@@ -446,36 +429,6 @@
       background: none; border: 0; color: var(--muted);
     }
     input[type="search"] { padding-right: 38px; }
-
-    .dd-toggle { display: inline-flex; }
-    /* El panel (de tipos o de países) pasa a desplegable flotante. Siempre en el DOM
-       (nunca display:none) para poder animar con opacidad+escala; al estar en
-       position:absolute no ocupa sitio ni afecta al layout mientras está "cerrado". */
-    .chips {
-      display: flex; position: absolute; top: calc(100% + 8px); left: 0; z-index: 600;
-      flex-direction: column; align-items: stretch; gap: 2px; min-width: 226px;
-      max-height: 60vh; overflow-y: auto;
-      background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
-      padding: 8px; box-shadow: var(--shadow);
-      opacity: 0; transform: scale(.97) translateY(-6px); pointer-events: none;
-      transition: opacity .14s ease, transform .14s ease;
-    }
-    .dd.open .chips { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
-    /* Dentro del desplegable los chips son filas, no píldoras */
-    .dd.open .chip {
-      border-radius: 9px; border-color: transparent; background: transparent;
-      justify-content: flex-start; padding: 11px 12px; font-size: 13.5px;
-    }
-    .dd.open .chip:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
-    .dd.open .chip[aria-pressed="true"] { border-color: transparent; }
-    /* Marca de selección: hace que "elegido" no dependa solo del fondo tintado */
-    .dd.open .chip::after {
-      content: "✓"; margin-left: auto; font-weight: 700; color: var(--brand); opacity: 0;
-    }
-    .dd.open .chip[aria-pressed="true"]::after { opacity: 1; }
-    /* "Cierran pronto" es un filtro de otra naturaleza (urgencia, no categoría):
-       se separa visualmente del resto con una línea. */
-    .dd.open .chip[data-type="soon"] { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 13px; }
 
     .reset { display: none; }
     /* Objetivos táctiles MÁS grandes en móvil, no más pequeños. */
@@ -520,8 +473,9 @@
   </button>
 </header>
 
-<!-- Una sola fila de filtros. En móvil el buscador se colapsa a lupa y los tipos a un
-     desplegable; en escritorio hay sitio y se muestran expandidos (ver CSS). -->
+<!-- Una sola fila de filtros. El buscador vive colapsado tras la lupa en móvil, y un
+     único botón "Filtros" abre TODOS los filtros agrupados en un panel (#filtersDialog)
+     — tipo, urgencia, edad, fechas y país juntos, en vez de un desplegable por grupo. -->
 <div class="filters">
   <button type="button" class="icon-btn" id="searchToggle" aria-label="Buscar" aria-expanded="false">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -532,23 +486,40 @@
     <button type="button" class="search-close" id="searchClose" aria-label="Cerrar búsqueda">✕</button>
   </div>
 
-  <div class="dd" id="typesDd">
-    <button type="button" class="dd-toggle" id="typesToggle" aria-expanded="false" aria-controls="chips">
-      Tipos <span class="dd-count" id="typesCount"></span>
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
-    </button>
-    <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo"></div>
-  </div>
+  <button type="button" class="filters-btn" id="filtersToggle" aria-haspopup="dialog">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+    Filtros <span class="dd-count" id="filtersCount" hidden></span>
+  </button>
+  <button class="reset" id="reset" hidden>Limpiar filtros</button>
+</div>
 
-  <!-- "compact": siempre desplegable (no ocupa fila entera, ni en escritorio); ver CSS -->
-  <div class="dd compact" id="datesDd">
-    <!-- Sin badge numérico a propósito: un "9" aquí se leía como aviso/notificación
-         pendiente en vez de "9 disponibles, todos seleccionados". -->
-    <button type="button" class="dd-toggle" id="datesToggle" aria-expanded="false" aria-controls="datesPanel">
-      Fechas
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
-    </button>
-    <div class="chips dd-panel date-panel" id="datesPanel">
+<dialog id="filtersDialog" class="info-dialog" aria-labelledby="filtersTitle">
+  <div class="info-head">
+    <h2 id="filtersTitle">Filtros</h2>
+    <button type="button" class="info-close" id="filtersClose" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="info-body">
+    <section class="fp-section">
+      <h3>Tipo</h3>
+      <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo"></div>
+    </section>
+
+    <section class="fp-section">
+      <h3>Urgencia</h3>
+      <div class="chips" id="urgencyChips" role="group" aria-label="Filtrar por urgencia">
+        <button type="button" class="chip" data-urgency="soon" aria-pressed="false">⏳ Cierran pronto</button>
+        <button type="button" class="chip" data-urgency="new" aria-pressed="false">🆕 Nuevo</button>
+      </div>
+    </section>
+
+    <section class="fp-section">
+      <h3>Edad</h3>
+      <label class="age-field">Tengo <input type="number" id="ageInput" inputmode="numeric" min="13" max="99" placeholder="años"> años</label>
+      <p class="fp-hint">Oculta lo que no encaje con tu edad, según el rango de participantes de cada oportunidad.</p>
+    </section>
+
+    <section class="fp-section">
+      <h3>Fechas</h3>
       <div class="date-mode-switch" role="tablist" aria-label="Cómo filtrar por fecha">
         <button type="button" class="mode-btn" data-mode="months" aria-pressed="true">Meses</button>
         <button type="button" class="mode-btn" data-mode="range" aria-pressed="false">Fechas exactas</button>
@@ -558,18 +529,18 @@
         <label>Desde <input type="date" id="dateFrom"></label>
         <label>Hasta <input type="date" id="dateTo"></label>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div class="dd compact" id="countryDd">
-    <button type="button" class="dd-toggle" id="countryToggle" aria-expanded="false" aria-controls="countryChips">
-      Países
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
-    </button>
-    <div class="chips dd-panel" id="countryChips" role="group" aria-label="Filtrar por país"></div>
+    <section class="fp-section">
+      <h3>País</h3>
+      <div class="chips" id="countryChips" role="group" aria-label="Filtrar por país"></div>
+    </section>
   </div>
-  <button class="reset" id="reset" hidden>Limpiar filtros</button>
-</div>
+  <div class="fp-foot">
+    <button type="button" class="reset" id="resetInDialog">Limpiar filtros</button>
+    <button type="button" class="btn primary" id="filtersApply">Ver <span id="filtersApplyCount">…</span> oportunidades</button>
+  </div>
+</dialog>
 
 <main>
   <div id="list" aria-live="polite">
@@ -635,10 +606,11 @@
     <h3>Saca el máximo partido al mapa</h3>
     <ul>
       <li><strong>🔍 Buscar</strong> — por país, ciudad o temática, arriba a la izquierda.</li>
-      <li><strong>Filtros de tipo, fechas y país</strong> — combínalos: por ejemplo
-      "Training Course" + "Italia" + "próximos 2 meses" a la vez.</li>
-      <li><strong>⏳ Cierran pronto</strong> y <strong>🆕 Nuevo</strong> — para ver primero lo
-      que tiene más prisa o lo que se acaba de publicar.</li>
+      <li><strong>Filtros</strong> — tipo, urgencia, edad, fechas y país, todos juntos en un
+      solo panel: combínalos, por ejemplo "Training Course" + "tengo 22 años" + "Italia"
+      + "próximos 2 meses" a la vez. <strong>⏳ Cierran pronto</strong> y <strong>🆕 Nuevo</strong>
+      viven ahí dentro, en su propio grupo, para ver primero lo que tiene más prisa o lo
+      que se acaba de publicar.</li>
       <li><strong>☰ Lista / Mapa</strong> — en el móvil alternas entre las dos vistas con la
       burbuja de abajo; en escritorio se ven a la vez.</li>
       <li><strong>🔗 Compartir</strong> (arriba a la derecha de cada tarjeta) — genera un
@@ -697,7 +669,7 @@
   var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
   var SOON_DAYS = 7;
 
-  var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false };
+  var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null };
   var dateMode = "months";   // "months" | "range" — submodo del filtro de fechas
   var all = [], shown = [], markers = {}, map, layer, activeId = null;
   var isMobileQuery = window.matchMedia && window.matchMedia("(max-width: 880px)");
@@ -838,6 +810,13 @@
     if (!matchesDate(o)) return false;
     if (state.soon) { var d = daysLeft(o.application_deadline); if (d === null || d > SOON_DAYS) return false; }
     if (state.isNewFilter && !isNew(o)) return false;
+    // Edad: solo oculta si el dato existe Y no encaja — sin min/max conocidos (o solo
+    // uno de los dos), no se descarta, mismo criterio permisivo que el resto del mapa
+    // ante datos ausentes.
+    if (state.age != null) {
+      if (o.participant_min_age != null && state.age < o.participant_min_age) return false;
+      if (o.participant_max_age != null && state.age > o.participant_max_age) return false;
+    }
     if (state.q) {
       var hay = [o.title, o.topic, o.location, countryName(o.country_code), o.summary,
                  typeOf(o).label].join(" ").toLowerCase();
@@ -877,7 +856,23 @@
     var dateDirty = dateMode === "range"
       ? !!(state.dateFrom || state.dateTo)
       : !sameSet(state.months, defaultMonthSet());
-    return !!(state.q || state.soon || state.isNewFilter || !sameTypes || !sameCountries || dateDirty);
+    return !!(state.q || state.soon || state.isNewFilter || state.age != null || !sameTypes || !sameCountries || dateDirty);
+  }
+
+  // Nº de GRUPOS de filtro tocados (no la suma de chips) — para el badge del botón
+  // "Filtros": un "1" cuando solo has tocado Edad se lee mejor que un número que
+  // fuera contando chips sueltos de grupos distintos sin decir de qué son.
+  function activeFilterGroups() {
+    var n = 0;
+    if (!sameSet(state.types, defaultTypeSet())) n++;
+    if (!sameSet(state.countries, defaultCountrySet())) n++;
+    var dateDirty = dateMode === "range"
+      ? !!(state.dateFrom || state.dateTo)
+      : !sameSet(state.months, defaultMonthSet());
+    if (dateDirty) n++;
+    if (state.soon || state.isNewFilter) n++;
+    if (state.age != null) n++;
+    return n;
   }
 
   function apply() {
@@ -891,11 +886,10 @@
     document.getElementById("statOpenModal").textContent = openText;
     document.getElementById("reset").hidden = !isDirty();
 
-    // Nº de filtros activos SOLO en Tipos (en móvil el panel está cerrado, así que sin
-    // este contador no se vería cuántos hay puestos). Fechas/Países NO llevan número:
-    // con el estado "todos" por defecto, un "9" ahí parecía una notificación pendiente.
-    document.getElementById("typesCount").textContent =
-      state.types.size + (state.soon ? 1 : 0) + (state.isNewFilter ? 1 : 0);
+    var groups = activeFilterGroups();
+    var badge = document.getElementById("filtersCount");
+    badge.textContent = groups; badge.hidden = !groups;
+    document.getElementById("filtersApplyCount").textContent = n;
   }
 
   // ── Lista ────────────────────────────────────────────────────────
@@ -1063,21 +1057,30 @@
   function buildChips() {
     var box = document.getElementById("chips"), html = "";
     Object.keys(TYPES).forEach(function (k) {
-      html += '<button class="chip" data-type="' + k + '" aria-pressed="false">' +
+      html += '<button type="button" class="chip" data-type="' + k + '" aria-pressed="false">' +
               '<span class="dot"></span>' + TYPES[k].label + "</button>";
     });
-    html += '<button class="chip" data-type="soon" aria-pressed="false">⏳ Cierran pronto</button>';
-    html += '<button class="chip" data-type="new" aria-pressed="false">🆕 Nuevo</button>';
     box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
       chip.addEventListener("click", function () {
-        var k = chip.dataset.type, on;
+        var k = chip.dataset.type, on = !state.types.has(k);
+        if (on) state.types.add(k); else state.types.delete(k);
+        chip.setAttribute("aria-pressed", String(on));
+        apply();
+      });
+    });
+  }
+
+  // "Cierran pronto"/"Nuevo" son de otra naturaleza que Tipo (urgencia, no categoría):
+  // grupo propio dentro del panel, no mezclado con los chips de tipo — su marcado ya
+  // viene fijo en el HTML, solo hace falta cablear el clic.
+  function buildUrgencyChips() {
+    var box = document.getElementById("urgencyChips");
+    Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
+      chip.addEventListener("click", function () {
+        var k = chip.dataset.urgency, on;
         if (k === "soon") { state.soon = on = !state.soon; }
-        else if (k === "new") { state.isNewFilter = on = !state.isNewFilter; }
-        else {
-          on = !state.types.has(k);
-          if (on) state.types.add(k); else state.types.delete(k);
-        }
+        else { state.isNewFilter = on = !state.isNewFilter; }
         chip.setAttribute("aria-pressed", String(on));
         apply();
       });
@@ -1191,15 +1194,16 @@
     updateStatsBar();   // ocultar la barra en vista mapa; recalcular en vista lista
   }
 
-  // Estado "por defecto": en móvil, todos los tipos activos salvo "cierran pronto"
-  // (el usuario puede quitar/poner cada uno); en escritorio, sin filtro (como antes).
+  // Estado "por defecto": todos los tipos y países activos (se ven de un vistazo y se
+  // van QUITANDO en vez de añadiendo), sin urgencia/edad/fechas concretas.
   function resetFilters() {
     state = {
       q: "", types: defaultTypeSet(), countries: defaultCountrySet(),
-      months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false
+      months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null
     };
     dateMode = "months";
     document.getElementById("q").value = "";
+    document.getElementById("ageInput").value = "";
     document.getElementById("dateFrom").value = "";
     document.getElementById("dateTo").value = "";
     document.getElementById("monthChips").hidden = false;
@@ -1208,8 +1212,10 @@
       b.setAttribute("aria-pressed", String(b.dataset.mode === "months"));
     });
     Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (c) {
-      var k = c.dataset.type;
-      c.setAttribute("aria-pressed", String(k !== "soon" && k !== "new" && state.types.has(k)));
+      c.setAttribute("aria-pressed", String(state.types.has(c.dataset.type)));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#urgencyChips .chip"), function (c) {
+      c.setAttribute("aria-pressed", "false");
     });
     Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) {
       c.setAttribute("aria-pressed", String(state.countries.has(c.dataset.country)));
@@ -1238,28 +1244,21 @@
       apply();
     });
 
-    // Desplegables (tipos y países): mismo comportamiento para los dos, así que se
-    // cablean en bucle en vez de duplicar la lógica de abrir/cerrar dos veces.
-    var dds = [["typesDd", "typesToggle"], ["datesDd", "datesToggle"], ["countryDd", "countryToggle"]].map(function (pair) {
-      var dd = document.getElementById(pair[0]);
-      var toggle = document.getElementById(pair[1]);
-      toggle.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var open = dd.classList.toggle("open");
-        toggle.setAttribute("aria-expanded", String(open));
-        // Solo uno abierto a la vez: abrir Países con Tipos ya abierto los solaparía.
-        if (open) dds.forEach(function (o) { if (o.dd !== dd) closeDd(o); });
-      });
-      return { dd: dd, toggle: toggle };
-    });
-    function closeDd(o) { o.dd.classList.remove("open"); o.toggle.setAttribute("aria-expanded", "false"); }
-    // Cerrar al tocar fuera; los clics de dentro no deben cerrarlo (se eligen varios).
-    document.addEventListener("click", function (e) {
-      dds.forEach(function (o) { if (!o.dd.contains(e.target)) closeDd(o); });
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") dds.forEach(closeDd);
-    });
+    // Panel único de filtros (Tipo+Urgencia+Edad+Fechas+País agrupados): mismo patrón
+    // de <dialog> que la ventana de información, ver justo debajo. "Ver N oportunidades"
+    // solo cierra — el filtrado ya se ha ido aplicando en vivo con cada chip/campo.
+    var filtersDlg = document.getElementById("filtersDialog");
+    document.getElementById("filtersToggle").addEventListener("click", function () { filtersDlg.showModal(); });
+    document.getElementById("filtersClose").addEventListener("click", function () { filtersDlg.close(); });
+    document.getElementById("filtersApply").addEventListener("click", function () { filtersDlg.close(); });
+    document.getElementById("resetInDialog").addEventListener("click", resetFilters);
+    filtersDlg.addEventListener("click", function (e) { if (e.target === filtersDlg) filtersDlg.close(); });
+
+    document.getElementById("ageInput").addEventListener("input", debounce(function () {
+      var v = parseInt(document.getElementById("ageInput").value, 10);
+      state.age = isFinite(v) && v > 0 ? v : null;
+      apply();
+    }, 180));
 
     // Ventana de información
     var dlg = document.getElementById("infoDialog");
@@ -1418,6 +1417,7 @@
   function boot() {
     initMap();
     buildChips();
+    buildUrgencyChips();
     wire();
     setMobileView("map");
     loadStats();
