@@ -22,7 +22,7 @@ El nombre de la organización tampoco aparece de forma fiable en `title` ni `sum
 ## Tier 0 — Rápidas, solo tocar `mapa.html`, datos ya en la API
 
 1. ~~**Filtro por edad**~~ — **HECHO (2026-07-27)**. Campo "Tengo N años" dentro del panel
-   agrupado de filtros. De paso, ese panel unificó Tipos/Fechas/Países (antes tres
+   agrupado de filtros. De paso, ese panel unificó Categoría/Fechas/Países (antes tres
    desplegables sueltos) y separó Urgencia como grupo propio, de modo que añadir filtros
    nuevos ya no implica meter otro botón en la barra.
 2. **Badge de coste**: `cost = 0` → "Gratis · financiado por Erasmus+". Dato ya en la API, sin usar en la tarjeta.

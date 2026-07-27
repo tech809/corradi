@@ -367,10 +367,11 @@ Mapa interactivo de las oportunidades **abiertas**, servido por la propia API en
 sin claves de API ni coste). El resumen diario lo enlaza al final si `MAP_PUBLIC_URL` está
 definida.
 
-**Qué hace:** pines por tipo (Youth Exchange azul · Training Course amarillo · ECS verde ·
-Workshop rosa), filtros por texto, tipo, país, fechas (meses o rango de deadline) y "cierran
-pronto" (≤7 días), lista lateral sincronizada con el mapa (clic en tarjeta → vuela al pin y
-abre su ficha), badge "🆕 Nuevo" en lo publicado en las últimas 24h, badge de urgencia
+**Qué hace:** pines por categoría (Youth Exchange azul · Training Course amarillo · ECS verde ·
+Workshop rosa), filtros agrupados en un solo panel — texto, categoría, edad, país, fechas
+(meses o rango de deadline) y "cierran pronto" (≤7 días) —, lista lateral sincronizada con el
+mapa (clic en tarjeta → vuela al pin y abre su ficha), badge "🆕 Nuevo" en lo publicado en las
+últimas 24h, badge de urgencia
 ("Cierra hoy", "Cierra en 3 días"), botón 🔗 para compartir cada ficha, footer con
 estadísticas de visitas y enlaces a inscripción, infopack y post original del canal.
 Responsive; **siempre en modo claro** (a propósito: no sigue el modo oscuro del sistema, para

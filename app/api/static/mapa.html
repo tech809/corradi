@@ -475,7 +475,7 @@
 
 <!-- Una sola fila de filtros. El buscador vive colapsado tras la lupa en móvil, y un
      único botón "Filtros" abre TODOS los filtros agrupados en un panel (#filtersDialog)
-     — tipo, urgencia, edad, fechas y país juntos, en vez de un desplegable por grupo. -->
+     — categoría, urgencia, edad, fechas y país juntos, en vez de un desplegable por grupo. -->
 <div class="filters">
   <button type="button" class="icon-btn" id="searchToggle" aria-label="Buscar" aria-expanded="false">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -500,8 +500,8 @@
   </div>
   <div class="info-body">
     <section class="fp-section">
-      <h3>Tipo</h3>
-      <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo"></div>
+      <h3>Categoría</h3>
+      <div class="chips" id="chips" role="group" aria-label="Filtrar por categoría"></div>
     </section>
 
     <section class="fp-section">
@@ -515,7 +515,8 @@
     <section class="fp-section">
       <h3>Edad</h3>
       <label class="age-field">Tengo <input type="number" id="ageInput" inputmode="numeric" min="13" max="99" placeholder="años"> años</label>
-      <p class="fp-hint">Oculta lo que no encaje con tu edad, según el rango de participantes de cada oportunidad.</p>
+      <p class="fp-hint">Oculta lo que no encaje con tu edad. Si una ficha no especifica el rango, se usa el
+      habitual de su categoría (Youth Exchange 18-30, Training Course 18+).</p>
     </section>
 
     <section class="fp-section">
@@ -656,6 +657,14 @@
     WORKSHOP:        { label: "Workshop",        color: "var(--ws)",    hex: "#d55181" }
   };
   var OTHER = { label: "Otras", color: "var(--other)", hex: "#898781" };
+  // Rango de edad "de convocatoria" cuando la ficha concreta no lo dice (frecuente: solo
+  // 32-57% de las oportunidades traen min/max real). Se aplica SOLO al campo que falte —
+  // si una ficha sí trae min_age pero no max_age, el default solo rellena el max_age. ECS
+  // y Workshop no tienen convención fija, así que se quedan sin default (permisivos).
+  var AGE_DEFAULTS = {
+    YOUTH_EXCHANGE:  { min: 18, max: 30 },
+    TRAINING_COURSE: { min: 18, max: null }
+  };
   var COUNTRIES = {
     ES:"España", PT:"Portugal", FR:"Francia", IT:"Italia", DE:"Alemania", AT:"Austria",
     BE:"Bélgica", NL:"Países Bajos", LU:"Luxemburgo", IE:"Irlanda", PL:"Polonia",
@@ -810,12 +819,15 @@
     if (!matchesDate(o)) return false;
     if (state.soon) { var d = daysLeft(o.application_deadline); if (d === null || d > SOON_DAYS) return false; }
     if (state.isNewFilter && !isNew(o)) return false;
-    // Edad: solo oculta si el dato existe Y no encaja — sin min/max conocidos (o solo
-    // uno de los dos), no se descarta, mismo criterio permisivo que el resto del mapa
-    // ante datos ausentes.
+    // Edad: si la ficha no trae min/max, se usa el rango habitual de su categoría
+    // (AGE_DEFAULTS) para ese campo en concreto — sin dato Y sin default para esa
+    // categoría, no se descarta, mismo criterio permisivo que el resto del mapa.
     if (state.age != null) {
-      if (o.participant_min_age != null && state.age < o.participant_min_age) return false;
-      if (o.participant_max_age != null && state.age > o.participant_max_age) return false;
+      var ageDef = AGE_DEFAULTS[o.type] || {};
+      var minAge = o.participant_min_age != null ? o.participant_min_age : ageDef.min;
+      var maxAge = o.participant_max_age != null ? o.participant_max_age : ageDef.max;
+      if (minAge != null && state.age < minAge) return false;
+      if (maxAge != null && state.age > maxAge) return false;
     }
     if (state.q) {
       var hay = [o.title, o.topic, o.location, countryName(o.country_code), o.summary,
@@ -1063,15 +1075,26 @@
     box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
       chip.addEventListener("click", function () {
-        var k = chip.dataset.type, on = !state.types.has(k);
-        if (on) state.types.add(k); else state.types.delete(k);
-        chip.setAttribute("aria-pressed", String(on));
+        var k = chip.dataset.type;
+        // Mismo criterio "aislar al primer clic" que País y Meses: con todas activas
+        // (estado por defecto), el primer clic deja SOLO esa marcada; a partir de ahí,
+        // cada clic suma o quita sobre esa selección — antes esto solo quitaba una a una.
+        if (sameSet(state.types, defaultTypeSet())) {
+          state.types = new Set([k]);
+        } else if (state.types.has(k)) {
+          state.types.delete(k);
+        } else {
+          state.types.add(k);
+        }
+        Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (c) {
+          c.setAttribute("aria-pressed", String(state.types.has(c.dataset.type)));
+        });
         apply();
       });
     });
   }
 
-  // "Cierran pronto"/"Nuevo" son de otra naturaleza que Tipo (urgencia, no categoría):
+  // "Cierran pronto"/"Nuevo" son de otra naturaleza que Categoría (urgencia, no categoría):
   // grupo propio dentro del panel, no mezclado con los chips de tipo — su marcado ya
   // viene fijo en el HTML, solo hace falta cablear el clic.
   function buildUrgencyChips() {
@@ -1244,7 +1267,7 @@
       apply();
     });
 
-    // Panel único de filtros (Tipo+Urgencia+Edad+Fechas+País agrupados): mismo patrón
+    // Panel único de filtros (Categoría+Urgencia+Edad+Fechas+País agrupados): mismo patrón
     // de <dialog> que la ventana de información, ver justo debajo. "Ver N oportunidades"
     // solo cierra — el filtrado ya se ha ido aplicando en vivo con cada chip/campo.
     var filtersDlg = document.getElementById("filtersDialog");
