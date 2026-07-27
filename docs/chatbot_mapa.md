@@ -1,5 +1,16 @@
 # Chatbot del mapa — diseño y coste
 
+> **Estado: backend implementado (2026-07-27).** `app/llm/chat.py`, `POST /api/chat` y
+> `GET /api/chat/status` están escritos, probados (`tests/test_chat.py`, `LLM_PROVIDER=fake`)
+> y desplegados en producción — ver el informe de la sesión de implementación para el
+> detalle de qué se decidió en cada pregunta abierta de §8. **La integración en el frontend
+> (`mapa.html`: botón ✨ Preguntar, `#chatDialog`, tarjetas reutilizadas) quedó pendiente**:
+> `app/api/static/mapa.html` estaba siendo editado en paralelo (rediseño del panel de
+> Filtros a pestañas) durante esta sesión, y añadir el chat encima de un fichero en
+> movimiento arriesgaba un conflicto o una regresión — se deja para una pasada aparte una
+> vez ese rediseño se estabilice. El resto del documento (diseño original, sin tocar) sigue
+> abajo tal cual se escribió.
+
 Diseño (todavía **sin implementar**) de un asistente conversacional en
 `mapa.proactivefuture.eu` para preguntar en lenguaje natural por las oportunidades
 **abiertas**: _"¿hay algo en Italia en octubre para mayores de 25?"_, _"¿qué hay de medio

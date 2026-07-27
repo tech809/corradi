@@ -77,6 +77,20 @@ def extract(raw_text: str, ref_day: date | None = None, corrections: list[str] |
     return fields
 
 
+def chat(pregunta: str, open_ids) -> dict:
+    """Chat 'fake': no interpreta la pregunta de verdad (no hay Gemini), solo devuelve un
+    resultado determinista con el mismo CONTRATO que el proveedor real ({respuesta, ids,
+    aviso}) para poder probar el endpoint/validación de ids sin red ni tokens."""
+    ids = sorted(open_ids)[:3]
+    if not ids:
+        return {"respuesta": "Ahora mismo no hay ninguna oportunidad abierta.", "ids": [], "aviso": None}
+    return {
+        "respuesta": f"He encontrado {len(ids)} que podrían encajar con «{pregunta[:60]}».",
+        "ids": ids,
+        "aviso": None,
+    }
+
+
 def embed(text: str) -> list[float]:
     """Embedding 'fake' por feature hashing de palabras (bag-of-words con signo).
 

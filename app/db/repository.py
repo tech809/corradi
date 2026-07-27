@@ -314,6 +314,51 @@ async def bump_visit() -> dict[str, int]:
         return {"visits": visits, "published": row[0] if row else 0}
 
 
+async def bump_chat_query_counter() -> None:
+    """Contador agregado de preguntas hechas al chat del mapa (para el informe de impacto
+    del KA210) — NO se guarda el texto de la pregunta, solo este total (docs/chatbot_mapa.md §6)."""
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "INSERT INTO counters (key, value) VALUES ('chat_queries', 1) "
+            "ON CONFLICT (key) DO UPDATE SET value = counters.value + 1"
+        )
+
+
+# ── Gasto real del chat del mapa contra Gemini (tabla chat_usage, mes en curso) ─────────
+async def get_chat_usage(month: str) -> dict[str, Any] | None:
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute("SELECT * FROM chat_usage WHERE month = %s", (month,))
+            return await cur.fetchone()
+
+
+async def add_chat_usage(month: str, cost_usd: float) -> dict[str, Any]:
+    """Suma el coste REAL (medido con usage_metadata) de una consulta al chat, y 1 al nº de
+    consultas del mes. Upsert: crea la fila del mes la primera vez que hace falta."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "INSERT INTO chat_usage (month, spent_usd, queries) VALUES (%s, %s, 1) "
+            "ON CONFLICT (month) DO UPDATE SET "
+            "spent_usd = chat_usage.spent_usd + EXCLUDED.spent_usd, "
+            "queries = chat_usage.queries + 1 "
+            "RETURNING spent_usd, queries, alerted",
+            (month, cost_usd),
+        )
+        row = await cur.fetchone()
+        return {"spent_usd": float(row[0]), "queries": row[1], "alerted": row[2]}
+
+
+async def mark_chat_alerted(month: str) -> None:
+    """Marca que ya se avisó a los admins del presupuesto agotado este mes, para no
+    repetir el aviso en cada consulta rechazada (docs/chatbot_mapa.md §8.3)."""
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "INSERT INTO chat_usage (month, alerted) VALUES (%s, TRUE) "
+            "ON CONFLICT (month) DO UPDATE SET alerted = TRUE",
+            (month,),
+        )
+
+
 async def expire_past_deadline(today: date) -> int:
     """Expira las oportunidades cuya fecha límite ya llegó (incluido el propio día: si la
     deadline es hoy, se considera cerrada y no sale en el resumen de esta noche)."""

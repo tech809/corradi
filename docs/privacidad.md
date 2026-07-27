@@ -23,6 +23,12 @@ formal), dentro del proyecto Erasmus+ KA210 "CORRADI-BOT".
   vendemos ni cedemos datos personales a terceros.
 - El texto de cada mensaje se procesa con un modelo de lenguaje (Google Gemini) únicamente
   para estructurar la información; no se usa para perfilar personas.
+- El asistente **✨ Preguntar** del mapa envía tu pregunta a **Google Gemini** para
+  interpretarla y elegir qué oportunidades abiertas encajan. No se guarda el texto de tu
+  pregunta en ningún sitio (ni en claro ni asociado a ti): solo un contador agregado de
+  cuántas preguntas se hacen, para el informe de impacto del proyecto. Tampoco se guarda tu
+  IP; solo se usa un momento, en memoria, para limitar el nº de preguntas por visitante y
+  evitar abusos, y se olvida sola. No escribas datos personales en tu pregunta.
 
 **Conservación**
 - Las oportunidades se conservan mientras tengan valor informativo/histórico. Los datos de

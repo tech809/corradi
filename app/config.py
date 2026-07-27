@@ -89,6 +89,17 @@ class Config:
     whatsapp_allowed_senders: list[str] = field(default_factory=lambda: _phones(os.getenv("WHATSAPP_ALLOWED_SENDERS")))
     twilio_validate_signature: bool = os.getenv("TWILIO_VALIDATE_SIGNATURE", "false").lower() == "true"
 
+    # Chatbot del mapa (pregunta en lenguaje natural sobre las oportunidades abiertas, ver
+    # docs/chatbot_mapa.md). Reutiliza GEMINI_API_KEY y cfg.llm_model, no una clave/modelo aparte.
+    # Tope de gasto mensual real (medido con usage_metadata, no estimado): al alcanzarlo el
+    # endpoint deja de llamar a Gemini hasta que empiece el mes siguiente.
+    chat_monthly_budget_usd: float = float(os.getenv("CHAT_MONTHLY_BUDGET_USD", "5.0"))
+    # Rate-limit por IP en memoria (el proceso `api` corre sin --workers, ver docker/api.Dockerfile).
+    chat_rate_limit_per_hour: int = int(os.getenv("CHAT_RATE_LIMIT_PER_HOUR", "10"))
+    chat_rate_limit_per_day: int = int(os.getenv("CHAT_RATE_LIMIT_PER_DAY", "30"))
+    # Cuánto se cachea en memoria el catálogo compacto de abiertas antes de reconstruirlo.
+    chat_catalog_cache_seconds: int = int(os.getenv("CHAT_CATALOG_CACHE_SECONDS", "180"))
+
     # Instagram (Graph API, cuenta Business/Creator). Vacío = publicación en IG desactivada
     # sin más (no rompe nada, el resto del pipeline sigue igual — mismo patrón que WhatsApp).
     instagram_token: str = os.getenv("INSTAGRAM_LONG_LIVED_TOKEN", "")

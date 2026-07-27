@@ -8,6 +8,7 @@ una columna a `projects`, no se filtra sola. Los datos de quien envía la oportu
 from __future__ import annotations
 
 import re
+import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
@@ -16,6 +17,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse
+from pydantic import BaseModel
 
 from app import geo
 from app.config import cfg
@@ -162,6 +164,66 @@ async def visit() -> dict[str, int]:
     """Suma una visita y devuelve {visits, published} para el pie de estadísticas del mapa.
     Sin caché: cada carga cuenta. Es un contador agregado, no guarda nada de quién visita."""
     return await repo.bump_visit()
+
+
+# ── Chat del mapa (docs/chatbot_mapa.md) ─────────────────────────────────────────────────
+# Rate-limit por IP, ventana deslizante EN MEMORIA: el proceso `api` corre como un único
+# uvicorn sin `--workers` (docker/api.Dockerfile), así que un dict basta — no hace falta
+# Redis. No se guarda la IP en ningún sitio persistente, solo en este dict que muere con
+# el proceso (docs/chatbot_mapa.md §6, privacidad).
+_chat_hits: dict[str, list[float]] = {}
+_CHAT_WINDOW_DAY = 86400
+_CHAT_WINDOW_HOUR = 3600
+
+
+def _client_ip(request: Request) -> str:
+    """La IP real del visitante: la API vive detrás de Caddy, así que `request.client.host`
+    sería siempre la IP del contenedor de Caddy — hay que leer X-Forwarded-For."""
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _chat_rate_limited(ip: str) -> bool:
+    now = time.monotonic()
+    hits = [t for t in _chat_hits.get(ip, ()) if now - t < _CHAT_WINDOW_DAY]
+    hour_hits = [t for t in hits if now - t < _CHAT_WINDOW_HOUR]
+    limited = len(hour_hits) >= cfg.chat_rate_limit_per_hour or len(hits) >= cfg.chat_rate_limit_per_day
+    if not limited:
+        hits.append(now)
+    _chat_hits[ip] = hits
+    return limited
+
+
+class ChatRequest(BaseModel):
+    pregunta: str
+
+
+@app.get("/api/chat/status")
+async def chat_status() -> dict[str, Any]:
+    """El front lo consulta al ABRIR el diálogo del chat (no solo al fallar un envío), para
+    decidir si muestra el formulario o el aviso de presupuesto agotado."""
+    from app.llm import chat as chat_llm
+    return await chat_llm.status()
+
+
+@app.post("/api/chat")
+async def chat(payload: ChatRequest, request: Request) -> dict[str, Any]:
+    """Pregunta en lenguaje natural sobre las oportunidades abiertas. Contrato de respuesta
+    en docs/chatbot_mapa.md §5: {respuesta, ids, aviso} SIEMPRE, incluso ante rate-limit,
+    presupuesto agotado o fallo de Gemini — el front siempre tiene algo que mostrar."""
+    from app.llm import chat as chat_llm
+
+    if _chat_rate_limited(_client_ip(request)):
+        return {
+            "respuesta": "Has hecho demasiadas preguntas seguidas. Espera un poco o usa los filtros del mapa.",
+            "ids": [], "aviso": "rate_limit",
+        }
+    pregunta = (payload.pregunta or "").strip()
+    if not pregunta:
+        raise HTTPException(status_code=400, detail="Falta 'pregunta'")
+    return await chat_llm.ask(pregunta)
 
 
 @app.get("/opportunities")
