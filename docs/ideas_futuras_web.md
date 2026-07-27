@@ -21,7 +21,10 @@ El nombre de la organización tampoco aparece de forma fiable en `title` ni `sum
 
 ## Tier 0 — Rápidas, solo tocar `mapa.html`, datos ya en la API
 
-1. **Filtro por edad**: campo "tengo N años" que oculta oportunidades fuera de `[participant_min_age, participant_max_age]`. El dato ya existe y está relleno en ~70% de los casos.
+1. ~~**Filtro por edad**~~ — **HECHO (2026-07-27)**. Campo "Tengo N años" dentro del panel
+   agrupado de filtros. De paso, ese panel unificó Tipos/Fechas/Países (antes tres
+   desplegables sueltos) y separó Urgencia como grupo propio, de modo que añadir filtros
+   nuevos ya no implica meter otro botón en la barra.
 2. **Badge de coste**: `cost = 0` → "Gratis · financiado por Erasmus+". Dato ya en la API, sin usar en la tarjeta.
 3. **Plazas** (`max_participants`) en la tarjeta: "20 plazas".
 4. **Botón "Añadir al calendario"** por oportunidad (evento con la deadline, ver detalle abajo).
@@ -80,7 +83,7 @@ El nombre de la organización tampoco aparece de forma fiable en `title` ni `sum
 
 ## Notas de implementación para dudas ya resueltas
 
-- **Filtro de edad**: el campo existe y se extrae (`participant_min_age`/`participant_max_age`), ~70%/51% de relleno. Viable ya, sin cambios de esquema.
+- **Filtro de edad**: el campo existe y se extrae (`participant_min_age`/`participant_max_age`), ~70%/51% de relleno. Viable ya, sin cambios de esquema. Ya implementado; con ese relleno parcial, el criterio es **permisivo**: solo se oculta una oportunidad si el dato existe Y no encaja, nunca por faltar el dato (mismo criterio que el resto del mapa).
 - **Añadir al calendario**: no requiere backend. Un botón que genera un `.ics` al vuelo en el propio JS (`data:text/calendar` con `VEVENT` usando `application_deadline` como fecha, o mejor `start_date`/`end_date` para el evento en sí) y lo descarga, o un link `https://calendar.google.com/calendar/render?action=TEMPLATE&...` para Google Calendar directamente. Cada usuario decide si lo guarda en su propio calendario; no se guarda nada en el servidor.
 - **Favoritas**: sí, 100% en el dispositivo del usuario vía `localStorage` (array de `identifier`s). Sin cuentas, sin backend, sin RGPD. Limitación: no sincroniza entre dispositivos del mismo usuario ni sobrevive a borrar datos del navegador — para este caso de uso (visita puntual a un mapa) es suficiente.
 - **Asociación/organizador**: no se captura hoy, 0% de las 41 oportunidades tienen ese dato en ningún campo (ni siquiera embebido en título/resumen de forma fiable). Para la pestaña de asociaciones hay que añadir un campo nuevo al prompt de extracción y a la tabla `projects`, y solo se rellenará hacia adelante (las 41 existentes se quedarían sin ese dato salvo revisión manual).
