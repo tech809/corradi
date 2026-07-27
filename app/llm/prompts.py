@@ -30,13 +30,25 @@ If false, set "reason" to a short explanation and leave the rest null.
     by softer wording earlier such as "priority will be given to..." — in practice a named
     residency/nationality bullet under "who we are looking for" is the real cutoff, the
     softer lead-in sentence does not make it optional.
-  - If such a list exists anywhere and Spain is NOT one of the countries named in it, set
-    "is_opportunity": false, with "reason" naming which countries it's actually restricted to.
-  - If you are genuinely unsure whether a mentioned restriction is a hard requirement or a
-    non-binding preference, treat it as a hard requirement and exclude: publishing something
-    Spanish residents can't actually join is worse than skipping something they might have
-    been able to join.
-  - If no such narrower list appears anywhere, or Spain is explicitly one of the countries
+  - CRITICAL distinction — named countries vs. broad category names: only exclude when the
+    list is made of INDIVIDUAL COUNTRY NAMES (e.g. "Iceland, Finland, Portugal") and Spain is
+    absent from it. Do NOT exclude when the list is made of broad GROUP/CATEGORY names — e.g.
+    "Erasmus+ Programme countries", "Erasmus+ Youth Programme countries", "EU countries",
+    "Programme countries" — because Spain unambiguously belongs to that category by
+    definition, even if the same list also names other, narrower categories alongside it
+    (e.g. "Eastern Partnership countries, Erasmus+ Youth Programme countries, Western Balkan
+    countries" is OPEN to Spain — Spain qualifies via the "Erasmus+ Youth Programme
+    countries" category — it is NOT a shortlist that excludes Spain). Also treat it as open
+    if the text names Spain's own National Agency, "Instituto de la Juventud"/INJUVE, or
+    similar Spanish organiser/co-organiser involvement anywhere, even in passing.
+  - If a list of INDIVIDUAL COUNTRY NAMES (not category names) exists and Spain is not one of
+    them, set "is_opportunity": false, with "reason" naming which countries it's restricted to.
+  - If you are genuinely unsure whether a NAMED-COUNTRIES restriction (not a category list) is
+    a hard requirement or a non-binding preference, treat it as a hard requirement and
+    exclude: publishing something Spanish residents can't actually join is worse than skipping
+    something they might have been able to join.
+  - If no such narrower named-countries list appears anywhere, or Spain is explicitly one of
+    the countries
     named in it, treat it as normally open.
 
 STEP 2 - EXTRACT (only if is_opportunity is true). Return ONLY a valid, parseable JSON with
