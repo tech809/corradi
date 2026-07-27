@@ -204,7 +204,7 @@ async def commit(
     # afectar al resultado de esta función: Telegram (el canal principal) ya se publicó.
     try:
         await repo.enqueue_instagram(opp["id"])
-        if instagram.is_configured():
+        if instagram.is_configured() and await instagram.gap_ok():
             queue_id = await repo.get_instagram_queue_id(opp["id"])
             if queue_id:
                 try:
@@ -216,6 +216,8 @@ async def commit(
                         opp["identifier"], e,
                     )
                     await repo.mark_instagram_failed(queue_id, f"{type(e).__name__}: {e}")
+        # Si no ha pasado el espaciado mínimo, se queda 'pending' tal cual — el barrido de
+        # cada 2h (o el siguiente commit(), si el hueco ya se abrió) la publicará después.
     except Exception:  # noqa: BLE001
         log.exception("Error encolando en Instagram (%s)", opp["identifier"])
 

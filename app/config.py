@@ -97,6 +97,9 @@ class Config:
     # GET /ig/{identifier}/post.png y /story.png) — no un repo aparte, como hacía tur-app.
     instagram_image_base_url: str = os.getenv("INSTAGRAM_IMAGE_BASE_URL", "")
     instagram_max_attempts: int = int(os.getenv("INSTAGRAM_MAX_ATTEMPTS", "5"))
+    # Espaciado mínimo entre publicaciones (sin tope diario, pero que no salgan 2 posts casi
+    # seguidos si dos oportunidades se confirman con minutos de diferencia).
+    instagram_min_gap_minutes: int = int(os.getenv("INSTAGRAM_MIN_GAP_MINUTES", "20"))
 
 
 cfg = Config()

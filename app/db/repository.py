@@ -535,6 +535,16 @@ async def get_instagram_queue_id(project_id: str) -> int | None:
         return row[0] if row else None
 
 
+async def seconds_since_last_instagram_publish() -> float | None:
+    """None si nunca se ha publicado nada — el espaciado mínimo no aplica al primer post."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "SELECT extract(epoch FROM now() - MAX(updated)) FROM instagram_posts WHERE status = 'published'"
+        )
+        row = await cur.fetchone()
+        return row[0] if row and row[0] is not None else None
+
+
 async def list_pending_instagram(max_attempts: int, limit: int = 20) -> list[dict[str, Any]]:
     """Pendientes de publicar: 'pending' de siempre, o 'failed' que aún no ha agotado sus
     intentos (para que el barrido periódico los reintente). Prioriza lo que cierra antes —

@@ -189,11 +189,13 @@ async def get_opportunity(identifier: str) -> dict[str, Any]:
 async def instagram_post_image(identifier: str) -> Response:
     """Imagen del post de feed (1080x1350), la que la Graph API de Instagram descarga al
     publicar — necesita una URL pública, y esta es nuestra propia API en vez de un repo
-    aparte (a diferencia de cómo lo resolvía tur-app, que no tenía servidor propio)."""
+    aparte (a diferencia de cómo lo resolvía tur-app, que no tenía servidor propio).
+    Fecha ABSOLUTA en el sello ("3 de octubre"): un post de feed se ve semanas después de
+    publicarse, y "quedan 2 días" deja de ser cierto — a diferencia de la story."""
     row = await repo.get_by_identifier(identifier)
     if not row:
         raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
-    png = instagram_card.render_feed(row, instagram.days_left_label(row))
+    png = instagram_card.render_feed(row, instagram.deadline_date_label(row))
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 

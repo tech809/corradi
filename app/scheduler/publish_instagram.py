@@ -32,6 +32,12 @@ async def run() -> None:
             return
         log.info("%s oportunidad(es) pendiente(s) de publicar en Instagram.", len(pending))
         for row in pending:
+            if not await instagram.gap_ok():
+                log.info(
+                    "Espaciado mínimo (%s min) aún no cumplido — quedan %s pendiente(s) para el próximo barrido.",
+                    cfg.instagram_min_gap_minutes, len(pending) - pending.index(row),
+                )
+                break
             try:
                 media_id, story_media_id = await instagram.publish_opportunity(row)
                 await repo.mark_instagram_published(row["queue_id"], media_id, story_media_id)

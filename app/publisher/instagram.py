@@ -17,11 +17,15 @@ import logging
 from typing import Any
 
 from app.config import cfg
-from app.publisher.telegram_publisher import _compact_dates, _days_left, _est, _flag
+from app.db import repository as repo
+from app.publisher.telegram_publisher import _compact_dates, _days_left, _est, _flag, _place
 
 log = logging.getLogger("corradi.instagram")
 
 GRAPH = "https://graph.instagram.com"
+
+_MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+          "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
 _HASHTAGS_BY_TYPE = {
     "YOUTH_EXCHANGE": ["#YouthExchange", "#IntercambioJuvenil"],
@@ -41,24 +45,53 @@ def image_urls(identifier: str) -> tuple[str, str]:
     return f"{base}/ig/{identifier}/post.png", f"{base}/ig/{identifier}/story.png"
 
 
+async def gap_ok() -> bool:
+    """True si ya pasó el espaciado mínimo desde la última publicación (o si es la primera
+    vez). Sin tope diario — solo evita que 2 posts salgan casi seguidos si dos oportunidades
+    se confirman con minutos de diferencia."""
+    elapsed = await repo.seconds_since_last_instagram_publish()
+    return elapsed is None or elapsed >= cfg.instagram_min_gap_minutes * 60
+
+
 def days_left_label(opp: dict[str, Any]) -> str:
-    """'quedan N días' / 'cierra mañana' / 'cierra hoy' — misma lógica que el canal/mapa."""
+    """'quedan N días' / 'cierra mañana' / 'cierra hoy' — misma lógica que el canal/mapa.
+    Para la STORY: es contenido efímero (24h), tiene sentido que hable en relativo."""
     deadline = opp.get("application_deadline")
     return _days_left(deadline) if deadline else "inscripción abierta"
+
+
+def deadline_date_label(opp: dict[str, Any]) -> str:
+    """'3 de octubre' — fecha absoluta, para el FEED: un post se queda ahí semanas, y
+    "quedan 2 días" deja de ser cierto en cuanto pasa el tiempo. La fecha absoluta es
+    coherente la vea quien la vea, cuando la vea."""
+    d = opp.get("application_deadline")
+    if not d:
+        return "inscripción abierta"
+    if isinstance(d, str):
+        y, m, day = (int(x) for x in d.split("-"))
+    else:
+        y, m, day = d.year, d.month, d.day
+    return f"{day} de {_MESES[m - 1]}"
 
 
 def build_caption(opp: dict[str, Any]) -> str:
     lead = _flag(opp.get("country_code")) or "🌍"
     lines = [f"{lead} {opp['title']}", ""]
 
-    meta_bits = [b for b in [opp.get("location"), _compact_dates(opp)] if b and b != "fechas por confirmar"]
+    meta_bits = [b for b in [_place(opp), _compact_dates(opp)] if b and b != "fechas por confirmar"]
     if meta_bits:
         lines.append("📍 " + " · 🗓️ ".join(meta_bits))
+    if opp.get("topic"):
+        lines.append(f"🏷️ Temática: {opp['topic']}")
+
+    if opp.get("summary"):
+        lines.append("")
+        lines.append(opp["summary"])
 
     if opp.get("application_deadline"):
-        lines.append(f"⏳ {days_left_label(opp).capitalize()} — {opp['application_deadline']}{_est(opp)}")
-    lines.append("")
-    lines.append("📲 Toda la info y el formulario, en el link de la bio.")
+        lines.append("")
+        lines.append(f"⏳ Fecha límite: {opp['application_deadline']}{_est(opp)} ({days_left_label(opp)})")
+    lines.append("📱 Toda la info en el link de la bio")
     lines.append("")
 
     tags = list(_HASHTAGS_BY_TYPE.get(opp.get("type") or "", [])) + _HASHTAGS_BASE
