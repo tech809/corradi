@@ -21,6 +21,7 @@ from app import geo
 from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
+from app.publisher import instagram, instagram_card
 
 _STATIC = Path(__file__).parent / "static"
 
@@ -182,6 +183,28 @@ async def get_opportunity(identifier: str) -> dict[str, Any]:
     if not row:
         raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
     return _serialize(row)
+
+
+@app.get("/ig/{identifier}/post.png", include_in_schema=False)
+async def instagram_post_image(identifier: str) -> Response:
+    """Imagen del post de feed (1080x1350), la que la Graph API de Instagram descarga al
+    publicar — necesita una URL pública, y esta es nuestra propia API en vez de un repo
+    aparte (a diferencia de cómo lo resolvía tur-app, que no tenía servidor propio)."""
+    row = await repo.get_by_identifier(identifier)
+    if not row:
+        raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
+    png = instagram_card.render_feed(row, instagram.days_left_label(row))
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/ig/{identifier}/story.png", include_in_schema=False)
+async def instagram_story_image(identifier: str) -> Response:
+    """Imagen de la story (1080x1920). Igual que /post.png pero formato retrato completo."""
+    row = await repo.get_by_identifier(identifier)
+    if not row:
+        raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
+    png = instagram_card.render_story(row, instagram.days_left_label(row))
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 
 _SHORT_ID_RE = re.compile(r"^\d{4}-\d{4}$")

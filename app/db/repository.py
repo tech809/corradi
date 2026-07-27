@@ -513,3 +513,63 @@ async def set_salto_scan_cursor(last_checked_id: int) -> None:
             "ON CONFLICT (id) DO UPDATE SET last_checked_id = EXCLUDED.last_checked_id",
             (last_checked_id,),
         )
+
+
+# ── Cola de Instagram ───────────────────────────────────────────────────────
+# Una fila por oportunidad (UNIQUE project_id): 'pending' recién encolada, 'published' ya
+# salió, 'failed' se rindió tras agotar los intentos. En Postgres, no en un JSON en git.
+
+async def enqueue_instagram(project_id: str) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "INSERT INTO instagram_posts (project_id) VALUES (%s) "
+            "ON CONFLICT (project_id) DO NOTHING",
+            (project_id,),
+        )
+
+
+async def get_instagram_queue_id(project_id: str) -> int | None:
+    async with get_pool().connection() as conn:
+        cur = await conn.execute("SELECT id FROM instagram_posts WHERE project_id = %s", (project_id,))
+        row = await cur.fetchone()
+        return row[0] if row else None
+
+
+async def list_pending_instagram(max_attempts: int, limit: int = 20) -> list[dict[str, Any]]:
+    """Pendientes de publicar: 'pending' de siempre, o 'failed' que aún no ha agotado sus
+    intentos (para que el barrido periódico los reintente). Prioriza lo que cierra antes —
+    una oportunidad de última hora no debe esperar cola detrás de una de dentro de 3 meses.
+
+    Exige `p.status = 'open'`: se encola en cuanto se publica en Telegram, tanto si
+    Instagram está configurado como si no — si la cuenta tarda en montarse (semanas) y
+    mientras tanto una oportunidad caduca, no tiene sentido publicarla igual cuando por fin
+    se active. La cola simplemente la ignora, ya expiró."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT ip.id AS queue_id, ip.attempts, p.* "
+                "FROM instagram_posts ip JOIN projects p ON p.id = ip.project_id "
+                "WHERE ip.status IN ('pending', 'failed') AND ip.attempts < %s AND p.status = 'open' "
+                "ORDER BY p.application_deadline IS NULL, p.application_deadline ASC, ip.created ASC "
+                "LIMIT %s",
+                (max_attempts, limit),
+            )
+            return await cur.fetchall()
+
+
+async def mark_instagram_published(queue_id: int, media_id: str, story_media_id: str | None) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "UPDATE instagram_posts SET status = 'published', media_id = %s, "
+            "story_media_id = %s, updated = now() WHERE id = %s",
+            (media_id, story_media_id, queue_id),
+        )
+
+
+async def mark_instagram_failed(queue_id: int, error: str) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "UPDATE instagram_posts SET status = 'failed', attempts = attempts + 1, "
+            "last_error = %s, updated = now() WHERE id = %s",
+            (error[:2000], queue_id),
+        )

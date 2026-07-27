@@ -17,6 +17,7 @@ from app.db import repository as repo
 from app.domain.project import make_hash
 from app.llm import embeddings, extractor
 from app.publisher import handoff
+from app.publisher import instagram
 from app.publisher import opportunity_card
 from app.publisher import telegram_publisher as pub
 
@@ -196,6 +197,27 @@ async def commit(
         except Exception:  # noqa: BLE001
             log.exception("No pude cerrar %s tras el fallo de publicación", opp["identifier"])
         return {"status": "created_no_publish", "opp": opp, "error": str(e)}
+
+    # Instagram: se encola SIEMPRE (red de seguridad — el barrido de cada 2h la reintenta
+    # si algo falla) y se intenta publicar ya mismo si está configurado, para que salga
+    # "casi al instante" en vez de esperar al siguiente barrido. Un fallo aquí NUNCA debe
+    # afectar al resultado de esta función: Telegram (el canal principal) ya se publicó.
+    try:
+        await repo.enqueue_instagram(opp["id"])
+        if instagram.is_configured():
+            queue_id = await repo.get_instagram_queue_id(opp["id"])
+            if queue_id:
+                try:
+                    ig_media_id, ig_story_id = await instagram.publish_opportunity(opp)
+                    await repo.mark_instagram_published(queue_id, ig_media_id, ig_story_id)
+                except Exception as e:  # noqa: BLE001
+                    log.warning(
+                        "Instagram: fallo publicando %s al instante, queda para el barrido: %s",
+                        opp["identifier"], e,
+                    )
+                    await repo.mark_instagram_failed(queue_id, f"{type(e).__name__}: {e}")
+    except Exception:  # noqa: BLE001
+        log.exception("Error encolando en Instagram (%s)", opp["identifier"])
 
     log.info("Usuario %s: creada y publicada %s", submitted_by_id, opp["identifier"])
     return {"status": "created", "opp": opp, "published": message_id is not None}
