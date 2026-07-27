@@ -1,15 +1,13 @@
 # Chatbot del mapa — diseño y coste
 
-> **Estado: backend implementado (2026-07-27).** `app/llm/chat.py`, `POST /api/chat` y
-> `GET /api/chat/status` están escritos, probados (`tests/test_chat.py`, `LLM_PROVIDER=fake`)
-> y desplegados en producción — ver el informe de la sesión de implementación para el
-> detalle de qué se decidió en cada pregunta abierta de §8. **La integración en el frontend
-> (`mapa.html`: botón ✨ Preguntar, `#chatDialog`, tarjetas reutilizadas) quedó pendiente**:
-> `app/api/static/mapa.html` estaba siendo editado en paralelo (rediseño del panel de
-> Filtros a pestañas) durante esta sesión, y añadir el chat encima de un fichero en
-> movimiento arriesgaba un conflicto o una regresión — se deja para una pasada aparte una
-> vez ese rediseño se estabilice. El resto del documento (diseño original, sin tocar) sigue
-> abajo tal cual se escribió.
+> **Estado: implementado y desplegado por completo (2026-07-27).** Backend
+> (`app/llm/chat.py`, `POST /api/chat`, `GET /api/chat/status`, `tests/test_chat.py`) y
+> frontend (`app/api/static/mapa.html`: botón ✨ Preguntar, `#chatDialog`, sugerencias,
+> `cardHTML()`/`wireCards()` reutilizadas, "Ver estas N en el mapa" vía `state.only`) en
+> producción. Verificado en vivo: pregunta real ("Algo en Italia") devolvió 7 fichas
+> reales, botón "Ver en el mapa" e integración con Limpiar filtros funcionando; gasto
+> acumulado del mes tras todas las pruebas de ambas sesiones: bajo 0,01 $. El resto del
+> documento (diseño original, sin tocar) sigue abajo tal cual se escribió.
 
 Diseño (todavía **sin implementar**) de un asistente conversacional en
 `mapa.proactivefuture.eu` para preguntar en lenguaje natural por las oportunidades
