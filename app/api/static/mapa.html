@@ -102,6 +102,11 @@
     transition: all .15s; user-select: none;
   }
   .chip:hover { border-color: var(--muted); }
+  /* Misma especificidad que ".chip" (una clase) contra el "[hidden]{display:none}" del
+     navegador (un atributo) — al empate de especificidad gana quien va DESPUÉS en la
+     hoja, que es ".chip" — así que sin esto, ocultar un chip con `.hidden = true` (el
+     buscador de país) no lo escondía de verdad, solo lo marcaba como tal en el DOM. */
+  .chip[hidden] { display: none; }
   /* El punto lleva SIEMPRE el color de su categoría (aunque el chip no esté
      activo) — así la lista de filtros ya enseña el mismo código de color que
      los pines/tarjetas, en vez de puntos grises indistinguibles en reposo. */
@@ -155,15 +160,91 @@
 
   /* ── Panel de filtros (dialog) ────────────────────────────────────────────
      Reutiliza la misma "chrome" que la ventana de información (cabecera fija +
-     cuerpo con scroll + fondo oscurecido) — mismo componente visual, contenido
-     distinto — y le añade un pie fijo con "Limpiar" + nº de resultados en vivo. */
-  .fp-section:not(:first-child) { margin-top: 4px; }
-  .fp-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted-2); }
-  .age-field { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 550; }
-  .age-field input {
-    width: 76px; font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px;
-    border: 1px solid var(--line); background: var(--bg); color: var(--text); text-align: center;
+     fondo oscurecido) — mismo componente visual, contenido distinto — pero el
+     cuerpo es un sistema de PESTAÑAS (Categoría / Edad / Fechas / País), no una
+     lista larga con scroll: con 5 grupos de filtro (contando Urgencia dentro de
+     Categoría) el scroll único se hacía largo y costaba encontrar cada cosa. */
+  .fp-tabs {
+    display: flex; gap: 4px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex: none;
   }
+  .fp-tab {
+    flex: 1; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+    padding: 9px 6px; border-radius: 9px; border: 1px solid transparent;
+    background: transparent; color: var(--muted);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .fp-tab[aria-selected="true"] { background: color-mix(in srgb, var(--brand) 10%, var(--surface)); color: var(--brand); }
+  .fp-tab .dd-count { font-size: 10px; min-width: 15px; height: 15px; }
+  .fp-pane { display: none; padding: 20px; max-height: calc(70vh - 108px); overflow-y: auto; }
+  .fp-pane[data-shown="true"] { display: block; }
+  .fp-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted-2); }
+
+  /* Categorías: chip compacto de una sola línea (icono + nombre), no la tarjeta
+     alta de antes — las 4 caben casi sin ocupar alto. */
+  .cat-compact { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cat-chip {
+    font: inherit; display: flex; align-items: center; gap: 7px; padding: 7px 13px 7px 7px;
+    border-radius: 999px; border: 1.5px solid var(--line); cursor: pointer; background: var(--bg);
+  }
+  .cat-chip[aria-pressed="true"] {
+    border-color: color-mix(in srgb, var(--c) 55%, transparent);
+    background: color-mix(in srgb, var(--c) 14%, var(--surface));
+  }
+  .cat-chip .dot2 {
+    width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; background: color-mix(in srgb, var(--c) 26%, var(--surface));
+    color: var(--c); font-size: 11px; flex: none;
+  }
+  .cat-chip .name { font-size: 13px; font-weight: 620; color: var(--text); }
+
+  /* Urgencia: SIN encabezado de sección propio — va justo debajo de Categoría en la
+     misma pestaña. Cada fila lleva un "?" que despliega su aclaración al clicar, en
+     vez de un párrafo de ayuda siempre visible. */
+  .sw-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 2px; border-bottom: 1px solid var(--line);
+  }
+  .sw-row:last-of-type { border-bottom: 0; }
+  .sw-row .lbl { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 560; }
+  .info-q {
+    width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--muted-2); background: none;
+    color: var(--muted-2); font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: none;
+  }
+  .info-q:hover, .info-q[aria-expanded="true"] { border-color: var(--brand); color: var(--brand); }
+  .switch {
+    width: 40px; height: 24px; border-radius: 999px; background: var(--line); position: relative;
+    cursor: pointer; flex: none; transition: background .15s; border: 0; padding: 0;
+  }
+  .switch[aria-pressed="true"] { background: var(--brand); }
+  .switch i {
+    position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s;
+  }
+  .switch[aria-pressed="true"] i { transform: translateX(16px); }
+  .info-note { margin: -2px 0 10px; font-size: 12px; color: var(--muted-2); padding: 0 2px; display: none; }
+  .info-note[data-open="true"] { display: block; }
+
+  /* Edad: stepper +/- en vez de un <input type=number> pelado — más cómodo en móvil
+     y visualmente más resuelto que las flechitas nativas del navegador. */
+  .age-stepper { display: flex; align-items: center; gap: 14px; }
+  .step-btn {
+    width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--bg); font: inherit; font-size: 17px; font-weight: 650; cursor: pointer; color: var(--brand);
+  }
+  .age-val { font-size: 22px; font-weight: 700; min-width: 70px; text-align: center; font-variant-numeric: tabular-nums; }
+  .age-val small { display: block; font-size: 11.5px; font-weight: 550; color: var(--muted-2); }
+
+  /* País: buscador que filtra los chips en vivo — con ~22 países una lista plana
+     entera se hacía pesada de escanear. */
+  .country-search {
+    display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 12px; margin-bottom: 12px;
+  }
+  .country-search input {
+    border: 0; background: none; outline: none; font: inherit; font-size: 13.5px; width: 100%; color: var(--text);
+  }
+
   .fp-foot {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 14px 20px; border-top: 1px solid var(--line);
@@ -498,45 +579,61 @@
     <h2 id="filtersTitle">Filtros</h2>
     <button type="button" class="info-close" id="filtersClose" aria-label="Cerrar">✕</button>
   </div>
-  <div class="info-body">
-    <section class="fp-section">
-      <h3>Categoría</h3>
-      <div class="chips" id="chips" role="group" aria-label="Filtrar por categoría"></div>
-    </section>
-
-    <section class="fp-section">
-      <h3>Urgencia</h3>
-      <div class="chips" id="urgencyChips" role="group" aria-label="Filtrar por urgencia">
-        <button type="button" class="chip" data-urgency="soon" aria-pressed="false">⏳ Cierran pronto</button>
-        <button type="button" class="chip" data-urgency="new" aria-pressed="false">🆕 Nuevo</button>
-      </div>
-    </section>
-
-    <section class="fp-section">
-      <h3>Edad</h3>
-      <label class="age-field">Tengo <input type="number" id="ageInput" inputmode="numeric" min="13" max="99" placeholder="años"> años</label>
-      <p class="fp-hint">Oculta lo que no encaje con tu edad. Si una ficha no especifica el rango, se usa el
-      habitual de su categoría (Youth Exchange 18-30, Training Course 18+).</p>
-    </section>
-
-    <section class="fp-section">
-      <h3>Fechas</h3>
-      <div class="date-mode-switch" role="tablist" aria-label="Cómo filtrar por fecha">
-        <button type="button" class="mode-btn" data-mode="months" aria-pressed="true">Meses</button>
-        <button type="button" class="mode-btn" data-mode="range" aria-pressed="false">Fechas exactas</button>
-      </div>
-      <div class="month-chips" id="monthChips"></div>
-      <div class="range-inputs" id="rangeInputs" hidden>
-        <label>Desde <input type="date" id="dateFrom"></label>
-        <label>Hasta <input type="date" id="dateTo"></label>
-      </div>
-    </section>
-
-    <section class="fp-section">
-      <h3>País</h3>
-      <div class="chips" id="countryChips" role="group" aria-label="Filtrar por país"></div>
-    </section>
+  <div class="fp-tabs" role="tablist" aria-label="Grupos de filtro">
+    <button type="button" class="fp-tab" data-tab="cat" role="tab" aria-selected="true">Categoría</button>
+    <button type="button" class="fp-tab" data-tab="edad" role="tab" aria-selected="false">Edad</button>
+    <button type="button" class="fp-tab" data-tab="fechas" role="tab" aria-selected="false">Fechas</button>
+    <button type="button" class="fp-tab" data-tab="pais" role="tab" aria-selected="false">País</button>
   </div>
+
+  <div class="fp-pane" data-pane="cat" data-shown="true">
+    <div class="chips cat-compact" id="chips" role="group" aria-label="Filtrar por categoría"></div>
+
+    <div style="margin-top:20px">
+      <div class="sw-row">
+        <div class="lbl">⏳ Cierran pronto <button type="button" class="info-q" data-note="noteSoon" aria-expanded="false" aria-label="Qué significa">?</button></div>
+        <button type="button" class="switch" data-urgency="soon" aria-pressed="false"><i></i></button>
+      </div>
+      <p class="info-note" id="noteSoon">Cierra en menos de 48 horas.</p>
+
+      <div class="sw-row">
+        <div class="lbl">🆕 Nuevo <button type="button" class="info-q" data-note="noteNew" aria-expanded="false" aria-label="Qué significa">?</button></div>
+        <button type="button" class="switch" data-urgency="new" aria-pressed="false"><i></i></button>
+      </div>
+      <p class="info-note" id="noteNew">Publicada hace 24 horas o menos.</p>
+    </div>
+  </div>
+
+  <div class="fp-pane" data-pane="edad">
+    <p class="fp-hint" style="margin:0 0 14px">¿Cuántos años tienes?</p>
+    <div class="age-stepper">
+      <button type="button" class="step-btn" id="ageMinus" aria-label="Restar un año">−</button>
+      <div class="age-val" id="ageVal">–<small>años</small></div>
+      <button type="button" class="step-btn" id="agePlus" aria-label="Sumar un año">+</button>
+    </div>
+    <input type="number" id="ageInput" hidden min="13" max="99">
+  </div>
+
+  <div class="fp-pane" data-pane="fechas">
+    <div class="date-mode-switch" role="tablist" aria-label="Cómo filtrar por fecha">
+      <button type="button" class="mode-btn" data-mode="months" aria-pressed="true">Meses</button>
+      <button type="button" class="mode-btn" data-mode="range" aria-pressed="false">Fechas exactas</button>
+    </div>
+    <div class="month-chips" id="monthChips"></div>
+    <div class="range-inputs" id="rangeInputs" hidden>
+      <label>Desde <input type="date" id="dateFrom"></label>
+      <label>Hasta <input type="date" id="dateTo"></label>
+    </div>
+  </div>
+
+  <div class="fp-pane" data-pane="pais">
+    <div class="country-search">
+      <span aria-hidden="true">🔍</span>
+      <input type="search" id="countrySearch" placeholder="Buscar país…" autocomplete="off">
+    </div>
+    <div class="chips" id="countryChips" role="group" aria-label="Filtrar por país"></div>
+  </div>
+
   <div class="fp-foot">
     <button type="button" class="reset" id="resetInDialog">Limpiar filtros</button>
     <button type="button" class="btn primary" id="filtersApply">Ver <span id="filtersApplyCount">…</span> oportunidades</button>
@@ -676,10 +773,16 @@
     UA:"Ucrania", MD:"Moldavia", CH:"Suiza", GB:"Reino Unido", LI:"Liechtenstein", AZ:"Azerbaiyán"
   };
   var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
-  var SOON_DAYS = 7;
+  var SOON_DAYS = 2;   // "Cierran pronto" = cierra en menos de 48h (antes: 7 días)
 
   var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null };
   var dateMode = "months";   // "months" | "range" — submodo del filtro de fechas
+  var ageValue = null;       // valor mostrado en el stepper de Edad (null = "–", sin fijar)
+  var CAT_ICONS = { YOUTH_EXCHANGE: "🧭", TRAINING_COURSE: "🎓", VOLUNTEERING: "💚", WORKSHOP: "⚙️" };
+
+  function renderAge() {
+    document.getElementById("ageVal").innerHTML = (ageValue == null ? "–" : ageValue) + "<small>años</small>";
+  }
   var all = [], shown = [], markers = {}, map, layer, activeId = null;
   var isMobileQuery = window.matchMedia && window.matchMedia("(max-width: 880px)");
 
@@ -1066,14 +1169,16 @@
   }
 
   // ── Controles ────────────────────────────────────────────────────
+  // Categoría: chip compacto de una línea (icono + nombre), no la píldora con punto
+  // de antes — más fácil de escanear en la pestaña dedicada.
   function buildChips() {
     var box = document.getElementById("chips"), html = "";
     Object.keys(TYPES).forEach(function (k) {
-      html += '<button type="button" class="chip" data-type="' + k + '" aria-pressed="false">' +
-              '<span class="dot"></span>' + TYPES[k].label + "</button>";
+      html += '<button type="button" class="cat-chip" data-type="' + k + '" aria-pressed="false" style="--c:' + TYPES[k].color + '">' +
+              '<span class="dot2">' + (CAT_ICONS[k] || "") + '</span><span class="name">' + esc(TYPES[k].label) + "</span></button>";
     });
     box.innerHTML = html;
-    Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
+    Array.prototype.forEach.call(box.querySelectorAll(".cat-chip"), function (chip) {
       chip.addEventListener("click", function () {
         var k = chip.dataset.type;
         // Mismo criterio "aislar al primer clic" que País y Meses: con todas activas
@@ -1086,7 +1191,7 @@
         } else {
           state.types.add(k);
         }
-        Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (c) {
+        Array.prototype.forEach.call(box.querySelectorAll(".cat-chip"), function (c) {
           c.setAttribute("aria-pressed", String(state.types.has(c.dataset.type)));
         });
         apply();
@@ -1095,17 +1200,27 @@
   }
 
   // "Cierran pronto"/"Nuevo" son de otra naturaleza que Categoría (urgencia, no categoría):
-  // grupo propio dentro del panel, no mezclado con los chips de tipo — su marcado ya
-  // viene fijo en el HTML, solo hace falta cablear el clic.
+  // sin encabezado de sección propio, van justo debajo de Categoría en la misma pestaña,
+  // como interruptores (no chips) — su marcado ya viene fijo en el HTML, solo hace falta
+  // cablear el clic. Cada uno lleva un "?" que despliega su aclaración al clicar, en vez
+  // de un párrafo de ayuda siempre visible.
   function buildUrgencyChips() {
-    var box = document.getElementById("urgencyChips");
-    Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
-      chip.addEventListener("click", function () {
-        var k = chip.dataset.urgency, on;
+    Array.prototype.forEach.call(document.querySelectorAll(".switch[data-urgency]"), function (sw) {
+      sw.addEventListener("click", function () {
+        var k = sw.dataset.urgency, on;
         if (k === "soon") { state.soon = on = !state.soon; }
         else { state.isNewFilter = on = !state.isNewFilter; }
-        chip.setAttribute("aria-pressed", String(on));
+        sw.setAttribute("aria-pressed", String(on));
         apply();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".info-q"), function (q) {
+      q.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var note = document.getElementById(q.dataset.note);
+        var open = note.getAttribute("data-open") !== "true";
+        note.setAttribute("data-open", String(open));
+        q.setAttribute("aria-expanded", String(open));
       });
     });
   }
@@ -1149,6 +1264,17 @@
         apply();
       });
     });
+  }
+
+  // Con ~22 países la lista plana entera se hacía pesada de escanear: filtra los chips
+  // ya construidos por texto visible, sin tocar el estado de selección de ninguno.
+  function wireCountrySearch() {
+    document.getElementById("countrySearch").addEventListener("input", debounce(function () {
+      var q = document.getElementById("countrySearch").value.trim().toLowerCase();
+      Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (chip) {
+        chip.hidden = q.length > 0 && chip.textContent.toLowerCase().indexOf(q) === -1;
+      });
+    }, 120));
   }
 
   function monthLabel(key) {
@@ -1227,6 +1353,10 @@
     dateMode = "months";
     document.getElementById("q").value = "";
     document.getElementById("ageInput").value = "";
+    ageValue = null;
+    renderAge();
+    document.getElementById("countrySearch").value = "";
+    Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) { c.hidden = false; });
     document.getElementById("dateFrom").value = "";
     document.getElementById("dateTo").value = "";
     document.getElementById("monthChips").hidden = false;
@@ -1234,10 +1364,10 @@
     Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (b) {
       b.setAttribute("aria-pressed", String(b.dataset.mode === "months"));
     });
-    Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (c) {
+    Array.prototype.forEach.call(document.querySelectorAll("#chips .cat-chip"), function (c) {
       c.setAttribute("aria-pressed", String(state.types.has(c.dataset.type)));
     });
-    Array.prototype.forEach.call(document.querySelectorAll("#urgencyChips .chip"), function (c) {
+    Array.prototype.forEach.call(document.querySelectorAll(".switch[data-urgency]"), function (c) {
       c.setAttribute("aria-pressed", "false");
     });
     Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) {
@@ -1277,11 +1407,38 @@
     document.getElementById("resetInDialog").addEventListener("click", resetFilters);
     filtersDlg.addEventListener("click", function (e) { if (e.target === filtersDlg) filtersDlg.close(); });
 
+    // Pestañas del panel de filtros (Categoría / Edad / Fechas / País): solo una visible
+    // a la vez, en vez del scroll único de antes.
+    Array.prototype.forEach.call(document.querySelectorAll(".fp-tab"), function (tab) {
+      tab.addEventListener("click", function () {
+        Array.prototype.forEach.call(document.querySelectorAll(".fp-tab"), function (t) {
+          t.setAttribute("aria-selected", "false");
+        });
+        tab.setAttribute("aria-selected", "true");
+        Array.prototype.forEach.call(document.querySelectorAll(".fp-pane"), function (p) {
+          p.setAttribute("data-shown", String(p.dataset.pane === tab.dataset.tab));
+        });
+      });
+    });
+
     document.getElementById("ageInput").addEventListener("input", debounce(function () {
       var v = parseInt(document.getElementById("ageInput").value, 10);
       state.age = isFinite(v) && v > 0 ? v : null;
       apply();
     }, 180));
+
+    // Stepper +/- de Edad: pilota el <input type=number> oculto (que sigue siendo el que
+    // de verdad dispara el filtrado, arriba) en vez de duplicar esa lógica aquí.
+    function stepAge(delta) {
+      var base = ageValue == null ? (delta > 0 ? 17 : 19) : ageValue;
+      ageValue = Math.max(13, Math.min(99, base + delta));
+      renderAge();
+      var input = document.getElementById("ageInput");
+      input.value = ageValue;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    document.getElementById("ageMinus").addEventListener("click", function () { stepAge(-1); });
+    document.getElementById("agePlus").addEventListener("click", function () { stepAge(1); });
 
     // Ventana de información
     var dlg = document.getElementById("infoDialog");
@@ -1441,6 +1598,7 @@
     initMap();
     buildChips();
     buildUrgencyChips();
+    wireCountrySearch();
     wire();
     setMobileView("map");
     loadStats();
