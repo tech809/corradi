@@ -144,14 +144,20 @@
      #filtersDialog) — antes eran 3 desplegables sueltos (Tipos/Fechas/Países), cada
      uno con su propio criterio de cuándo mostrarse en línea o colapsado; un único
      punto de entrada es más simple y dado que ahora también vive aquí Edad y
-     Urgencia, agruparlos así escala mejor que seguir añadiendo botones a la barra. */
+     Urgencia, agruparlos así escala mejor que seguir añadiendo botones a la barra.
+     Misma clase para "✨ Preguntar" — Buscar / Preguntar / Filtros son las tres
+     formas de encontrar algo, agrupadas donde ya mira el usuario. */
   .filters-btn {
     display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 13px;
     font-weight: 550; cursor: pointer; white-space: nowrap;
     background: var(--bg); color: var(--text); border: 1px solid var(--line);
-    padding: 10px 14px; border-radius: 999px; margin-left: auto;
+    padding: 10px 14px; border-radius: 999px;
   }
   .filters-btn:hover { border-color: var(--muted); }
+  /* Empuja TODO el grupo de la derecha (Preguntar + Filtros + Limpiar) al extremo —
+     se aplica una sola vez, al primero del grupo, o el auto-margin se repartiría
+     entre varios botones con la misma clase y descuadraría el hueco. */
+  #chatToggle { margin-left: auto; }
   .dd-count {
     background: var(--brand); color: #fff; font-size: 11px; font-weight: 700;
     min-width: 18px; height: 18px; border-radius: 999px;
@@ -252,6 +258,47 @@
   }
   .fp-foot .reset { padding: 8px 4px; }
   .fp-foot .btn.primary { padding: 10px 18px; font-size: 13.5px; font-weight: 650; }
+
+  /* ── Diálogo del asistente (chat) ──────────────────────────────────────────
+     Reutiliza la misma "chrome" (.info-dialog) y las MISMAS .card que la lista
+     (ver cardHTML()) — el chat no es una pantalla aparte, es otra puerta a las
+     mismas fichas. */
+  .chat-body { padding: 16px 20px 4px; }
+  .chat-suggestions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .chat-log { display: flex; flex-direction: column; gap: 18px; padding: 16px 20px; max-height: calc(70vh - 158px); overflow-y: auto; }
+  .chat-turn { display: flex; flex-direction: column; gap: 10px; }
+  .chat-q {
+    align-self: flex-end; max-width: 85%; background: var(--brand); color: #fff;
+    padding: 9px 14px; border-radius: 14px 14px 3px 14px; font-size: 13.5px; font-weight: 550;
+  }
+  .chat-a { font-size: 14px; color: var(--text); line-height: 1.5; }
+  .chat-cards { display: flex; flex-direction: column; gap: 10px; }
+  .chat-see-all { align-self: flex-start; }
+  .chat-unavailable { text-align: center; color: var(--muted); padding: 34px 24px; font-size: 14px; line-height: 1.5; }
+  .chat-foot {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    border-top: 1px solid var(--line); position: sticky; bottom: 0; background: var(--surface);
+    border-radius: 0 0 16px 16px;
+  }
+  .chat-foot input {
+    flex: 1; font: inherit; font-size: 14px; padding: 10px 14px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); outline: none;
+  }
+  .chat-foot input:focus { border-color: var(--brand); }
+  .chat-send {
+    width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--brand); color: #fff;
+    font-size: 15px; cursor: pointer; flex: none; display: flex; align-items: center; justify-content: center;
+  }
+  .chat-send:disabled { opacity: .5; cursor: default; }
+  .chat-skel {
+    height: 56px; border-radius: var(--radius); background: var(--surface);
+    border: 1px solid var(--line); position: relative; overflow: hidden;
+  }
+  .chat-skel::after {
+    content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 6%, transparent), transparent);
+    animation: shimmer 1.4s infinite;
+  }
 
   /* Filtro de fechas: dos submodos, meses (por defecto, más simple) o rango exacto. */
   .date-mode-switch {
@@ -567,12 +614,44 @@
     <button type="button" class="search-close" id="searchClose" aria-label="Cerrar búsqueda">✕</button>
   </div>
 
+  <button type="button" class="filters-btn" id="chatToggle" aria-haspopup="dialog">
+    <span aria-hidden="true">✨</span> Preguntar
+  </button>
   <button type="button" class="filters-btn" id="filtersToggle" aria-haspopup="dialog">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
     Filtros <span class="dd-count" id="filtersCount" hidden></span>
   </button>
   <button class="reset" id="reset" hidden>Limpiar filtros</button>
 </div>
+
+<dialog id="chatDialog" class="info-dialog" aria-labelledby="chatTitle">
+  <div class="info-head">
+    <h2 id="chatTitle">Preguntar sobre las oportunidades</h2>
+    <button type="button" class="info-close" id="chatClose" aria-label="Cerrar">✕</button>
+  </div>
+
+  <div class="chat-unavailable" id="chatUnavailable" hidden></div>
+
+  <div id="chatReady">
+    <div class="chat-body">
+      <p class="fp-hint">Pregunta con tus palabras qué buscas. Solo respondo sobre las oportunidades
+      <strong>abiertas ahora mismo</strong>. Tu pregunta se envía a Google Gemini para interpretarla —
+      no escribas datos personales.</p>
+      <div class="chat-suggestions" id="chatSuggestions">
+        <button type="button" class="chip" data-q="¿Qué cierra esta semana?">⏳ ¿Qué cierra esta semana?</button>
+        <button type="button" class="chip" data-q="Algo de medio ambiente">🌱 Medio ambiente</button>
+        <button type="button" class="chip" data-q="Algo en Italia">🇮🇹 Algo en Italia</button>
+        <button type="button" class="chip" data-q="Tengo 19 años, ¿qué me sirve?">🎓 Tengo 19 años</button>
+      </div>
+    </div>
+    <div class="chat-log" id="chatLog"></div>
+  </div>
+
+  <form class="chat-foot" id="chatForm">
+    <input type="text" id="chatInput" placeholder="Escribe tu pregunta…" maxlength="500" autocomplete="off" aria-label="Tu pregunta">
+    <button type="submit" class="chat-send" id="chatSend" aria-label="Enviar">➤</button>
+  </form>
+</dialog>
 
 <dialog id="filtersDialog" class="info-dialog" aria-labelledby="filtersTitle">
   <div class="info-head">
@@ -704,6 +783,10 @@
     <h3>Saca el máximo partido al mapa</h3>
     <ul>
       <li><strong>🔍 Buscar</strong> — por país, ciudad o temática, arriba a la izquierda.</li>
+      <li><strong>✨ Preguntar</strong> — pregunta con tus palabras qué buscas ("algo en Italia
+      para mayores de 25", "qué hay de medio ambiente") y responde solo sobre las
+      oportunidades abiertas ahora mismo, citando fichas reales. La pregunta se envía a
+      Google Gemini para interpretarla — no escribas datos personales ahí.</li>
       <li><strong>Filtros</strong> — tipo, urgencia, edad, fechas y país, todos juntos en un
       solo panel: combínalos, por ejemplo "Training Course" + "tengo 22 años" + "Italia"
       + "próximos 2 meses" a la vez. <strong>⏳ Cierran pronto</strong> y <strong>🆕 Nuevo</strong>
@@ -775,7 +858,7 @@
   var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
   var SOON_DAYS = 2;   // "Cierran pronto" = cierra en menos de 48h (antes: 7 días)
 
-  var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null };
+  var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
   var dateMode = "months";   // "months" | "range" — submodo del filtro de fechas
   var ageValue = null;       // valor mostrado en el stepper de Edad (null = "–", sin fijar)
   var CAT_ICONS = { YOUTH_EXCHANGE: "🧭", TRAINING_COURSE: "🎓", VOLUNTEERING: "💚", WORKSHOP: "⚙️" };
@@ -917,6 +1000,10 @@
 
   // ── Filtrado ─────────────────────────────────────────────────────
   function matches(o) {
+    // "Ver estas N en el mapa" desde el chat: mientras esté activo, es el ÚNICO
+    // criterio — el chat ya hizo el trabajo de filtrar, no tiene sentido combinarlo
+    // con lo que hubiera puesto antes en Filtros. Se limpia con "Limpiar filtros".
+    if (state.only) return state.only.has(o.identifier);
     if (state.types.size && !state.types.has(o.type || "OTHER")) return false;
     if (state.countries.size && !state.countries.has(o.country_code || "OTHER")) return false;
     if (!matchesDate(o)) return false;
@@ -971,7 +1058,7 @@
     var dateDirty = dateMode === "range"
       ? !!(state.dateFrom || state.dateTo)
       : !sameSet(state.months, defaultMonthSet());
-    return !!(state.q || state.soon || state.isNewFilter || state.age != null || !sameTypes || !sameCountries || dateDirty);
+    return !!(state.q || state.soon || state.isNewFilter || state.age != null || !!state.only || !sameTypes || !sameCountries || dateDirty);
   }
 
   // Nº de GRUPOS de filtro tocados (no la suma de chips) — para el badge del botón
@@ -1008,44 +1095,41 @@
   }
 
   // ── Lista ────────────────────────────────────────────────────────
-  function renderList() {
-    var list = document.getElementById("list");
-    if (!shown.length) {
-      list.innerHTML = '<div class="empty"><strong>Nada por aquí</strong>' +
-        (all.length ? "Prueba a quitar algún filtro." : "Ahora mismo no hay oportunidades abiertas.") +
-        "</div>";
-      return;
-    }
-    list.innerHTML = shown.map(function (o) {
-      var t = typeOf(o), dl = deadlineText(o);
-      var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
-      var located = hasCoords(o);
-      return '<article class="card' + (located ? "" : " unlocated") + '" data-id="' + esc(o.identifier) +
-        '" data-type="' + esc(o.type || "") + '" tabindex="0">' +
-        '<span class="badge">' + esc(t.label) + "</span>" +
-          (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") +
-        "<h3>" + esc(o.title) + "</h3>" +
-        '<div class="meta">' +
-          (place ? "<span><i>" + (flag(o.country_code) || "📍") + "</i>" + esc(place) + "</span>" : "") +
-          (located ? "" : '<span class="nogeo"><i>❓</i>Sin ubicación exacta — no sale en el mapa</span>') +
-          "<span><i>📅</i>" + esc(fmtRange(o)) + "</span>" +
-          (o.topic ? "<span><i>🏷️</i>" + esc(o.topic) + "</span>" : "") +
-        "</div>" +
-        '<div class="deadline ' + dl.cls + '"><i>⏳</i>' + esc(dl.text) +
-          (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
-        '<div class="actions">' +
-          (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
-          (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
-          (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
-        "</div>" +
-        '<div class="corner-actions">' +
-          (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" aria-label="Recordar cierre" title="Añadir el cierre de inscripción a Google Calendar">📅</a>' : "") +
-          '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
-        "</div>" +
-      "</article>";
-    }).join("");
+  // Extraída de renderList() para reutilizarla tal cual en el chat (mismas tarjetas,
+  // mismos botones — el chat no es una pantalla aparte, es otra puerta a las mismas
+  // fichas). wireCards() cablea el click/hover/teclado sobre CUALQUIER contenedor que
+  // tenga tarjetas dentro (la lista o el log del chat).
+  function cardHTML(o) {
+    var t = typeOf(o), dl = deadlineText(o);
+    var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
+    var located = hasCoords(o);
+    return '<article class="card' + (located ? "" : " unlocated") + '" data-id="' + esc(o.identifier) +
+      '" data-type="' + esc(o.type || "") + '" tabindex="0">' +
+      '<span class="badge">' + esc(t.label) + "</span>" +
+        (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") +
+      "<h3>" + esc(o.title) + "</h3>" +
+      '<div class="meta">' +
+        (place ? "<span><i>" + (flag(o.country_code) || "📍") + "</i>" + esc(place) + "</span>" : "") +
+        (located ? "" : '<span class="nogeo"><i>❓</i>Sin ubicación exacta — no sale en el mapa</span>') +
+        "<span><i>📅</i>" + esc(fmtRange(o)) + "</span>" +
+        (o.topic ? "<span><i>🏷️</i>" + esc(o.topic) + "</span>" : "") +
+      "</div>" +
+      '<div class="deadline ' + dl.cls + '"><i>⏳</i>' + esc(dl.text) +
+        (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
+      '<div class="actions">' +
+        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
+        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
+        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
+      "</div>" +
+      '<div class="corner-actions">' +
+        (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" aria-label="Recordar cierre" title="Añadir el cierre de inscripción a Google Calendar">📅</a>' : "") +
+        '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
+      "</div>" +
+    "</article>";
+  }
 
-    Array.prototype.forEach.call(list.querySelectorAll(".card"), function (el) {
+  function wireCards(container) {
+    Array.prototype.forEach.call(container.querySelectorAll(".card"), function (el) {
       el.addEventListener("click", function (e) {
         if (e.target.closest("a,button")) return;
         // En móvil, tocar una tarjeta lleva directo al mapa a ver su pin — si no,
@@ -1062,6 +1146,18 @@
       el.addEventListener("mouseenter", function () { highlight(el.dataset.id); });
       el.addEventListener("mouseleave", function () { highlight(activeId); });
     });
+  }
+
+  function renderList() {
+    var list = document.getElementById("list");
+    if (!shown.length) {
+      list.innerHTML = '<div class="empty"><strong>Nada por aquí</strong>' +
+        (all.length ? "Prueba a quitar algún filtro." : "Ahora mismo no hay oportunidades abiertas.") +
+        "</div>";
+      return;
+    }
+    list.innerHTML = shown.map(cardHTML).join("");
+    wireCards(list);
     updateStatsBar();   // lista recién pintada (scroll arriba): muestra la barra si es corta
   }
 
@@ -1348,7 +1444,7 @@
   function resetFilters() {
     state = {
       q: "", types: defaultTypeSet(), countries: defaultCountrySet(),
-      months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null
+      months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null
     };
     dateMode = "months";
     document.getElementById("q").value = "";
@@ -1377,6 +1473,126 @@
     apply();
   }
 
+  // ── Chat (asistente conversacional) ───────────────────────────────
+  // Contrato del backend (docs/chatbot_mapa.md §5): POST /api/chat {pregunta} ->
+  // {respuesta, ids, aviso}. El LLM solo devuelve identificadores — las tarjetas se
+  // pintan SIEMPRE desde `all` (el JSON que el navegador ya tiene), nunca desde texto
+  // del modelo, así que mostrar una oportunidad inexistente es imposible por
+  // construcción de este lado también (el backend ya valida los ids, esto es cinturón
+  // y tirantes).
+  var chatBusy = false;
+
+  function appendChatTurn(question, data) {
+    var log = document.getElementById("chatLog");
+    var turn = document.createElement("div");
+    turn.className = "chat-turn";
+
+    var qEl = document.createElement("div");
+    qEl.className = "chat-q";
+    qEl.textContent = question;
+    turn.appendChild(qEl);
+
+    var aEl = document.createElement("div");
+    aEl.className = "chat-a";
+    aEl.textContent = data.respuesta || "No he podido interpretar la pregunta.";
+    turn.appendChild(aEl);
+
+    if (data.aviso) {
+      var avisoEl = document.createElement("p");
+      avisoEl.className = "fp-hint";
+      avisoEl.textContent = data.aviso;
+      turn.appendChild(avisoEl);
+    }
+
+    var matched = (data.ids || []).map(function (id) {
+      return all.filter(function (o) { return o.identifier === id; })[0];
+    }).filter(Boolean);
+
+    if (matched.length) {
+      var cardsEl = document.createElement("div");
+      cardsEl.className = "chat-cards";
+      cardsEl.innerHTML = matched.map(cardHTML).join("");
+      turn.appendChild(cardsEl);
+      wireCards(cardsEl);
+
+      var seeBtn = document.createElement("button");
+      seeBtn.type = "button";
+      seeBtn.className = "btn primary chat-see-all";
+      seeBtn.textContent = "🗺️ Ver estas " + matched.length + " en el mapa";
+      seeBtn.addEventListener("click", function () {
+        state.only = new Set(matched.map(function (o) { return o.identifier; }));
+        document.getElementById("chatDialog").close();
+        apply();
+        if (isMobileQuery && isMobileQuery.matches) setMobileView("map");
+      });
+      turn.appendChild(seeBtn);
+    }
+
+    log.appendChild(turn);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function sendChatQuestion(q) {
+    q = (q || "").trim();
+    if (chatBusy || !q) return;
+    chatBusy = true;
+    document.getElementById("chatSend").disabled = true;
+    document.getElementById("chatInput").value = "";
+
+    var log = document.getElementById("chatLog");
+    var pending = document.createElement("div");
+    pending.className = "chat-turn";
+    var qEl = document.createElement("div");
+    qEl.className = "chat-q";
+    qEl.textContent = q;
+    var skel = document.createElement("div");
+    skel.className = "chat-skel";
+    pending.appendChild(qEl);
+    pending.appendChild(skel);
+    log.appendChild(pending);
+    log.scrollTop = log.scrollHeight;
+
+    fetch("/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pregunta: q.slice(0, 500) })
+    })
+      .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(function (data) { pending.remove(); appendChatTurn(q, data); })
+      .catch(function () {
+        pending.remove();
+        appendChatTurn(q, {
+          respuesta: "No he podido responder ahora mismo. Prueba los filtros o el buscador mientras tanto.",
+          ids: [],
+        });
+      })
+      .then(function () {
+        chatBusy = false;
+        document.getElementById("chatSend").disabled = false;
+      });
+  }
+
+  // Antes de abrir, se comprueba el presupuesto (§3/§6 del documento): si está
+  // agotado este mes, se enseña el aviso en vez del formulario — no hace falta
+  // esperar a un envío fallido para que el usuario se entere.
+  function openChat() {
+    var dlg = document.getElementById("chatDialog");
+    dlg.showModal();
+    document.getElementById("chatInput").focus();
+    fetch("/api/chat/status", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : { disponible: true }; })
+      .then(function (s) {
+        var ok = s.disponible !== false;
+        document.getElementById("chatUnavailable").hidden = ok;
+        document.getElementById("chatReady").hidden = !ok;
+        document.getElementById("chatForm").hidden = !ok;
+        if (!ok) {
+          document.getElementById("chatUnavailable").textContent =
+            s.motivo || "El asistente no está disponible ahora mismo. Prueba los filtros o el buscador.";
+        }
+      })
+      .catch(function () { /* si falla el status, se deja intentar igualmente al enviar */ });
+  }
+
   function wire() {
     var bubble = document.getElementById("viewBubble");
     bubble.addEventListener("click", function () { setMobileView(bubble.dataset.goto); });
@@ -1395,6 +1611,19 @@
       document.getElementById("q").value = "";
       state.q = "";
       apply();
+    });
+
+    // Diálogo del asistente: mismo patrón <dialog> que Filtros e Información.
+    var chatDlg = document.getElementById("chatDialog");
+    document.getElementById("chatToggle").addEventListener("click", openChat);
+    document.getElementById("chatClose").addEventListener("click", function () { chatDlg.close(); });
+    chatDlg.addEventListener("click", function (e) { if (e.target === chatDlg) chatDlg.close(); });
+    document.getElementById("chatForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      sendChatQuestion(document.getElementById("chatInput").value);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#chatSuggestions .chip"), function (chip) {
+      chip.addEventListener("click", function () { sendChatQuestion(chip.dataset.q); });
     });
 
     // Panel único de filtros (Categoría+Urgencia+Edad+Fechas+País agrupados): mismo patrón
