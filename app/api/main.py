@@ -7,6 +7,7 @@ una columna a `projects`, no se filtra sola. Los datos de quien envía la oportu
 """
 from __future__ import annotations
 
+import html
 import re
 import time
 from contextlib import asynccontextmanager
@@ -14,9 +15,10 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -31,7 +33,7 @@ _STATIC = Path(__file__).parent / "static"
 # Únicos campos que salen al exterior. Todo lo demás (raw_message, embedding, hash,
 # submitted_by, submitted_by_id, source...) se queda dentro.
 _PUBLIC_FIELDS = (
-    "identifier", "title", "type", "topic", "summary",
+    "identifier", "title", "type", "topic", "organiser_name", "summary",
     "country_code", "location", "latitude", "longitude",
     "start_date", "end_date", "application_deadline", "deadline_estimated",
     "infopack_url", "application_url", "max_participants",
@@ -232,6 +234,47 @@ async def chat(payload: ChatRequest, request: Request) -> dict[str, Any]:
     return await chat_llm.ask(pregunta)
 
 
+@app.get("/estadisticas", include_in_schema=False)
+async def estadisticas_page(request: Request) -> Response:
+    """Página secundaria: asociaciones, archivo de cerradas y línea de tiempo/países
+    (docs/ideas_futuras_web.md #9-#12/#26/#28, consolidados en una sola página para no
+    complicar la navegación con 3-4 pestañas nuevas)."""
+    path = _STATIC / "estadisticas.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
+
+
+@app.get("/api/stats")
+async def api_stats(response: Response) -> dict[str, Any]:
+    """Datos agregados para /estadisticas: nada de esto identifica a una persona, son
+    recuentos agregados por país/mes/organizador. 5 min de caché: no es información que
+    cambie de un minuto a otro como el mapa."""
+    response.headers["Cache-Control"] = "public, max-age=300"
+    total = await repo.count_total_published()
+    open_n = await repo.count_open()
+    countries = await repo.country_breakdown_all(limit=10)
+    months = await repo.monthly_counts(months=12)
+    organisers = await repo.organiser_breakdown(limit=200)
+    closed = await repo.list_closed(limit=60)
+    return {
+        "total_published": total,
+        "total_open": open_n,
+        "top_countries": [
+            {"country_code": c["country_code"], "country_name": _PAISES_ES.get(c["country_code"], c["country_code"]), "n": c["n"]}
+            for c in countries
+        ],
+        "monthly": [{"month": m["month"], "n": m["n"]} for m in months],
+        "organisers": [
+            {"name": o["organiser_name"], "total": o["total"], "open": o["open_n"]}
+            for o in organisers
+        ],
+        "closed": [_serialize(r) for r in closed],
+    }
+
+
 @app.get("/opportunities")
 async def list_opportunities(
     q: str | None = None,
@@ -293,6 +336,113 @@ async def instagram_reel_video(identifier: str) -> FileResponse:
 
 _SHORT_ID_RE = re.compile(r"^\d{4}-\d{4}$")
 
+# Nombres de tipo/país en español para el <title>/meta description de la mini-ficha SEO
+# (mismo diccionario que usan telegram_publisher.py/whatsapp_cloud.py para el resumen —
+# copiado en vez de importado porque main.py es la superficie pública y no debe depender
+# de app/publisher/*, que trae sus propias dependencias pesadas de Telegram/WhatsApp).
+_TIPOS_ES = {
+    "YOUTH_EXCHANGE": "Intercambio juvenil",
+    "TRAINING_COURSE": "Training course",
+    "VOLUNTEERING": "Voluntariado (ECS)",
+}
+_PAISES_ES = {
+    "ES": "España", "PT": "Portugal", "FR": "Francia", "IT": "Italia", "DE": "Alemania",
+    "AT": "Austria", "BE": "Bélgica", "NL": "Países Bajos", "LU": "Luxemburgo", "IE": "Irlanda",
+    "PL": "Polonia", "CZ": "Chequia", "SK": "Eslovaquia", "HU": "Hungría", "RO": "Rumanía",
+    "BG": "Bulgaria", "GR": "Grecia", "HR": "Croacia", "SI": "Eslovenia", "EE": "Estonia",
+    "LV": "Letonia", "LT": "Lituania", "FI": "Finlandia", "SE": "Suecia", "DK": "Dinamarca",
+    "NO": "Noruega", "IS": "Islandia", "MT": "Malta", "CY": "Chipre", "TR": "Turquía",
+    "RS": "Serbia", "MK": "Macedonia del Norte", "ME": "Montenegro", "BA": "Bosnia y Herzegovina",
+    "AL": "Albania", "XK": "Kosovo", "GE": "Georgia", "AM": "Armenia", "UA": "Ucrania",
+    "MD": "Moldavia",
+}
+
+
+def _public_origin() -> str | None:
+    """Esquema+host del mapa público, reconstruidos de `cfg.map_public_url` (que incluye un
+    path propio, p.ej. `.../corradi-erasmus`) — mismo truco que `_short_map_link()` en
+    telegram_publisher.py, para no depender de una variable de entorno nueva."""
+    if not cfg.map_public_url:
+        return None
+    root = urlsplit(cfg.map_public_url)
+    if not root.scheme or not root.netloc:
+        return None
+    return f"{root.scheme}://{root.netloc}"
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt() -> PlainTextResponse:
+    origin = _public_origin()
+    sitemap_line = f"Sitemap: {origin}/sitemap.xml\n" if origin else ""
+    return PlainTextResponse(
+        "User-agent: *\nAllow: /\nDisallow: /api/\n" + sitemap_line,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml() -> Response:
+    """Un <url> por oportunidad abierta (su enlace corto /AAAA-NNNN) + el mapa. Solo abiertas:
+    una cerrada ya no tiene nada que ofrecer a quien llegue buscando plaza, y desaparece sola
+    del sitemap el día que se cierra — no hace falta borrarla a mano de ningún sitio."""
+    origin = _public_origin()
+    if not origin:
+        raise HTTPException(status_code=404)
+    rows = await repo.list_open()
+    urls = [f"  <url><loc>{origin}/mapa</loc><changefreq>hourly</changefreq></url>"]
+    for r in rows:
+        short_id = str(r["identifier"]).removeprefix("CORRADI-")
+        if not _SHORT_ID_RE.fullmatch(short_id):
+            continue
+        urls.append(f"  <url><loc>{origin}/{short_id}</loc><changefreq>daily</changefreq></url>")
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(urls) + "\n</urlset>\n"
+    )
+    return Response(content=xml, media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})
+
+
+def _short_link_page(row: dict[str, Any]) -> str:
+    identifier = row["identifier"]
+    title = html.escape(row.get("title") or identifier)
+    tipo = _TIPOS_ES.get(row.get("type"), row.get("type") or "")
+    pais = _PAISES_ES.get(row.get("country_code"), row.get("country_code") or "")
+    lugar = f" en {pais}" if pais else ""
+    summary = (row.get("summary") or "").strip()
+    description = html.escape(f"{tipo}{lugar}. {summary}"[:200].strip()) if summary else html.escape(f"{tipo}{lugar} — Erasmus+ con Corradi".strip())
+    deadline = row.get("application_deadline")
+    plazo = f"<p class=\"meta\">📅 Plazo: hasta {html.escape(deadline.isoformat())}</p>" if deadline else ""
+    map_url = f"/mapa?o={identifier}"
+    return f"""<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>{title} · Corradi Erasmus+</title>
+<meta name="description" content="{description}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="canonical" href="{map_url}">
+<meta property="og:type" content="article">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{description}">
+<meta property="og:image" content="/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta http-equiv="refresh" content="4;url={map_url}">
+<style>
+  body {{ font: 16px/1.5 -apple-system, system-ui, sans-serif; max-width: 560px; margin: 15vh auto 0; padding: 0 24px; color: #1b1b1f; }}
+  h1 {{ font-size: 22px; margin-bottom: 4px; }}
+  .meta {{ color: #555; margin: 4px 0; }}
+  a.cta {{ display: inline-block; margin-top: 20px; padding: 12px 20px; background: #1b1b1f; color: #fff; border-radius: 10px; text-decoration: none; font-weight: 600; }}
+</style>
+</head>
+<body>
+<h1>{title}</h1>
+<p class="meta">{html.escape(tipo)}{html.escape(lugar)}</p>
+{plazo}
+<a class="cta" href="{map_url}">Ver ficha completa en el mapa →</a>
+</body>
+</html>"""
+
 
 # Enlace corto para compartir a mano (WhatsApp, etc.): "mapa.proactivefuture.eu/2026-0040"
 # en vez de la URL con `?o=` — bastante más presentable en un mensaje de texto plano.
@@ -300,12 +450,19 @@ _SHORT_ID_RE = re.compile(r"^\d{4}-\d{4}$")
 # resuelve las rutas en orden de registro, así que cualquier ruta exacta ya definida arriba
 # (/mapa, /health, /opportunities...) gana siempre; esta solo atrapa lo que sobra Y además
 # encaja en el patrón, así que no puede colisionar con nada existente ni futuro razonable.
+#
+# Sirve una mini-página propia (título/descripción/OG reales de ESA oportunidad) en vez de
+# un 302 directo al mapa: un 302 no lleva metadatos indexables, así que un buscador o la
+# previsualización de un enlace de WhatsApp solo veían el título genérico del mapa entero.
+# Redirige sola a los 4s (meta refresh) para quien hace clic desde un chat.
 @app.get("/{short_id}", include_in_schema=False)
-async def short_link(short_id: str) -> RedirectResponse:
+async def short_link(short_id: str) -> Response:
     if not _SHORT_ID_RE.fullmatch(short_id):
         raise HTTPException(status_code=404)
     identifier = f"CORRADI-{short_id}"
     row = await repo.get_by_identifier(identifier)
     if not row:
         raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
-    return RedirectResponse(f"/mapa?o={identifier}", status_code=302)
+    if row.get("status") != "open":
+        return RedirectResponse("/mapa", status_code=302)
+    return HTMLResponse(_short_link_page(row))

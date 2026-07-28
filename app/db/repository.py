@@ -485,6 +485,78 @@ async def type_breakdown_since(since: datetime, limit: int = 5) -> list[dict[str
             return await cur.fetchall()
 
 
+# ── Página /estadisticas (docs/ideas_futuras_web.md #12/#26) ─────────────────────────────
+
+async def count_total_published() -> int:
+    """Total histórico de oportunidades publicadas, cualquier estado — la métrica "de
+    siempre" de la página de estadísticas, no solo las que están abiertas ahora mismo."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute("SELECT count(*) FROM projects WHERE published_telegram = TRUE")
+        return (await cur.fetchone())[0]
+
+
+async def country_breakdown_all(limit: int = 10) -> list[dict[str, Any]]:
+    """Top países de todo el histórico (no solo "desde hace N días" como
+    `country_breakdown_since`, que alimenta el resumen semanal) — para el ranking de la
+    página de estadísticas."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT country_code, count(*) AS n FROM projects "
+                "WHERE published_telegram = TRUE AND country_code IS NOT NULL "
+                "GROUP BY country_code ORDER BY n DESC LIMIT %s",
+                (limit,),
+            )
+            return await cur.fetchall()
+
+
+async def monthly_counts(months: int = 12) -> list[dict[str, Any]]:
+    """Oportunidades publicadas por mes, últimos `months` meses (incluido el actual) —
+    alimenta las barras de la línea de tiempo. `generate_series` rellena los meses sin
+    ninguna publicación con 0 en vez de saltárselos (una barra a cero también es dato)."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT to_char(month, 'YYYY-MM') AS month, coalesce(n, 0) AS n FROM "
+                "generate_series(date_trunc('month', now()) - (%s || ' months')::interval, "
+                "date_trunc('month', now()), '1 month') AS month "
+                "LEFT JOIN ("
+                "  SELECT date_trunc('month', created) AS month, count(*) AS n FROM projects "
+                "  WHERE published_telegram = TRUE GROUP BY 1"
+                ") p USING (month) "
+                "ORDER BY month",
+                (months - 1,),
+            )
+            return await cur.fetchall()
+
+
+async def organiser_breakdown(limit: int = 200) -> list[dict[str, Any]]:
+    """Asociaciones/organizadores capturados (campo `organiser_name`, ~24% de cobertura
+    hoy) con su recuento total y de abiertas ahora mismo — para la pestaña Asociaciones."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT organiser_name, count(*) AS total, "
+                "count(*) FILTER (WHERE status = 'open') AS open_n FROM projects "
+                "WHERE organiser_name IS NOT NULL AND organiser_name != '' "
+                "GROUP BY organiser_name ORDER BY total DESC LIMIT %s",
+                (limit,),
+            )
+            return await cur.fetchall()
+
+
+async def list_closed(limit: int = 60) -> list[dict[str, Any]]:
+    """Archivo de oportunidades cerradas/expiradas, la más reciente primero — para que una
+    oportunidad cerrada no desaparezca sin dejar rastro (docs/ideas_futuras_web.md #11)."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT * FROM projects WHERE status IN ('closed', 'expired') "
+                "ORDER BY updated DESC NULLS LAST, created DESC LIMIT %s",
+                (limit,),
+            )
+            return await cur.fetchall()
+
 
 
 async def enqueue_salto_backlog(url: str, fields: dict, scheduled_at: datetime, id_num: int | None = None) -> None:

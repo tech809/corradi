@@ -17,6 +17,17 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Mapa de oportunidades Corradi Erasmus+">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://mapa.proactivefuture.eu/corradi-erasmus">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Corradi Erasmus+",
+  "url": "https://mapa.proactivefuture.eu/corradi-erasmus",
+  "description": "Mapa interactivo de oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ECS.",
+  "publisher": { "@type": "Organization", "name": "Corradi" }
+}
+</script>
 <!-- Bandera de España sin escudo: franjas 1:2:1 -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'><rect width='4' height='3' fill='%23AA151B'/><rect y='.75' width='4' height='1.5' fill='%23F1BF00'/></svg>">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -643,6 +654,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     <button type="button" class="fp-tab" data-tab="edad" role="tab" aria-selected="false">Edad</button>
     <button type="button" class="fp-tab" data-tab="fechas" role="tab" aria-selected="false">Fechas</button>
     <button type="button" class="fp-tab" data-tab="pais" role="tab" aria-selected="false">País</button>
+    <button type="button" class="fp-tab" data-tab="tema" role="tab" aria-selected="false">Temas</button>
   </div>
 
   <div class="fp-pane" data-pane="cat" data-shown="true">
@@ -688,6 +700,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       <input type="search" id="countrySearch" placeholder="Buscar país…" autocomplete="off">
     </div>
     <div class="chips" id="countryChips" role="group" aria-label="Filtrar por país"></div>
+  </div>
+
+  <div class="fp-pane" data-pane="tema">
+    <div class="chips" id="topicChips" role="group" aria-label="Filtrar por temática"></div>
   </div>
 
   <div class="sheet-foot">
@@ -830,7 +846,31 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
   var SOON_DAYS = 2;
 
-  var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
+  // Taxonomía cerrada por palabras clave sobre `topic`/`title`/`summary` (texto libre):
+  // sin tocar el LLM ni la BD, solo agrupa lo ya extraído en ~10 cajones reconocibles.
+  // Orden importa: la primera coincidencia gana, así que las más específicas van primero.
+  var TOPICS = [
+    { key: "medioambiente", icon: "🌱", label: "Medio ambiente", kw: ["environment","sostenib","sustainab","climat","clima","ecolog","green","nature","natur","reciclaj","recycl"] },
+    { key: "arte_cultura", icon: "🎨", label: "Arte y cultura", kw: ["art","arte","cultur","music","música","teatro","theatre","danza","dance","cine","film","creativ","handicraft","artesan"] },
+    { key: "tecnologia", icon: "💻", label: "Tecnología y digital", kw: ["digital","tech","tecnolog","media","cod","robot","internet","ia ","ai ","gaming","videojueg"] },
+    { key: "inclusion", icon: "🤝", label: "Inclusión social", kw: ["inclusion","inclusión","disab","discapacid","minorit","minoría","divers","refugee","refugiad","migrant","gender","género","lgbt"] },
+    { key: "deporte_salud", icon: "🏃", label: "Deporte y salud", kw: ["sport","deport","health","salud","wellbeing","bienestar","mental","outdoor","aire libre"] },
+    { key: "idiomas", icon: "🗣️", label: "Idiomas", kw: ["language","idioma","lingu","comunicat"] },
+    { key: "ciudadania", icon: "🌍", label: "Ciudadanía y derechos", kw: ["citizenship","ciudadan","democra","human right","derechos human","europe","europ","politic"] },
+    { key: "empleabilidad", icon: "💼", label: "Empleabilidad", kw: ["employab","emple","entrepren","emprendim","career","carrera","skill","competenc","job","trabajo"] },
+    { key: "educacion_no_formal", icon: "🎓", label: "Educación no formal", kw: ["education","educac","learning","aprendizaj","training","formaci","youth work","trabajo juvenil","non-formal","no formal"] },
+  ];
+  var TOPIC_OTHER = { key: "otros", icon: "🏷️", label: "Otras temáticas" };
+  var _topicCache = new WeakMap();
+  function topicOf(o) {
+    if (_topicCache.has(o)) return _topicCache.get(o);
+    var hay = [o.topic, o.title, o.summary].filter(Boolean).join(" ").toLowerCase();
+    var found = TOPICS.filter(function (t) { return t.kw.some(function (k) { return hay.indexOf(k) !== -1; }); })[0] || TOPIC_OTHER;
+    _topicCache.set(o, found);
+    return found;
+  }
+
+  var state = { q: "", types: new Set(), countries: new Set(), topics: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
   var sortMode = "recent"; // "recent" (últimas subidas, por defecto) | "deadline" (cierran antes)
   var dateMode = "months";
   var ageValue = null;
@@ -925,6 +965,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (state.only) return state.only.has(o.identifier);
     if (state.types.size && !state.types.has(o.type || "OTHER")) return false;
     if (state.countries.size && !state.countries.has(o.country_code || "OTHER")) return false;
+    if (state.topics.size && !state.topics.has(topicOf(o).key)) return false;
     if (!matchesDate(o)) return false;
     if (state.soon) { var d = daysLeft(o.application_deadline); if (d === null || d > SOON_DAYS) return false; }
     if (state.isNewFilter && !isNew(o)) return false;
@@ -956,12 +997,13 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var sameTypes = sameSet(state.types, defaultTypeSet());
     var sameCountries = sameSet(state.countries, defaultCountrySet());
     var dateDirty = dateMode === "range" ? !!(state.dateFrom || state.dateTo) : !sameSet(state.months, defaultMonthSet());
-    return !!(state.q || state.soon || state.isNewFilter || state.age != null || !!state.only || !sameTypes || !sameCountries || dateDirty);
+    return !!(state.q || state.soon || state.isNewFilter || state.age != null || !!state.only || !sameTypes || !sameCountries || state.topics.size || dateDirty);
   }
   function activeFilterGroups() {
     var n = 0;
     if (!sameSet(state.types, defaultTypeSet())) n++;
     if (!sameSet(state.countries, defaultCountrySet())) n++;
+    if (state.topics.size) n++;
     var dateDirty = dateMode === "range" ? !!(state.dateFrom || state.dateTo) : !sameSet(state.months, defaultMonthSet());
     if (dateDirty) n++;
     if (state.soon || state.isNewFilter) n++;
@@ -1227,6 +1269,23 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       });
     });
   }
+  function buildTopics() {
+    var box = document.getElementById("topicChips");
+    var counts = {};
+    all.forEach(function (o) { var k = topicOf(o).key; counts[k] = (counts[k] || 0) + 1; });
+    var cats = TOPICS.concat([TOPIC_OTHER]).filter(function (t) { return counts[t.key]; });
+    box.innerHTML = cats.map(function (t) {
+      return '<button class="chip" data-topic="' + t.key + '" aria-pressed="false">' + t.icon + " " + esc(t.label) + " (" + counts[t.key] + ")</button>";
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
+      chip.addEventListener("click", function () {
+        var k = chip.dataset.topic;
+        if (state.topics.has(k)) state.topics.delete(k); else state.topics.add(k);
+        Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (c) { c.setAttribute("aria-pressed", String(state.topics.has(c.dataset.topic))); });
+        apply();
+      });
+    });
+  }
   function wireCountrySearch() {
     document.getElementById("countrySearch").addEventListener("input", debounce(function () {
       var q = document.getElementById("countrySearch").value.trim().toLowerCase();
@@ -1268,13 +1327,14 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
 
   function resetFilters() {
-    state = { q: "", types: defaultTypeSet(), countries: defaultCountrySet(), months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
+    state = { q: "", types: defaultTypeSet(), countries: defaultCountrySet(), topics: new Set(), months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
     dateMode = "months";
     document.getElementById("q").value = "";
     document.getElementById("ageInput").value = "";
     ageValue = null; renderAge();
     document.getElementById("countrySearch").value = "";
     Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) { c.hidden = false; });
+    Array.prototype.forEach.call(document.querySelectorAll("#topicChips .chip"), function (c) { c.setAttribute("aria-pressed", "false"); });
     document.getElementById("dateFrom").value = "";
     document.getElementById("dateTo").value = "";
     document.getElementById("monthChips").hidden = false;
@@ -1588,6 +1648,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         all = data.results || [];
         if (data.channel) document.getElementById("channel").href = "https://t.me/" + data.channel;
         buildCountries();
+        buildTopics();
         buildMonths();
         resetFilters();
         var params = new URLSearchParams(location.search);
