@@ -203,6 +203,11 @@ async def publish_reel(opp: dict[str, Any]) -> str:
             # de imagen que ya sale ahí — a petición expresa: el feed es solo para el post,
             # el Reel se queda en su propia pestaña.
             "share_to_feed": "false",
+            # Portada = último fotograma, no el primero: con la aparición escalonada del
+            # texto, el primer fotograma va casi vacío (solo el fondo). En milisegundos,
+            # cerca del final de reel_video.DURATION para que ya esté todo el texto y el
+            # zoom-out completo.
+            "thumb_offset": str(round(reel_video.DURATION * 1000) - 200),
         },
     )
     creation_id = create["id"]

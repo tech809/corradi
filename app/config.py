@@ -108,9 +108,13 @@ class Config:
     # GET /ig/{identifier}/post.png y /story.png) — no un repo aparte, como hacía tur-app.
     instagram_image_base_url: str = os.getenv("INSTAGRAM_IMAGE_BASE_URL", "")
     instagram_max_attempts: int = int(os.getenv("INSTAGRAM_MAX_ATTEMPTS", "5"))
-    # Espaciado mínimo entre publicaciones (sin tope diario, pero que no salgan 2 posts casi
-    # seguidos si dos oportunidades se confirman con minutos de diferencia).
-    instagram_min_gap_minutes: int = int(os.getenv("INSTAGRAM_MIN_GAP_MINUTES", "20"))
+    # Espaciado mínimo entre publicaciones. A 0 (por defecto): publicación directa en cuanto
+    # llega, sin cola de por medio — a petición expresa, tras ver que un espaciado alto (20
+    # min) hacía que el barrido de 2h en 2h solo soltase una oportunidad por pasada y un
+    # backlog grande (p.ej. el de SALTO) tardase casi un día entero en publicarse en
+    # Instagram, muy por detrás de Telegram. Si el volumen crece, aquí es donde se retomaría
+    # un espaciado > 0.
+    instagram_min_gap_minutes: int = int(os.getenv("INSTAGRAM_MIN_GAP_MINUTES", "0"))
     # Carpeta compartida entre `bot` (genera el .mp4 del Reel, pesado) y `api` (solo lo
     # sirve tal cual por GET /ig/{id}/reel.mp4) — volumen `media_data` en docker-compose.
     media_dir: str = os.getenv("MEDIA_DIR", "/data/media")
