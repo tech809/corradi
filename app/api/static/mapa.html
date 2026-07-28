@@ -208,6 +208,19 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
   display: flex; flex-direction: column; overflow: hidden; transition: transform .35s var(--ease-out), opacity .3s var(--ease);
 }
 .dock.collapsed { transform: translateX(calc(-100% - 32px)); opacity: 0; pointer-events: none; }
+/* Orden de la lista: "últimas subidas" (por defecto) o "cierran antes" — segmento
+   compacto de 2, mismo lenguaje visual que el resto (pill activa en --brand), arriba
+   del todo del panel, antes incluso del título, para que se note que ordena TODA la
+   lista de abajo, no es un filtro más. */
+.sort-switch { display: flex; gap: 6px; padding: 16px 20px 0; flex: none; }
+.sort-btn {
+  flex: 1; font: 600 11.5px var(--font-body); cursor: pointer; padding: 8px 8px;
+  border-radius: 10px; border: 1px solid var(--line-soft); background: var(--surface-sunk);
+  color: var(--ink-soft); transition: background .18s var(--ease), color .18s var(--ease), border-color .18s var(--ease);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sort-btn:hover { border-color: var(--line); }
+.sort-btn[aria-pressed="true"] { background: var(--brand); color: #fff; border-color: transparent; }
 .dock-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 20px 10px; flex: none; }
 .dock-head h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
 .dock-head .count-word { font-weight: 500; color: var(--ink-faint); font-size: 13px; }
@@ -505,6 +518,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   .sheet-handle .summary strong { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
   .sheet-handle .summary span { font-size: 12px; color: var(--ink-faint); font-weight: 600; }
   .sheet .dock-body { padding: 6px 16px 26px; }
+  /* El orden solo se ve con la hoja desplegada del todo -- en "peek" (asomando) el
+     hueco es justo el del tirador; meterlo ahí lo hubiera cortado a la mitad. */
+  .sheet .sort-switch { display: none; }
+  .sheet.full .sort-switch { display: flex; }
 
   .bottom-dock { display: none; }
   .card { padding: 15px 16px 14px; }
@@ -544,6 +561,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
     <!-- Escritorio: panel de resultados flotante, colapsable a riel de icono -->
     <div class="dock" id="dock">
+      <div class="sort-switch" data-sort-group="desktop">
+        <button type="button" class="sort-btn" data-sort="recent" aria-pressed="true">Últimas subidas</button>
+        <button type="button" class="sort-btn" data-sort="deadline" aria-pressed="false">Cierran antes</button>
+      </div>
       <div class="dock-head">
         <div><h2>Oportunidades</h2><div class="count-word" id="dockCount">cargando…</div></div>
         <button type="button" class="dock-collapse" id="dockCollapse" aria-label="Contraer panel"></button>
@@ -562,6 +583,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       <div class="sheet-handle" id="sheetHandle">
         <div class="bar"></div>
         <div class="summary"><strong>Oportunidades</strong><span id="sheetCount">cargando…</span></div>
+      </div>
+      <div class="sort-switch" data-sort-group="mobile">
+        <button type="button" class="sort-btn" data-sort="recent" aria-pressed="true">Últimas subidas</button>
+        <button type="button" class="sort-btn" data-sort="deadline" aria-pressed="false">Cierran antes</button>
       </div>
       <div class="dock-body" id="listMobile" aria-live="polite">
         <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
@@ -806,6 +831,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   var SOON_DAYS = 2;
 
   var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
+  var sortMode = "recent"; // "recent" (últimas subidas, por defecto) | "deadline" (cierran antes)
   var dateMode = "months";
   var ageValue = null;
 
@@ -943,8 +969,27 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     return n;
   }
 
+  // "Últimas subidas": por fecha de creación, la más reciente primero (created es ISO,
+  // compara bien como string). "Cierran antes": por fecha límite, sin ella al final (una
+  // oportunidad sin deadline conocida no es "la más urgente", es la que menos se sabe).
+  function sortShown(list) {
+    if (sortMode === "deadline") {
+      return list.slice().sort(function (a, b) {
+        var da = a.application_deadline, db = b.application_deadline;
+        if (!da && !db) return 0;
+        if (!da) return 1;
+        if (!db) return -1;
+        return da < db ? -1 : da > db ? 1 : 0;
+      });
+    }
+    return list.slice().sort(function (a, b) {
+      var ca = a.created || "", cb = b.created || "";
+      return ca < cb ? 1 : ca > cb ? -1 : 0;
+    });
+  }
+
   function apply() {
-    shown = all.filter(matches);
+    shown = sortShown(all.filter(matches));
     renderList();
     renderMarkers();
     var n = shown.length;
@@ -1307,6 +1352,20 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     document.getElementById("sheetHandle").addEventListener("click", function () {
       var sheet = document.getElementById("sheet");
       setSheet(sheet.classList.contains("full") ? "peek" : "full");
+    });
+
+    // Dos copias (escritorio + hoja móvil) del mismo control -- se mantienen
+    // sincronizadas entre sí por si acaso (p.ej. cambia el tamaño de la ventana a medio
+    // usar el mapa).
+    Array.prototype.forEach.call(document.querySelectorAll(".sort-btn"), function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation(); // no debe disparar el toggle de la hoja móvil (mismo padre)
+        sortMode = btn.dataset.sort;
+        Array.prototype.forEach.call(document.querySelectorAll(".sort-btn"), function (b) {
+          b.setAttribute("aria-pressed", String(b.dataset.sort === sortMode));
+        });
+        apply();
+      });
     });
 
     var chatDlg = document.getElementById("chatDialog");
