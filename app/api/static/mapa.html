@@ -346,18 +346,43 @@
     padding: 10px 16px; border-radius: 999px; box-shadow: 0 2px 10px rgba(11,11,11,.25);
   }
 
-  /* Pie de estadísticas: barra fina FIJA abajo, oculta por defecto (no consume pantalla).
-     Aparece deslizándose solo cuando se llega al final de la lista (ver JS). */
-  .stats {
+  /* Pie: barra FIJA abajo, oculta por defecto (no consume pantalla) — aparece deslizándose
+     solo cuando se llega al final de la lista (ver JS). Dos mitades: estadísticas (izda,
+     cada una con su icono en circulito, número+etiqueta apilados) y un CTA a Instagram
+     (dcha, con el degradado de marca de Instagram — el único sitio del mapa donde se usa,
+     a propósito, para que se reconozca al vuelo qué es sin tener que leer el texto). */
+  .site-footer {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 550;
-    display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
-    gap: 6px 18px; padding: 7px 14px; background: var(--surface);
-    border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 10px 20px; padding: 9px 20px; background: var(--surface);
+    border-top: 1px solid var(--line); box-shadow: 0 -6px 20px rgba(11,11,11,.05);
     transform: translateY(110%); transition: transform .22s ease;
   }
-  .stats.show { transform: translateY(0); }
-  .stats span { white-space: nowrap; }
-  .stats b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+  .site-footer.show { transform: translateY(0); }
+  .footer-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
+  .stat-item { display: flex; align-items: center; gap: 8px; }
+  .stat-icon {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--brand) 11%, var(--surface)); font-size: 13px;
+  }
+  .stat-item b {
+    display: block; color: var(--text); font-weight: 700; font-size: 13.5px;
+    line-height: 1.15; font-variant-numeric: tabular-nums;
+  }
+  .stat-item small {
+    display: block; color: var(--muted-2); font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .footer-ig {
+    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+    background: linear-gradient(135deg, #f9ce34, #ee2a7b 55%, #6228d7);
+    color: #fff; font-weight: 650; font-size: 12.5px; padding: 8px 14px 8px 10px;
+    border-radius: 999px; white-space: nowrap; transition: opacity .15s, transform .15s;
+  }
+  .footer-ig:hover { opacity: .9; transform: translateY(-1px); }
+  .footer-ig svg { flex: none; }
+  .footer-ig strong { font-weight: 800; }
 
   /* Aviso efímero (p.ej. "Enlace copiado") */
   .toast {
@@ -368,6 +393,34 @@
     opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Popup de Instagram para quien ya ha entrado varias veces (contador en localStorage,
+     ver JS) — se enseña UNA sola vez en la vida del navegador, no en cada visita. */
+  .ig-popup {
+    position: fixed; right: 20px; bottom: 20px; z-index: 800; width: 290px; max-width: calc(100vw - 28px);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); padding: 18px 18px 16px;
+    transform: translateY(16px) scale(.97); opacity: 0; pointer-events: none;
+    transition: transform .25s ease, opacity .25s ease;
+  }
+  .ig-popup.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+  .ig-popup-close {
+    position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--bg); border: 1px solid var(--line); color: var(--muted); cursor: pointer;
+    font-size: 12px; line-height: 1;
+  }
+  .ig-popup-close:hover { color: var(--text); border-color: var(--muted); }
+  .ig-popup-icon {
+    width: 38px; height: 38px; border-radius: 50%; margin-bottom: 10px;
+    background: linear-gradient(135deg, #f9ce34, #ee2a7b 55%, #6228d7);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ig-popup p { margin: 0 0 14px; font-size: 13.5px; line-height: 1.45; color: var(--text); padding-right: 10px; }
+  .ig-popup p strong { display: block; margin-bottom: 3px; font-size: 14.5px; }
+  .ig-popup .footer-ig { width: 100%; justify-content: center; box-sizing: border-box; }
+  @media (max-width: 880px) {
+    .ig-popup { left: 14px; right: 14px; bottom: 88px; width: auto; max-width: none; }
+  }
 
   /* Badge "Nuevo" (oportunidades de las últimas 48h) */
   .new-tag {
@@ -576,8 +629,13 @@
     #list { width: 100%; border-right: 0; height: 100%; }
     #map { height: 100%; }
     body.view-list #map, body.view-map #list { display: none; }
-    /* Pie aún más compacto en móvil: cabe entero en una línea sin comerse el mapa. */
-    .stats { gap: 4px 12px; padding: 6px 10px; font-size: 11.5px; }
+    /* Pie más compacto en móvil: iconos y CTA de Instagram más pequeños para que quepa
+       sin comerse el mapa (envuelve a 2 líneas si hace falta, no se corta nada). */
+    .site-footer { gap: 6px 14px; padding: 8px 14px; }
+    .stat-icon { width: 22px; height: 22px; font-size: 11px; }
+    .stat-item b { font-size: 12.5px; }
+    .stat-item small { font-size: 9px; }
+    .footer-ig { font-size: 11.5px; padding: 7px 12px 7px 9px; }
   }
 </style>
 </head>
@@ -595,17 +653,13 @@
       <p>Para residentes en España · inscripción abierta ahora mismo</p>
     </div>
   </div>
-  <a class="channel outline" id="contribute" href="https://t.me/corradi_erasmus_bot" target="_blank" rel="noopener" aria-label="¿Quieres contribuir?">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-    <span class="label">¿Quieres contribuir?</span>
-  </a>
-  <a class="channel outline" id="instagram" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener" aria-label="Instagram">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor" stroke="none"/></svg>
-    <span class="label">Instagram</span>
-  </a>
   <a class="channel" id="channel" href="https://t.me/erasmuscorradi" target="_blank" rel="noopener">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.7 19.4c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-.9.5l.3-4.8 8.8-8c.4-.3-.1-.5-.6-.2L6.7 13.2l-4.7-1.5c-1-.3-1-1 .2-1.5l18.4-7.1c.9-.3 1.6.2 1.3 1.2z"/></svg>
     Ver canal
+  </a>
+  <a class="channel outline" id="contribute" href="https://t.me/corradi_erasmus_bot" target="_blank" rel="noopener" aria-label="¿Quieres contribuir?">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    <span class="label">¿Quieres contribuir?</span>
   </a>
   <button type="button" class="channel outline info-btn" id="infoBtn" aria-label="Más información">
     <span aria-hidden="true">?</span><span class="label">Más información</span>
@@ -739,15 +793,33 @@
   <button type="button" class="view-bubble" id="viewBubble">☰ Lista</button>
 </main>
 
-<!-- Pie de estadísticas: nº de oportunidades abiertas ahora (movido desde la cabecera) +
-     total histórico publicado + visitas. Barra fina, misma altura en escritorio y móvil. -->
-<footer class="stats" id="stats">
-  <span><span aria-hidden="true">🎯</span> <b id="statOpen">…</b> abiertas</span>
-  <span><span aria-hidden="true">📢</span> <b id="statPublished">…</b> publicadas</span>
-  <span><span aria-hidden="true">👁️</span> <b id="statVisits">…</b> visitas</span>
+<!-- Pie: estadísticas (nº abiertas ahora, total histórico publicado, visitas) + CTA a
+     Instagram. Barra fina, misma altura en escritorio y móvil. -->
+<footer class="site-footer" id="stats">
+  <div class="footer-stats">
+    <div class="stat-item"><span class="stat-icon" aria-hidden="true">🎯</span><div><b id="statOpen">…</b><small>abiertas</small></div></div>
+    <div class="stat-item"><span class="stat-icon" aria-hidden="true">📢</span><div><b id="statPublished">…</b><small>publicadas</small></div></div>
+    <div class="stat-item"><span class="stat-icon" aria-hidden="true">👁️</span><div><b id="statVisits">…</b><small>visitas</small></div></div>
+  </div>
+  <a class="footer-ig" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor" stroke="none"/></svg>
+    Síguenos en <strong>@corradierasmus</strong>
+  </a>
 </footer>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="ig-popup" id="igPopup" hidden role="complementary" aria-label="Síguenos en Instagram">
+  <button type="button" class="ig-popup-close" id="igPopupClose" aria-label="Cerrar">✕</button>
+  <div class="ig-popup-icon" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="#fff" stroke="none"/></svg>
+  </div>
+  <p><strong>¿Ya nos sigues en Instagram?</strong>Entérate también ahí de las oportunidades nuevas, en cuanto se publican.</p>
+  <a class="footer-ig" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor" stroke="none"/></svg>
+    Seguir <strong>@corradierasmus</strong>
+  </a>
+</div>
 
 <dialog id="infoDialog" class="info-dialog" aria-labelledby="infoTitle">
   <div class="info-head">
@@ -760,11 +832,35 @@
     intercambios juveniles, training courses, voluntariado ECS y workshops. Están pensadas
     para jóvenes <strong>residentes en España</strong>.</p>
 
+    <h3>Saca el máximo partido al mapa</h3>
+    <ul>
+      <li><strong>🔍 Buscar</strong> — por país, ciudad o temática, arriba a la izquierda.</li>
+      <li><strong>💬 Preguntar</strong> — pregunta con tus palabras qué buscas ("algo en Italia
+      para mayores de 25", "qué hay de medio ambiente") y responde solo sobre las
+      oportunidades abiertas ahora mismo, citando fichas reales. No escribas datos
+      personales ahí — la pregunta se procesa fuera para interpretarla (más detalle en
+      la política de privacidad).</li>
+      <li><strong>Filtros</strong> — tipo, urgencia, edad, fechas y país, todos juntos en un
+      solo panel: combínalos, por ejemplo "Training Course" + "tengo 22 años" + "Italia"
+      + "próximos 2 meses" a la vez. <strong>⏳ Cierran pronto</strong> y <strong>🆕 Nuevo</strong>
+      viven ahí dentro, en su propio grupo, para ver primero lo que tiene más prisa o lo
+      que se acaba de publicar.</li>
+      <li><strong>☰ Lista / Mapa</strong> — en el móvil alternas entre las dos vistas con la
+      burbuja de abajo; en escritorio se ven a la vez.</li>
+      <li><strong>🔗 Compartir</strong> (arriba a la derecha de cada tarjeta) — genera un
+      enlace directo a esa oportunidad concreta, ideal para pasarlo por WhatsApp o Telegram.</li>
+      <li><strong>📅 Recordar</strong> (junto al de compartir) — añade la <strong>fecha límite
+      de inscripción</strong> a tu Google Calendar en un clic, para que no se te pase el
+      plazo. No guarda nada en nuestro lado: el recordatorio queda solo en tu calendario.</li>
+    </ul>
+
     <h3>De dónde salen</h3>
     <p>Las envían coordinadores al bot de Telegram de Corradi. Cada envío se comprueba
-    automáticamente: que sea una oportunidad real, que no esté ya publicada y que el plazo
-    de inscripción <strong>no haya vencido</strong>. Si pasa esos filtros, se publica en el
-    canal y aparece aquí. Cuando el plazo se cumple, desaparece sola del mapa.</p>
+    automáticamente: que sea una oportunidad real, que no esté ya publicada, que el plazo
+    de inscripción <strong>no haya vencido</strong> y que esté realmente <strong>abierta a
+    residentes en España</strong> (no solo la frase genérica de turno — comprobamos que no
+    haya una lista de países más concreta que nos deje fuera). Si pasa esos filtros, se
+    publica en el canal y aparece aquí. Cuando el plazo se cumple, desaparece sola del mapa.</p>
 
     <h3>Qué significa «(estimada)»</h3>
     <p>A veces el mensaje original no dice hasta cuándo se puede uno apuntar. En ese caso
@@ -789,28 +885,6 @@
     <strong>✍️ Form</strong> es el formulario de inscripción en sí. Corradi <strong>solo
     difunde</strong>: no gestionamos las inscripciones ni seleccionamos a los participantes.
     Cualquier duda sobre una plaza concreta va directa a quien la organiza.</p>
-
-    <h3>Saca el máximo partido al mapa</h3>
-    <ul>
-      <li><strong>🔍 Buscar</strong> — por país, ciudad o temática, arriba a la izquierda.</li>
-      <li><strong>💬 Preguntar</strong> — pregunta con tus palabras qué buscas ("algo en Italia
-      para mayores de 25", "qué hay de medio ambiente") y responde solo sobre las
-      oportunidades abiertas ahora mismo, citando fichas reales. No escribas datos
-      personales ahí — la pregunta se procesa fuera para interpretarla (más detalle en
-      la política de privacidad).</li>
-      <li><strong>Filtros</strong> — tipo, urgencia, edad, fechas y país, todos juntos en un
-      solo panel: combínalos, por ejemplo "Training Course" + "tengo 22 años" + "Italia"
-      + "próximos 2 meses" a la vez. <strong>⏳ Cierran pronto</strong> y <strong>🆕 Nuevo</strong>
-      viven ahí dentro, en su propio grupo, para ver primero lo que tiene más prisa o lo
-      que se acaba de publicar.</li>
-      <li><strong>☰ Lista / Mapa</strong> — en el móvil alternas entre las dos vistas con la
-      burbuja de abajo; en escritorio se ven a la vez.</li>
-      <li><strong>🔗 Compartir</strong> (arriba a la derecha de cada tarjeta) — genera un
-      enlace directo a esa oportunidad concreta, ideal para pasarlo por WhatsApp o Telegram.</li>
-      <li><strong>📅 Recordar</strong> (junto al de compartir) — añade la <strong>fecha límite
-      de inscripción</strong> a tu Google Calendar en un clic, para que no se te pase el
-      plazo. No guarda nada en nuestro lado: el recordatorio queda solo en tu calendario.</li>
-    </ul>
 
     <h3>¿Tienes una oportunidad?</h3>
     <p>Si organizas o conoces una, puedes mandárnosla por el bot con el botón
@@ -1611,6 +1685,10 @@
     var bubble = document.getElementById("viewBubble");
     bubble.addEventListener("click", function () { setMobileView(bubble.dataset.goto); });
 
+    document.getElementById("igPopupClose").addEventListener("click", function () {
+      document.getElementById("igPopup").classList.remove("show");
+    });
+
     // Buscador colapsable (móvil): la lupa lo abre y le da el foco.
     var searchToggle = document.getElementById("searchToggle");
     searchToggle.addEventListener("click", function () {
@@ -1837,11 +1915,30 @@
       });
   }
 
+  // Popup de Instagram para quien ya ha entrado 3 veces o más — contador propio en
+  // localStorage (no tiene nada que ver con `counters.visits` del servidor, que es
+  // agregado y no distingue navegador). Se enseña UNA sola vez en la vida del navegador,
+  // nunca más aunque se sigan sumando visitas — la marca "ya mostrado" se guarda en el
+  // mismo momento en que se decide mostrarlo, no al cerrarlo, para que un cierre accidental
+  // de pestaña no lo deje "pendiente de mostrar" para siempre.
+  function bumpVisitCounterAndMaybeShowIg() {
+    var n = parseInt(localStorage.getItem("corradiVisits") || "0", 10) + 1;
+    localStorage.setItem("corradiVisits", String(n));
+    if (n < 3 || localStorage.getItem("corradiIgPopupShown")) return;
+    localStorage.setItem("corradiIgPopupShown", "1");
+    setTimeout(function () {
+      var popup = document.getElementById("igPopup");
+      popup.hidden = false;
+      requestAnimationFrame(function () { popup.classList.add("show"); });
+    }, 2500);   // pequeño retraso: no competir con la carga inicial del mapa
+  }
+
   function boot() {
     initMap();
     buildChips();
     buildUrgencyChips();
     wireCountrySearch();
+    bumpVisitCounterAndMaybeShowIg();
     wire();
     setMobileView("map");
     loadStats();

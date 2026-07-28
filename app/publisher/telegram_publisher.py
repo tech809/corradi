@@ -440,15 +440,33 @@ def format_daily_summary_whatsapp(opps: list[dict[str, Any]]) -> str:
     return "\n".join(out)
 
 
+_WHATSAPP_DIGEST_MAX_LEN = 3500  # margen bajo el límite real de Telegram (4096) para el DM
+
+
 def format_daily_digest_whatsapp(opps: list[dict[str, Any]]) -> str:
     """Resumen diario en formato WhatsApp de SOLO lo publicado hoy (no lo abierto en
     general), pensado para copiar y pegar a mano en el canal de difusión de WhatsApp
-    (no automatizable, ver `handoff.py`). Se manda por DM a los admins vía `notify_admin`."""
+    (no automatizable, ver `handoff.py`). Se manda por DM a los admins vía `notify_admin`.
+
+    Recorta si hace falta en vez de trocear en varios DMs (a diferencia de
+    `send_chunked_dm`): el mensaje se copia y pega ENTERO a mano en WhatsApp, así que tiene
+    que quedarse en UNA sola pieza — un día con muchas publicaciones no debe tumbar el envío
+    entero con "BadRequest: Message is too long" (visto en producción)."""
     if not opps:
         return "☀️ Resumen del día — ninguna oportunidad nueva hoy."
     plural = len(opps) != 1
     parts = [f"☀️ Resumen del día — Nueva{'s' if plural else ''} oportunidad{'es' if plural else ''}: {len(opps)}"]
-    parts += [format_opportunity_whatsapp(o) for o in opps]
+    included = 0
+    for o in opps:
+        entry = format_opportunity_whatsapp(o)
+        if included > 0 and len("\n\n".join(parts + [entry])) > _WHATSAPP_DIGEST_MAX_LEN:
+            break
+        parts.append(entry)
+        included += 1
+    if included < len(opps):
+        remaining = len(opps) - included
+        link = cfg.map_public_url or "el mapa"
+        parts.append(f"➕ {remaining} oportunidad{'es' if remaining != 1 else ''} más hoy — mira el mapa: {link}")
     return "\n\n".join(parts)
 
 
