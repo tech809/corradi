@@ -1027,8 +1027,12 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   function popupHtml(o) {
     var t = typeOf(o), dl = deadlineText(o);
     var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
-    return '<div class="popup"><div class="card-top"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
+    return '<div class="popup"><div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
       (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") + "</div>" +
+      '<div class="corner-actions">' +
+        (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
+        '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
+      "</div></div>" +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
         (place ? "<span>" + (flag(o.country_code) ? '<span class="flag-emoji">' + flag(o.country_code) + '</span>' : ICON.pin) + esc(place) + "</span>" : "") +
@@ -1043,10 +1047,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">' + ICON.pencil + 'Form</a>' : "") +
       "</div>" +
       (o.approx_location ? '<div class="approx">' + ICON.pin + 'Ubicación aproximada (país)</div>' : "") +
-      '<div class="corner-actions">' +
-        (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
-        '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
-      "</div></div>";
+      "</div>";
   }
   function renderMarkers() {
     layer.clearLayers(); markers = {};
