@@ -41,6 +41,19 @@ Corradi sí lo tiene (EC2 24/7, Postgres, API con dominio público), así que aq
    extraídos: título, lugar, fechas, plazo con la misma cuenta atrás que el canal/mapa
    ("quedan 3 días"), CTA fijo ("link en bio" — Instagram no permite enlaces en el pie) y
    hashtags por categoría.
+5. Además del feed+story, en cuanto esos dos se publican bien se lanza en segundo plano
+   (sin bloquear la respuesta) la generación y publicación de un **Reel** (2026-07-28):
+   mismo fondo/diseño que el post, pero animado (zoom-out + aparición escalonada de cada
+   bloque de texto) con un fondo musical — ver `app/publisher/reel_video.py` (fotogramas
+   con Pillow + codificación con `ffmpeg`, necesita el paquete `ffmpeg` instalado en el
+   contenedor `bot`) y `app/publisher/reel_audio.py` (la música es **100% sintetizada en
+   Python puro**, no descargada de ningún sitio — así no hay ninguna duda de derechos de
+   autor sobre una pista de terceros en una cuenta pública). El .mp4 se genera en `bot` y
+   se deja en el volumen compartido `media_data` (`MEDIA_DIR`, montado también en `api`),
+   que lo sirve tal cual por `GET /ig/{id}/reel.mp4` — nada de generarlo al vuelo en esa
+   ruta pública, sería demasiado lento. El Reel **no** tiene cola de reintentos propia
+   (a diferencia de feed/story): si falla, se registra en los logs y ya, porque para
+   entonces lo importante (feed y story) ya se ha publicado.
 
 ## Puesta en marcha (la parte manual)
 

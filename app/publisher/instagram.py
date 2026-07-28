@@ -45,6 +45,11 @@ def image_urls(identifier: str) -> tuple[str, str]:
     return f"{base}/ig/{identifier}/post.png", f"{base}/ig/{identifier}/story.png"
 
 
+def reel_url(identifier: str) -> str:
+    base = cfg.instagram_image_base_url.rstrip("/")
+    return f"{base}/ig/{identifier}/reel.mp4"
+
+
 async def gap_ok() -> bool:
     """True si ya pasó el espaciado mínimo desde la última publicación (o si es la primera
     vez). Sin tope diario — solo evita que 2 posts salgan casi seguidos si dos oportunidades
@@ -109,6 +114,16 @@ async def _post(path: str, data: dict) -> dict:
         return r.json()
 
 
+async def _get(path: str, params: dict) -> dict:
+    import httpx
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.get(f"{GRAPH}/{path}", params={**params, "access_token": cfg.instagram_token})
+        if r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+        return r.json()
+
+
 async def _create_and_publish(image_url: str, extra: dict) -> str:
     create = await _post(f"{cfg.instagram_business_id}/media", {"image_url": image_url, **extra})
     creation_id = create["id"]
@@ -140,3 +155,55 @@ async def publish_opportunity(opp: dict[str, Any]) -> tuple[str, str | None]:
         log.warning("El feed se publicó pero la story falló (%s): %s", opp["identifier"], e)
 
     return media_id, story_media_id
+
+
+_REEL_POLL_INTERVAL = 4  # segundos entre comprobaciones de estado del contenedor de vídeo
+_REEL_POLL_TIMEOUT = 120  # Instagram puede tardar bastante en procesar un vídeo, a diferencia de una imagen
+
+
+async def _wait_video_ready(creation_id: str) -> None:
+    """A diferencia de una imagen (lista casi al instante), un contenedor de vídeo/Reel se
+    procesa de forma asíncrona en los servidores de Instagram — hay que sondear
+    `status_code` hasta que sea FINISHED antes de poder publicarlo. IN_PROGRESS mientras
+    tanto; ERROR/EXPIRED significa que no va a llegar a FINISHED nunca, aborta ya."""
+    elapsed = 0
+    while elapsed < _REEL_POLL_TIMEOUT:
+        status = await _get(creation_id, {"fields": "status_code"})
+        code = status.get("status_code")
+        if code == "FINISHED":
+            return
+        if code in ("ERROR", "EXPIRED"):
+            raise RuntimeError(f"Instagram no pudo procesar el vídeo del Reel (status_code={code})")
+        await asyncio.sleep(_REEL_POLL_INTERVAL)
+        elapsed += _REEL_POLL_INTERVAL
+    raise RuntimeError(f"Timeout esperando a que Instagram procese el vídeo del Reel ({_REEL_POLL_TIMEOUT}s)")
+
+
+async def publish_reel(opp: dict[str, Any]) -> str:
+    """Genera el vídeo del Reel (fotogramas + música, ver `reel_video.py`) y lo publica.
+    NO forma parte de la cola con reintentos de `instagram_posts` (a diferencia de feed y
+    story): es un extra de mejor esfuerzo — si falla, feed y story ya se publicaron igual y
+    no merece la pena la complejidad de una cola aparte solo para esto."""
+    if not is_configured():
+        raise RuntimeError("Instagram no configurado (falta token/business_id/image_base_url)")
+
+    from pathlib import Path
+
+    from app.publisher import reel_video
+
+    out_path = Path(cfg.media_dir) / "reels" / f"{opp['identifier']}.mp4"
+    await asyncio.to_thread(reel_video.render_reel_mp4, opp, out_path)
+
+    caption = build_caption(opp)
+    create = await _post(
+        f"{cfg.instagram_business_id}/media",
+        {"media_type": "REELS", "video_url": reel_url(opp["identifier"]), "caption": caption},
+    )
+    creation_id = create["id"]
+    log.info("Contenedor de Reel creado: %s (%s)", creation_id, opp["identifier"])
+
+    await _wait_video_ready(creation_id)
+
+    publish = await _post(f"{cfg.instagram_business_id}/media_publish", {"creation_id": creation_id})
+    log.info("Reel publicado: %s (%s)", publish["id"], opp["identifier"])
+    return publish["id"]

@@ -271,6 +271,20 @@ async def instagram_story_image(identifier: str) -> Response:
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 
+@app.get("/ig/{identifier}/reel.mp4", include_in_schema=False)
+async def instagram_reel_video(identifier: str) -> FileResponse:
+    """El .mp4 del Reel, GENERADO DE ANTEMANO por `bot` (pesado: fotogramas + ffmpeg, ver
+    `app/publisher/reel_video.py`) y dejado en el volumen compartido `media_data` — esta
+    ruta solo lo sirve tal cual. Nada de generar vídeo al vuelo aquí: sería demasiado lento
+    para una petición pública y encima Instagram podría cortar la descarga por timeout."""
+    if not identifier.startswith("CORRADI-") or "/" in identifier or ".." in identifier:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    path = Path(cfg.media_dir) / "reels" / f"{identifier}.mp4"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Reel no disponible")
+    return FileResponse(path, media_type="video/mp4", headers={"Cache-Control": "public, max-age=3600"})
+
+
 _SHORT_ID_RE = re.compile(r"^\d{4}-\d{4}$")
 
 

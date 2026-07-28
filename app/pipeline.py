@@ -148,6 +148,19 @@ async def preview(
     return {"status": "ready", "fields": fields}
 
 
+async def _publish_reel_background(opp: dict[str, Any]) -> None:
+    """Genera y publica el Reel en segundo plano, sin bloquear `commit()` — ver el
+    comentario donde se lanza esta tarea. Un fallo aquí no tiene ningún efecto en el resto
+    del pipeline (Telegram y el feed/story de Instagram ya se publicaron)."""
+    try:
+        await instagram.publish_reel(opp)
+    except Exception:  # noqa: BLE001
+        log.exception(
+            "Reel de Instagram falló para %s (feed/story ya publicados; sin reintento para el Reel)",
+            opp["identifier"],
+        )
+
+
 async def commit(
     fields: dict[str, Any], source: str, submitted_by: str, submitted_by_id: int,
 ) -> dict[str, Any]:
@@ -210,6 +223,12 @@ async def commit(
                 try:
                     ig_media_id, ig_story_id = await instagram.publish_opportunity(opp)
                     await repo.mark_instagram_published(queue_id, ig_media_id, ig_story_id)
+                    # El Reel se genera (fotogramas + ffmpeg, varios segundos) y publica en
+                    # segundo plano: no tiene sentido retrasar la respuesta de commit() por
+                    # él — feed y story, lo importante, ya están publicados. Sin cola de
+                    # reintentos propia (a diferencia de feed/story): si falla, se registra
+                    # y ya, no hay barrido de las 2h para el Reel.
+                    asyncio.create_task(_publish_reel_background(opp))
                 except Exception as e:  # noqa: BLE001
                     log.warning(
                         "Instagram: fallo publicando %s al instante, queda para el barrido: %s",

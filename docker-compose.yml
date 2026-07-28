@@ -32,6 +32,11 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-corradi}:${POSTGRES_PASSWORD:-corradi}@db:5432/${POSTGRES_DB:-corradi}
+    volumes:
+      # Compartido con `bot`: el bot genera el .mp4 del Reel (pesado, ffmpeg) y lo deja
+      # aquí; la api solo lo sirve tal cual por GET /ig/{id}/reel.mp4 — nada de generar
+      # vídeo bajo demanda en la ruta pública, sería demasiado lento para esa petición.
+      - media_data:/data/media
     depends_on:
       db:
         condition: service_healthy
@@ -67,6 +72,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-corradi}:${POSTGRES_PASSWORD:-corradi}@db:5432/${POSTGRES_DB:-corradi}
+    volumes:
+      - media_data:/data/media
     depends_on:
       db:
         condition: service_healthy
@@ -76,3 +83,4 @@ volumes:
   caddy_data:
   caddy_config:
   caddy_logs:
+  media_data:

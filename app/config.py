@@ -111,6 +111,9 @@ class Config:
     # Espaciado mínimo entre publicaciones (sin tope diario, pero que no salgan 2 posts casi
     # seguidos si dos oportunidades se confirman con minutos de diferencia).
     instagram_min_gap_minutes: int = int(os.getenv("INSTAGRAM_MIN_GAP_MINUTES", "20"))
+    # Carpeta compartida entre `bot` (genera el .mp4 del Reel, pesado) y `api` (solo lo
+    # sirve tal cual por GET /ig/{id}/reel.mp4) — volumen `media_data` en docker-compose.
+    media_dir: str = os.getenv("MEDIA_DIR", "/data/media")
 
 
 cfg = Config()
