@@ -476,6 +476,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   .command { top: 14px; left: 14px; right: 166px; width: auto; transform: none; }
   body.searching .command { right: 14px; }
   body.searching .top-actions { display: none; }
+  /* Sin esto la "×" para cerrar la búsqueda existía en el DOM pero nunca se veía
+     (display:none de base, sin ningún sitio que lo revirtiera) — una vez abierta
+     la búsqueda en móvil no había manera de volver atrás salvo recargar. */
+  body.searching .command .search-close { display: flex; align-items: center; justify-content: center; }
   .command .ask-btn .label { display: none; }
   .command .ask-btn { width: 36px; height: 36px; padding: 0; justify-content: center; flex: none; margin-right: 2px; }
   /* Los chips de categoría se quedan solo en escritorio (poco sitio en móvil) pero el
@@ -1359,9 +1363,22 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
     document.getElementById("contribute").addEventListener("click", function () { window.open("https://t.me/corradi_erasmus_bot", "_blank", "noopener"); });
 
-    var searchToggle = document.getElementById("commandBar");
+    var commandBar = document.getElementById("commandBar");
     var qInput = document.getElementById("q");
     qInput.addEventListener("focus", function () { document.body.classList.add("searching"); });
+    // Tocar fuera de la barra (el mapa, una tarjeta, lo que sea) tiene que replegarla
+    // en móvil — sin esto, una vez abierta con un toque se quedaba desplegada para
+    // siempre (tapando "Filtros") hasta recargar la página. `focusout` + comprobar
+    // el nuevo foco en el siguiente frame (no en el propio evento, que aún no lo sabe)
+    // es lo único fiable: un clic directo en "×" también dispara este mismo evento,
+    // así que hay que dejar pasar ese caso sin recolapsar dos veces.
+    commandBar.addEventListener("focusout", function () {
+      requestAnimationFrame(function () {
+        if (!commandBar.contains(document.activeElement)) {
+          document.body.classList.remove("searching");
+        }
+      });
+    });
     document.getElementById("searchClose").addEventListener("click", function () {
       document.body.classList.remove("searching");
       qInput.value = ""; state.q = ""; apply(); qInput.blur();
