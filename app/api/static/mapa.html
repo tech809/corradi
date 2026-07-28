@@ -30,78 +30,122 @@
      con varios pines simultáneos, no solo pares adyacentes).
      A propósito SIEMPRE claro: no sigue el modo oscuro del sistema (antes lo
      seguía y en un móvil en modo oscuro se veía todo negro — pedido explícito
-     de mantenerlo claro siempre, sin depender del tema del dispositivo). */
+     de mantenerlo claro siempre, sin depender del tema del dispositivo).
+
+     Pase de diseño "premium" (v2): mismos tokens semánticos, valores más
+     refinados — bordes traslúcidos en vez de hex plano (se integran con el
+     desenfoque de cristal de cabecera/paneles), sistema de elevación en 3
+     niveles en vez de una sola sombra, radios más generosos, y una curva de
+     easing única para que todo se sienta cortado por el mismo patrón. */
   :root {
     --brand: #003399;
+    --brand-ink: #00256e;
     --gold: #ffcc00;
-    --bg: #f9f9f7;
-    --surface: #fcfcfb;
-    --text: #0b0b0b;
-    --muted: #52514e;
-    --muted-2: #898781;
-    --line: #e1e0d9;
-    --shadow: 0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.07);
-    --radius: 14px;
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --surface-2: #fbfbfa;
+    --text: #16181d;
+    --muted: #5b5d63;
+    --muted-2: #97989c;
+    --line: rgba(15, 15, 20, .08);
+    --line-strong: rgba(15, 15, 20, .14);
+    --shadow-xs: 0 1px 2px rgba(15,15,20,.04);
+    --shadow-sm: 0 2px 8px rgba(15,15,20,.06), 0 1px 2px rgba(15,15,20,.05);
+    --shadow-md: 0 8px 28px rgba(15,15,20,.10), 0 2px 8px rgba(15,15,20,.05);
+    --shadow-lg: 0 24px 64px rgba(15,15,20,.18), 0 4px 16px rgba(15,15,20,.08);
+    --shadow: var(--shadow-sm);
+    --radius-sm: 12px;
+    --radius: 18px;
+    --radius-lg: 26px;
+    --ease: cubic-bezier(.4, 0, .2, 1);
+    --ease-out: cubic-bezier(.16, 1, .3, 1);
     --ye: #2a78d6; --tc: #eda100; --ecs: #008300; --ws: #e87ba4; --other: #898781;
-    --critical: #d03b3b; --warn: #fab219;
+    --critical: #d03b3b; --warn: #c98400;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
     display: flex; flex-direction: column;
+  }
+  ::selection { background: color-mix(in srgb, var(--brand) 22%, transparent); }
+  :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent);
+    outline-offset: 2px; border-radius: 4px;
+  }
+  /* Scrollbars finos y discretos (WebKit) — el listado, los paneles y el chat
+     tienen scroll interno frecuente; el scrollbar nativo grueso rompía la
+     sensación de "cristal" del resto de la interfaz. */
+  #list::-webkit-scrollbar, .fp-pane::-webkit-scrollbar, .chat-log::-webkit-scrollbar, .info-body::-webkit-scrollbar {
+    width: 8px;
+  }
+  #list::-webkit-scrollbar-thumb, .fp-pane::-webkit-scrollbar-thumb, .chat-log::-webkit-scrollbar-thumb, .info-body::-webkit-scrollbar-thumb {
+    background: rgba(15,15,20,.14); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box;
+  }
+  #list::-webkit-scrollbar-thumb:hover, .fp-pane::-webkit-scrollbar-thumb:hover, .chat-log::-webkit-scrollbar-thumb:hover, .info-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(15,15,20,.24); background-clip: padding-box;
   }
 
   /* ── Cabecera ─────────────────────────────────────────────────── */
   header {
-    background: var(--surface); border-bottom: 1px solid var(--line);
-    padding: 14px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: color-mix(in srgb, var(--surface) 86%, transparent);
+    backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 600;
   }
-  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
   /* Proporción de bandera (4:3), no círculo: es una bandera, no un emblema. */
-  .brand svg { width: 38px; height: 28px; flex: none; border-radius: 4px; border: 1px solid var(--line); }
-  .brand h1 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
-  .brand p { margin: 1px 0 0; font-size: 12.5px; color: var(--muted); }
+  .brand svg { width: 36px; height: 27px; flex: none; border-radius: 5px; box-shadow: 0 0 0 1px var(--line); }
+  .brand h1 { font-size: 16.5px; font-weight: 650; margin: 0; letter-spacing: -.015em; color: var(--text); }
+  .brand p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); letter-spacing: -.005em; }
   .count {
-    background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand);
-    font-weight: 650; font-size: 13px; padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+    background: color-mix(in srgb, var(--brand) 10%, var(--surface)); color: var(--brand-ink);
+    font-weight: 650; font-size: 12.5px; padding: 7px 13px; border-radius: 999px; white-space: nowrap;
+    letter-spacing: -.005em;
   }
   .channel {
-    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
     background: var(--brand); color: #fff; font-weight: 600; font-size: 13.5px;
-    padding: 8px 14px; border-radius: 999px; transition: opacity .15s;
+    padding: 9px 16px; border-radius: 999px; transition: transform .2s var(--ease), box-shadow .2s var(--ease), opacity .2s var(--ease);
+    box-shadow: 0 1px 2px rgba(0,51,153,.15), 0 4px 14px rgba(0,51,153,.16);
   }
-  .channel:hover { opacity: .88; }
+  .channel:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,51,153,.18), 0 8px 22px rgba(0,51,153,.22); }
+  .channel:active { transform: translateY(0); }
   /* Variante secundaria (contorno, no rellena): para no competir con "Ver canal",
      que sigue siendo la acción principal en color sólido. */
-  .channel.outline { background: transparent; color: var(--brand); border: 1px solid var(--brand); }
-  .channel.outline:hover { opacity: 1; background: color-mix(in srgb, var(--brand) 10%, transparent); }
+  .channel.outline { background: var(--surface); color: var(--brand); border: 1px solid var(--line-strong); box-shadow: var(--shadow-xs); }
+  .channel.outline:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line-strong)); box-shadow: var(--shadow-sm); }
 
   /* ── Filtros ──────────────────────────────────────────────────── */
   .filters {
-    background: var(--surface); border-bottom: 1px solid var(--line);
-    padding: 12px 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    background: color-mix(in srgb, var(--surface) 80%, transparent);
+    backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 24px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    position: relative; z-index: 590;
   }
   .search { position: relative; flex: 1 1 240px; max-width: 340px; }
-  .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted-2); }
   input[type="search"] {
     width: 100%; font: inherit; font-size: 14px; color: var(--text);
-    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
-    padding: 9px 12px 9px 42px; outline: none; transition: border-color .15s, box-shadow .15s;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 13px 10px 40px; outline: none; transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
   }
   input[type="search"]:focus {
-    border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent);
+    border-color: color-mix(in srgb, var(--brand) 55%, var(--line)); background: var(--surface);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 12%, transparent);
   }
-  .chips { display: flex; gap: 7px; flex-wrap: wrap; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .chip {
     font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
-    background: var(--bg); color: var(--muted); border: 1px solid var(--line);
-    padding: 8px 13px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px;
-    transition: all .15s; user-select: none;
+    background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+    padding: 8px 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px;
+    transition: all .18s var(--ease); user-select: none;
   }
-  .chip:hover { border-color: var(--muted); }
+  .chip:hover { border-color: var(--line-strong); background: var(--surface); }
   /* Misma especificidad que ".chip" (una clase) contra el "[hidden]{display:none}" del
      navegador (un atributo) — al empate de especificidad gana quien va DESPUÉS en la
      hoja, que es ".chip" — así que sin esto, ocultar un chip con `.hidden = true` (el
@@ -128,6 +172,7 @@
   .reset {
     font: inherit; font-size: 13px; background: none; border: 0; color: var(--muted);
     cursor: pointer; padding: 8px 6px; text-decoration: underline; text-underline-offset: 3px;
+    transition: color .15s var(--ease);
   }
   .reset:hover { color: var(--text); }
 
@@ -135,9 +180,10 @@
   .icon-btn {
     display: none; align-items: center; justify-content: center; flex: none;
     width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
-    background: var(--bg); border: 1px solid var(--line); color: var(--muted);
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+    transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
   }
-  .icon-btn:hover { border-color: var(--muted); color: var(--text); }
+  .icon-btn:hover { border-color: var(--line-strong); color: var(--text); background: var(--surface); }
   .search-close { display: none; }
 
   /* Botón único que abre TODOS los filtros agrupados en un solo panel (ver
@@ -148,12 +194,12 @@
      Misma clase para "💬 Preguntar" — Buscar / Preguntar / Filtros son las tres
      formas de encontrar algo, agrupadas donde ya mira el usuario. */
   .filters-btn {
-    display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 13px;
+    display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 13px;
     font-weight: 550; cursor: pointer; white-space: nowrap;
-    background: var(--bg); color: var(--text); border: 1px solid var(--line);
-    padding: 10px 14px; border-radius: 999px;
+    background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
+    padding: 10px 16px; border-radius: 999px; transition: border-color .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
   }
-  .filters-btn:hover { border-color: var(--muted); }
+  .filters-btn:hover { border-color: var(--line-strong); background: var(--surface); box-shadow: var(--shadow-xs); }
   /* Empuja TODO el grupo de la derecha (Preguntar + Filtros + Limpiar) al extremo —
      se aplica una sola vez, al primero del grupo, o el auto-margin se repartiría
      entre varios botones con la misma clase y descuadraría el hueco. */
@@ -171,81 +217,89 @@
      lista larga con scroll: con 5 grupos de filtro (contando Urgencia dentro de
      Categoría) el scroll único se hacía largo y costaba encontrar cada cosa. */
   .fp-tabs {
-    display: flex; gap: 4px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex: none;
+    display: flex; gap: 4px; padding: 12px 18px; border-bottom: 1px solid var(--line); flex: none;
   }
   .fp-tab {
     flex: 1; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
-    padding: 9px 6px; border-radius: 9px; border: 1px solid transparent;
+    padding: 10px 6px; border-radius: 10px; border: 1px solid transparent;
     background: transparent; color: var(--muted);
     display: flex; align-items: center; justify-content: center; gap: 5px;
+    transition: background .18s var(--ease), color .18s var(--ease);
   }
-  .fp-tab[aria-selected="true"] { background: color-mix(in srgb, var(--brand) 10%, var(--surface)); color: var(--brand); }
+  .fp-tab:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
+  .fp-tab[aria-selected="true"] { background: color-mix(in srgb, var(--brand) 10%, var(--surface)); color: var(--brand-ink); }
   .fp-tab .dd-count { font-size: 10px; min-width: 15px; height: 15px; }
-  .fp-pane { display: none; padding: 20px; max-height: calc(70vh - 108px); overflow-y: auto; }
+  .fp-pane { display: none; padding: 22px; max-height: calc(70vh - 108px); overflow-y: auto; }
   .fp-pane[data-shown="true"] { display: block; }
   .fp-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted-2); }
 
   /* Categorías: chip compacto de una sola línea (icono + nombre), no la tarjeta
      alta de antes — las 4 caben casi sin ocupar alto. */
-  .cat-compact { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cat-compact { display: flex; flex-wrap: wrap; gap: 9px; }
   .cat-chip {
-    font: inherit; display: flex; align-items: center; gap: 7px; padding: 7px 13px 7px 7px;
-    border-radius: 999px; border: 1.5px solid var(--line); cursor: pointer; background: var(--bg);
+    font: inherit; display: flex; align-items: center; gap: 8px; padding: 7px 15px 7px 7px;
+    border-radius: 999px; border: 1.5px solid var(--line); cursor: pointer; background: var(--surface-2);
+    transition: all .18s var(--ease);
   }
+  .cat-chip:hover { border-color: var(--line-strong); }
   .cat-chip[aria-pressed="true"] {
     border-color: color-mix(in srgb, var(--c) 55%, transparent);
     background: color-mix(in srgb, var(--c) 14%, var(--surface));
   }
   .cat-chip .dot2 {
-    width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+    width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center;
     justify-content: center; background: color-mix(in srgb, var(--c) 26%, var(--surface));
-    color: var(--c); font-size: 11px; flex: none;
+    color: var(--c); font-size: 12px; flex: none;
   }
-  .cat-chip .name { font-size: 13px; font-weight: 620; color: var(--text); }
+  .cat-chip .name { font-size: 13.5px; font-weight: 610; color: var(--text); letter-spacing: -.005em; }
 
   /* Urgencia: SIN encabezado de sección propio — va justo debajo de Categoría en la
      misma pestaña. Cada fila lleva un "?" que despliega su aclaración al clicar, en
      vez de un párrafo de ayuda siempre visible. */
   .sw-row {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 12px 2px; border-bottom: 1px solid var(--line);
+    padding: 13px 2px; border-bottom: 1px solid var(--line);
   }
   .sw-row:last-of-type { border-bottom: 0; }
   .sw-row .lbl { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 560; }
   .info-q {
-    width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--muted-2); background: none;
+    width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--line-strong); background: none;
     color: var(--muted-2); font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; line-height: 1;
     display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: none;
+    transition: border-color .15s var(--ease), color .15s var(--ease);
   }
   .info-q:hover, .info-q[aria-expanded="true"] { border-color: var(--brand); color: var(--brand); }
   .switch {
-    width: 40px; height: 24px; border-radius: 999px; background: var(--line); position: relative;
-    cursor: pointer; flex: none; transition: background .15s; border: 0; padding: 0;
+    width: 42px; height: 25px; border-radius: 999px; background: var(--line-strong); position: relative;
+    cursor: pointer; flex: none; transition: background .2s var(--ease); border: 0; padding: 0;
   }
   .switch[aria-pressed="true"] { background: var(--brand); }
   .switch i {
-    position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
-    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s;
+    position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.28); transition: transform .2s var(--ease-out);
   }
-  .switch[aria-pressed="true"] i { transform: translateX(16px); }
+  .switch[aria-pressed="true"] i { transform: translateX(17px); }
   .info-note { margin: -2px 0 10px; font-size: 12px; color: var(--muted-2); padding: 0 2px; display: none; }
   .info-note[data-open="true"] { display: block; }
 
   /* Edad: stepper +/- en vez de un <input type=number> pelado — más cómodo en móvil
      y visualmente más resuelto que las flechitas nativas del navegador. */
-  .age-stepper { display: flex; align-items: center; gap: 14px; }
+  .age-stepper { display: flex; align-items: center; gap: 16px; }
   .step-btn {
-    width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line);
-    background: var(--bg); font: inherit; font-size: 17px; font-weight: 650; cursor: pointer; color: var(--brand);
+    width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--surface-2); font: inherit; font-size: 17px; font-weight: 650; cursor: pointer; color: var(--brand);
+    transition: border-color .15s var(--ease), background .15s var(--ease), transform .15s var(--ease);
   }
-  .age-val { font-size: 22px; font-weight: 700; min-width: 70px; text-align: center; font-variant-numeric: tabular-nums; }
+  .step-btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); background: var(--surface); }
+  .step-btn:active { transform: scale(.94); }
+  .age-val { font-size: 23px; font-weight: 700; min-width: 72px; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
   .age-val small { display: block; font-size: 11.5px; font-weight: 550; color: var(--muted-2); }
 
   /* País: buscador que filtra los chips en vivo — con ~22 países una lista plana
      entera se hacía pesada de escanear. */
   .country-search {
-    display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--line);
-    border-radius: 10px; padding: 9px 12px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 13px; margin-bottom: 14px;
   }
   .country-search input {
     border: 0; background: none; outline: none; font: inherit; font-size: 13.5px; width: 100%; color: var(--text);
@@ -253,52 +307,61 @@
 
   .fp-foot {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 14px 20px; border-top: 1px solid var(--line);
-    position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 16px 16px;
+    padding: 16px 22px; border-top: 1px solid var(--line);
+    position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   }
   .fp-foot .reset { padding: 8px 4px; }
-  .fp-foot .btn.primary { padding: 10px 18px; font-size: 13.5px; font-weight: 650; }
+  .fp-foot .btn.primary { padding: 11px 20px; font-size: 13.5px; font-weight: 650; }
 
   /* ── Diálogo del asistente (chat) ──────────────────────────────────────────
      Reutiliza la misma "chrome" (.info-dialog) y las MISMAS .card que la lista
      (ver cardHTML()) — el chat no es una pantalla aparte, es otra puerta a las
      mismas fichas. */
-  .chat-body { padding: 16px 20px 4px; }
+  .chat-body { padding: 18px 22px 4px; }
   /* Una sola fila SIEMPRE (escritorio y móvil) — en vez de envolver a varias líneas,
      si no caben todas se desliza en horizontal (más notorio en móvil, pero mismo
      mecanismo en los dos). Chips más compactos que los del resto del panel. */
   .chat-suggestions {
-    display: flex; flex-wrap: nowrap; gap: 4px; margin-top: 12px;
+    display: flex; flex-wrap: nowrap; gap: 5px; margin-top: 13px;
     overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin;
   }
-  .chat-suggestions .chip { flex: none; white-space: nowrap; padding: 6px 8px; font-size: 11.5px; gap: 4px; }
-  .chat-log { display: flex; flex-direction: column; gap: 18px; padding: 16px 20px; max-height: calc(70vh - 158px); overflow-y: auto; }
+  .chat-suggestions .chip { flex: none; white-space: nowrap; padding: 7px 9px; font-size: 11.5px; gap: 4px; }
+  .chat-log { display: flex; flex-direction: column; gap: 18px; padding: 16px 22px; max-height: calc(70vh - 158px); overflow-y: auto; }
   .chat-turn { display: flex; flex-direction: column; gap: 10px; }
   .chat-q {
     align-self: flex-end; max-width: 85%; background: var(--brand); color: #fff;
-    padding: 9px 14px; border-radius: 14px 14px 3px 14px; font-size: 13.5px; font-weight: 550;
+    padding: 10px 15px; border-radius: 16px 16px 3px 16px; font-size: 13.5px; font-weight: 550;
+    box-shadow: 0 2px 8px rgba(0,51,153,.18);
   }
-  .chat-a { font-size: 14px; color: var(--text); line-height: 1.5; }
+  .chat-a { font-size: 14px; color: var(--text); line-height: 1.55; }
   .chat-cards { display: flex; flex-direction: column; gap: 10px; }
   .chat-see-all { align-self: flex-start; }
   .chat-unavailable { text-align: center; color: var(--muted); padding: 34px 24px; font-size: 14px; line-height: 1.5; }
+  /* Sin esto, `.chat-foot[hidden]` pierde contra el `display:flex` de abajo (misma
+     especificidad, una clase, y `.chat-foot` va después en la cascada) — el input y el
+     botón de enviar se quedaban visibles aunque el chat estuviera marcado como no
+     disponible. Mismo patrón de bug ya visto y arreglado en `.chip[hidden]`. */
+  .chat-foot[hidden] { display: none; }
   .chat-foot {
-    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 8px; padding: 14px 18px;
     border-top: 1px solid var(--line); position: sticky; bottom: 0; background: var(--surface);
-    border-radius: 0 0 16px 16px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   }
   .chat-foot input {
-    flex: 1; font: inherit; font-size: 14px; padding: 10px 14px; border-radius: 999px;
-    border: 1px solid var(--line); background: var(--bg); color: var(--text); outline: none;
+    flex: 1; font: inherit; font-size: 14px; padding: 11px 16px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--text); outline: none;
+    transition: border-color .18s var(--ease), background .18s var(--ease);
   }
-  .chat-foot input:focus { border-color: var(--brand); }
+  .chat-foot input:focus { border-color: color-mix(in srgb, var(--brand) 55%, var(--line)); background: var(--surface); }
   .chat-send {
-    width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--brand); color: #fff;
+    width: 42px; height: 42px; border-radius: 50%; border: 0; background: var(--brand); color: #fff;
     font-size: 15px; cursor: pointer; flex: none; display: flex; align-items: center; justify-content: center;
+    transition: transform .15s var(--ease), opacity .15s var(--ease); box-shadow: 0 2px 8px rgba(0,51,153,.22);
   }
-  .chat-send:disabled { opacity: .5; cursor: default; }
+  .chat-send:hover:not(:disabled) { transform: scale(1.05); }
+  .chat-send:disabled { opacity: .4; cursor: default; box-shadow: none; }
   .chat-skel {
-    height: 56px; border-radius: var(--radius); background: var(--surface);
+    height: 58px; border-radius: var(--radius); background: var(--surface-2);
     border: 1px solid var(--line); position: relative; overflow: hidden;
   }
   .chat-skel::after {
@@ -309,42 +372,44 @@
 
   /* Filtro de fechas: dos submodos, meses (por defecto, más simple) o rango exacto. */
   .date-mode-switch {
-    display: flex; gap: 4px; padding: 2px 2px 8px; margin-bottom: 6px;
+    display: flex; gap: 4px; padding: 2px 2px 10px; margin-bottom: 8px;
     border-bottom: 1px solid var(--line);
   }
   .mode-btn {
     flex: 1; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
-    padding: 7px 8px; border-radius: 8px; border: 1px solid transparent;
-    background: transparent; color: var(--muted);
+    padding: 8px 8px; border-radius: 9px; border: 1px solid transparent;
+    background: transparent; color: var(--muted); transition: background .18s var(--ease), color .18s var(--ease);
   }
   .mode-btn[aria-pressed="true"] {
-    background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand-ink);
   }
   /* Rejilla 2 columnas con los próximos 8 meses: alineados y del mismo tamaño. */
-  .month-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .month-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
   .month-chips .chip { justify-content: center; }
   /* "Todos los meses" no es un mes: ocupa las 2 columnas y va primero, como acción de
      reset — sin esto, una vez aislado un mes concreto no había forma de volver a "todos"
      salvo el botón general de Limpiar filtros (que además borra el resto de filtros). */
   .month-chips .chip.all-months { grid-column: 1 / -1; font-weight: 650; }
-  .range-inputs { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 2px; }
+  .range-inputs { display: flex; flex-direction: column; gap: 9px; padding: 4px 2px 2px; }
   /* El atributo HTML `hidden` por sí solo pierde contra el `display:flex` de arriba (mi
      regla tiene más especificidad que la hoja de estilos por defecto) — hay que
      reforzarlo explícitamente para que oculte de verdad al cambiar de submodo. */
   .range-inputs[hidden], .month-chips[hidden] { display: none; }
-  .range-inputs label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .range-inputs label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); font-weight: 600; }
   .range-inputs input[type="date"] {
-    font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px;
-    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    font: inherit; font-size: 13px; padding: 9px 11px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
   }
 
   /* Burbuja flotante Mapa/Lista (solo móvil) */
   .view-bubble {
-    display: none; position: absolute; top: 12px; right: 12px; z-index: 500;
+    display: none; position: absolute; top: 14px; right: 14px; z-index: 500;
     font: inherit; font-size: 13px; font-weight: 620; cursor: pointer;
     background: var(--brand); color: #fff; border: 0;
-    padding: 10px 16px; border-radius: 999px; box-shadow: 0 2px 10px rgba(11,11,11,.25);
+    padding: 11px 18px; border-radius: 999px; box-shadow: 0 4px 16px rgba(0,51,153,.3);
+    transition: transform .15s var(--ease);
   }
+  .view-bubble:active { transform: scale(.96); }
 
   /* Pie: barra FIJA abajo, oculta por defecto (no consume pantalla) — aparece deslizándose
      solo cuando se llega al final de la lista (ver JS). Dos mitades: estadísticas (izda,
@@ -354,134 +419,148 @@
   .site-footer {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 550;
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-    gap: 10px 20px; padding: 9px 20px; background: var(--surface);
-    border-top: 1px solid var(--line); box-shadow: 0 -6px 20px rgba(11,11,11,.05);
-    transform: translateY(110%); transition: transform .22s ease;
+    gap: 10px 20px; padding: 11px 24px;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-top: 1px solid var(--line); box-shadow: 0 -8px 28px rgba(15,15,20,.07);
+    transform: translateY(110%); transition: transform .3s var(--ease-out);
   }
   .site-footer.show { transform: translateY(0); }
-  .footer-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
-  .stat-item { display: flex; align-items: center; gap: 8px; }
+  .footer-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; }
+  .stat-item { display: flex; align-items: center; gap: 9px; }
   .stat-icon {
-    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    width: 28px; height: 28px; border-radius: 50%; flex: none;
     display: flex; align-items: center; justify-content: center;
-    background: color-mix(in srgb, var(--brand) 11%, var(--surface)); font-size: 13px;
+    background: color-mix(in srgb, var(--brand) 10%, var(--surface-2)); font-size: 13px;
   }
   .stat-item b {
     display: block; color: var(--text); font-weight: 700; font-size: 13.5px;
-    line-height: 1.15; font-variant-numeric: tabular-nums;
+    line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.01em;
   }
   .stat-item small {
     display: block; color: var(--muted-2); font-size: 10px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .04em;
+    text-transform: uppercase; letter-spacing: .05em;
   }
   .footer-ig {
     display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
     background: linear-gradient(135deg, #f9ce34, #ee2a7b 55%, #6228d7);
-    color: #fff; font-weight: 650; font-size: 12.5px; padding: 8px 14px 8px 10px;
-    border-radius: 999px; white-space: nowrap; transition: opacity .15s, transform .15s;
+    color: #fff; font-weight: 650; font-size: 12.5px; padding: 9px 15px 9px 11px;
+    border-radius: 999px; white-space: nowrap; transition: opacity .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
+    box-shadow: 0 2px 10px rgba(238,42,123,.22);
   }
-  .footer-ig:hover { opacity: .9; transform: translateY(-1px); }
+  .footer-ig:hover { opacity: .92; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(238,42,123,.3); }
   .footer-ig svg { flex: none; }
   .footer-ig strong { font-weight: 800; }
 
   /* Aviso efímero (p.ej. "Enlace copiado") */
   .toast {
-    position: fixed; left: 50%; bottom: 24px; z-index: 900;
+    position: fixed; left: 50%; bottom: 26px; z-index: 900;
     transform: translateX(-50%) translateY(20px);
     background: var(--text); color: var(--surface); font-size: 13px; font-weight: 550;
-    padding: 10px 16px; border-radius: 999px; box-shadow: var(--shadow);
-    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+    padding: 11px 18px; border-radius: 999px; box-shadow: var(--shadow-lg);
+    opacity: 0; pointer-events: none; transition: opacity .25s var(--ease), transform .25s var(--ease-out);
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* Popup de Instagram para quien ya ha entrado varias veces (contador en localStorage,
      ver JS) — se enseña UNA sola vez en la vida del navegador, no en cada visita. */
   .ig-popup {
-    position: fixed; right: 20px; bottom: 20px; z-index: 800; width: 290px; max-width: calc(100vw - 28px);
-    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
-    box-shadow: var(--shadow); padding: 18px 18px 16px;
+    position: fixed; right: 22px; bottom: 22px; z-index: 800; width: 296px; max-width: calc(100vw - 28px);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+    box-shadow: var(--shadow-lg); padding: 20px 20px 18px;
     transform: translateY(16px) scale(.97); opacity: 0; pointer-events: none;
-    transition: transform .25s ease, opacity .25s ease;
+    transition: transform .3s var(--ease-out), opacity .3s var(--ease-out);
   }
   .ig-popup.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
   .ig-popup-close {
-    position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 50%;
-    background: var(--bg); border: 1px solid var(--line); color: var(--muted); cursor: pointer;
-    font-size: 12px; line-height: 1;
+    position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); cursor: pointer;
+    font-size: 12px; line-height: 1; transition: color .15s var(--ease), border-color .15s var(--ease);
   }
-  .ig-popup-close:hover { color: var(--text); border-color: var(--muted); }
+  .ig-popup-close:hover { color: var(--text); border-color: var(--line-strong); }
   .ig-popup-icon {
-    width: 38px; height: 38px; border-radius: 50%; margin-bottom: 10px;
+    width: 40px; height: 40px; border-radius: 50%; margin-bottom: 12px;
     background: linear-gradient(135deg, #f9ce34, #ee2a7b 55%, #6228d7);
     display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 14px rgba(238,42,123,.28);
   }
-  .ig-popup p { margin: 0 0 14px; font-size: 13.5px; line-height: 1.45; color: var(--text); padding-right: 10px; }
+  .ig-popup p { margin: 0 0 15px; font-size: 13.5px; line-height: 1.5; color: var(--text); padding-right: 10px; }
   .ig-popup p strong { display: block; margin-bottom: 3px; font-size: 14.5px; }
   .ig-popup .footer-ig { width: 100%; justify-content: center; box-sizing: border-box; }
   @media (max-width: 880px) {
-    .ig-popup { left: 14px; right: 14px; bottom: 88px; width: auto; max-width: none; }
+    .ig-popup { left: 14px; right: 14px; bottom: 92px; width: auto; max-width: none; }
   }
 
   /* Badge "Nuevo" (oportunidades de las últimas 48h) */
   .new-tag {
     display: inline-block; margin-left: 7px; font-size: 10.5px; font-weight: 700;
-    letter-spacing: .03em; text-transform: uppercase; vertical-align: middle;
-    color: #fff; background: var(--critical); padding: 2px 7px; border-radius: 6px;
+    letter-spacing: .04em; text-transform: uppercase; vertical-align: middle;
+    color: #fff; background: var(--critical); padding: 2px 8px; border-radius: 7px;
   }
 
   /* Ventana de información */
   .info-dialog {
-    border: 0; border-radius: 16px; padding: 0; max-width: 560px; width: calc(100% - 32px);
-    color: var(--text); background: var(--surface); box-shadow: 0 12px 48px rgba(11,11,11,.22);
+    border: 0; border-radius: var(--radius-lg); padding: 0; max-width: 560px; width: calc(100% - 32px);
+    color: var(--text); background: var(--surface); box-shadow: var(--shadow-lg);
   }
-  .info-dialog::backdrop { background: rgba(11,11,11,.45); }
+  .info-dialog::backdrop { background: rgba(10,10,14,.5); backdrop-filter: blur(3px); }
   .info-head {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 18px 20px; border-bottom: 1px solid var(--line);
-    position: sticky; top: 0; background: var(--surface); border-radius: 16px 16px 0 0;
+    padding: 20px 22px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(12px); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
-  .info-head h2 { margin: 0; font-size: 17px; font-weight: 650; }
+  .info-head h2 { margin: 0; font-size: 17.5px; font-weight: 650; letter-spacing: -.01em; }
   .info-close {
-    font: inherit; font-size: 16px; line-height: 1; cursor: pointer; flex: none;
-    width: 32px; height: 32px; border-radius: 50%;
-    background: var(--bg); border: 1px solid var(--line); color: var(--muted);
+    font: inherit; font-size: 15px; line-height: 1; cursor: pointer; flex: none;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+    transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease);
   }
-  .info-close:hover { color: var(--text); border-color: var(--muted); }
-  .info-body { padding: 4px 20px 22px; max-height: 70vh; overflow-y: auto; }
+  .info-close:hover { color: var(--text); border-color: var(--line-strong); background: var(--surface); }
+  .info-body { padding: 6px 22px 24px; max-height: 70vh; overflow-y: auto; }
   .info-body h3 {
-    margin: 20px 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .04em;
-    text-transform: uppercase; color: var(--brand);
+    margin: 22px 0 7px; font-size: 12.5px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--brand-ink);
   }
-  .info-body p, .info-body li { margin: 0 0 8px; font-size: 14px; color: var(--muted); line-height: 1.55; }
+  .info-body p, .info-body li { margin: 0 0 8px; font-size: 14px; color: var(--muted); line-height: 1.6; }
   .info-body strong { color: var(--text); }
   .info-body ul { margin: 0; padding-left: 18px; }
   .info-body a { color: var(--brand); font-weight: 600; text-decoration: none; }
   .info-body a:hover { text-decoration: underline; }
   .info-stats {
-    display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 16px; padding-top: 14px;
+    display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 18px; padding-top: 16px;
     border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px;
   }
   .info-stats span { white-space: nowrap; }
   .info-stats b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
   .info-btn { cursor: pointer; }
 
-  /* ── Layout principal ─────────────────────────────────────────── */
-  main { flex: 1; display: flex; min-height: 0; }
+  /* ── Layout principal ─────────────────────────────────────────────────────
+     El mapa y la lista viven dentro de un lienzo con un margen fino alrededor
+     (en vez de a sangre con el borde de la ventana) y bordes redondeados en su
+     propio recuadro — sensación de "tarjeta flotante" en vez de paneles pegados
+     al cristal, sin tocar ninguna medida de la que dependa Leaflet (el propio
+     div #map sigue llenando su caja igual que antes). */
+  main { flex: 1; display: flex; min-height: 0; gap: 14px; padding: 14px; background: var(--bg); }
   #list {
-    width: 380px; flex: none; overflow-y: auto; padding: 14px;
-    background: var(--bg); border-right: 1px solid var(--line);
-    display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth;
+    width: 380px; flex: none; overflow-y: auto; padding: 4px;
+    background: var(--bg);
+    display: flex; flex-direction: column; gap: 11px; scroll-behavior: smooth;
   }
-  #map { flex: 1; min-width: 0; background: var(--bg); z-index: 0; }
+  #map {
+    flex: 1; min-width: 0; background: var(--surface-2); z-index: 0;
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-md); overflow: hidden;
+  }
 
   /* ── Tarjetas ─────────────────────────────────────────────────── */
   .card {
     position: relative;
     background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c, var(--other));
-    border-radius: var(--radius); padding: 13px 15px; cursor: pointer;
-    transition: transform .12s, box-shadow .12s, border-color .12s;
+    border-radius: var(--radius); padding: 15px 17px; cursor: pointer;
+    transition: transform .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease);
   }
-  .card:hover, .card.active { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .card:hover, .card.active { transform: translateY(-2px); box-shadow: var(--shadow-md); }
   .card.active { border-color: var(--c, var(--brand)); }
   .card[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
   .card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
@@ -489,24 +568,24 @@
   .card[data-type="WORKSHOP"]        { --c: var(--ws); }
   /* padding-right: deja hueco para que el título no se meta debajo del grupo de
      iconos (recordar + compartir) flotando en la esquina superior derecha. */
-  .card h3 { margin: 0 0 7px; padding-right: 66px; font-size: 15px; font-weight: 640; line-height: 1.35; letter-spacing: -.01em; }
+  .card h3 { margin: 0 0 8px; padding-right: 66px; font-size: 15.5px; font-weight: 640; line-height: 1.35; letter-spacing: -.015em; }
   /* Recordar (Google Calendar) + Compartir: solo icono, agrupados arriba a la derecha —
      igual en la tarjeta y en el popup del mapa (ahí queda cerca de la ✕ de Leaflet). */
-  .corner-actions { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; gap: 6px; }
+  .corner-actions { position: absolute; top: 11px; right: 11px; z-index: 5; display: flex; gap: 6px; }
   .corner-btn {
     display: flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: 50%; cursor: pointer; padding: 0;
-    background: var(--bg); border: 1px solid var(--line); color: var(--muted); font-size: 14px;
-    text-decoration: none;
+    width: 29px; height: 29px; border-radius: 50%; cursor: pointer; padding: 0;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); font-size: 14px;
+    text-decoration: none; transition: border-color .15s var(--ease), color .15s var(--ease);
   }
   .corner-btn:hover { border-color: var(--brand); color: var(--brand); }
   .corner-btn.cal-btn { border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); }
   .badge {
     display: inline-block; font-size: 11.5px; font-weight: 650; letter-spacing: .02em;
     color: var(--c, var(--other)); background: color-mix(in srgb, var(--c, var(--other)) 12%, transparent);
-    padding: 3px 9px; border-radius: 6px; margin-bottom: 8px;
+    padding: 4px 10px; border-radius: 7px; margin-bottom: 9px;
   }
-  .meta { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .meta { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 5px; }
   .meta span { display: flex; align-items: baseline; gap: 7px; }
   .meta i, .deadline i { font-style: normal; flex: none; width: 16px; text-align: center; }
   /* La urgencia se marca con un fondo/borde de color (chip), NUNCA coloreando el
@@ -514,11 +593,11 @@
      texto plano, así que la tinta se queda siempre en --text y el color solo
      entra de fondo — el icono ⏳ ya aporta la señal visual sin depender del hue. */
   .deadline {
-    font-weight: 600; margin-top: 8px; font-size: 13px;
+    font-weight: 600; margin-top: 9px; font-size: 13px;
     display: inline-flex; align-items: center; gap: 6px;
   }
   .deadline.urgent, .deadline.soon {
-    padding: 4px 10px; border-radius: 999px;
+    padding: 5px 11px; border-radius: 999px;
     background: color-mix(in srgb, var(--c) 16%, var(--surface));
     border: 1px solid color-mix(in srgb, var(--c) 38%, transparent);
   }
@@ -529,20 +608,20 @@
      solo se avisa de que no tiene pin. Borde gris para distinguirla de un vistazo. */
   .card.unlocated { border-left-color: var(--muted-2); }
   .nogeo { color: var(--muted-2); font-style: italic; }
-  .actions { display: flex; gap: 8px; margin-top: 11px; flex-wrap: wrap; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
   .btn {
-    font-size: 12.5px; font-weight: 600; text-decoration: none; padding: 7px 12px;
-    border-radius: 8px; border: 1px solid var(--line); color: var(--text); background: var(--bg);
-    transition: border-color .15s, background .15s;
+    font-size: 12.5px; font-weight: 600; text-decoration: none; padding: 8px 13px;
+    border-radius: 9px; border: 1px solid var(--line); color: var(--text); background: var(--surface-2);
+    transition: border-color .18s var(--ease), background .18s var(--ease), transform .18s var(--ease);
   }
-  .btn:hover { border-color: var(--brand); }
-  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
-  .btn.primary:hover { opacity: .88; }
+  .btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); background: var(--surface); }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 2px 8px rgba(0,51,153,.2); }
+  .btn.primary:hover { opacity: .92; transform: translateY(-1px); }
 
-  .empty { text-align: center; color: var(--muted); padding: 44px 20px; font-size: 14px; }
-  .empty strong { display: block; color: var(--text); font-size: 15px; margin-bottom: 6px; }
+  .empty { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
+  .empty strong { display: block; color: var(--text); font-size: 15.5px; margin-bottom: 7px; }
   .skeleton {
-    height: 116px; border-radius: var(--radius); background: var(--surface);
+    height: 118px; border-radius: var(--radius); background: var(--surface);
     border: 1px solid var(--line); position: relative; overflow: hidden;
   }
   .skeleton::after {
@@ -553,20 +632,20 @@
   @keyframes shimmer { 100% { transform: translateX(100%); } }
 
   /* ── Pines ────────────────────────────────────────────────────── */
-  .pin { transition: transform .15s; transform-origin: 50% 100%; }
-  .pin svg { display: block; filter: drop-shadow(0 3px 5px rgba(15,23,42,.3)); }
-  .pin.active, .pin:hover { transform: scale(1.22); z-index: 1000 !important; }
+  .pin { transition: transform .18s var(--ease-out); transform-origin: 50% 100%; }
+  .pin svg { display: block; filter: drop-shadow(0 3px 6px rgba(15,15,20,.32)); }
+  .pin.active, .pin:hover { transform: scale(1.24); z-index: 1000 !important; }
   /* Grupo de pines: círculo azul de marca con el nº de oportunidades. Estilo propio
      en vez de MarkerCluster.Default.css, para no arrastrar su paleta verde/amarilla. */
   .cluster {
     display: flex; align-items: center; justify-content: center;
     border-radius: 50%; background: var(--brand); color: #fff;
     font-weight: 700; font-size: 14px; border: 3px solid var(--surface);
-    box-shadow: 0 2px 6px rgba(11,11,11,.3); transition: transform .15s;
+    box-shadow: 0 3px 10px rgba(0,51,153,.35); transition: transform .18s var(--ease-out);
   }
-  .cluster:hover { transform: scale(1.1); }
-  .leaflet-popup-content-wrapper { border-radius: var(--radius); box-shadow: var(--shadow); padding: 2px; }
-  .leaflet-popup-content { margin: 13px 15px; font: inherit; width: 268px !important; }
+  .cluster:hover { transform: scale(1.12); }
+  .leaflet-popup-content-wrapper { border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 2px; }
+  .leaflet-popup-content { margin: 14px 16px; font: inherit; width: 268px !important; }
   .leaflet-popup-tip-container .leaflet-popup-tip { box-shadow: none; }
   .popup { position: relative; }
   .popup h3 { margin: 0 0 7px; padding-right: 62px; font-size: 14.5px; font-weight: 640; line-height: 1.35; }
@@ -585,13 +664,13 @@
     /* La marca (logo+título) ocupa su propia línea entera; debajo, contador +
        contribuir + canal van juntos en la misma línea — el botón de contribuir
        se reduce a un icono "+" para que los tres quepan sin envolver. */
-    header { padding: max(10px, env(safe-area-inset-top)) 14px 10px; gap: 8px 10px; }
+    header { padding: max(10px, env(safe-area-inset-top)) 16px 10px; gap: 8px 10px; }
     .brand { min-width: 0; flex: 1 1 100%; }
     .brand h1 { font-size: 15.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .brand p { display: none; }
     .brand svg { width: 32px; height: 24px; }
-    .count { font-size: 12px; padding: 5px 10px; }
-    .channel { padding: 8px 13px; font-size: 12.5px; }
+    .count { font-size: 12px; padding: 6px 11px; }
+    .channel { padding: 9px 14px; font-size: 12.5px; }
     /* Ancho y alto FIJOS e iguales: con solo padding, el carácter "?" (más estrecho
        que alto) daba un óvalo en vez de un círculo — un SVG cuadrado (el "+") sí
        salía redondo por casualidad, un carácter de texto no. */
@@ -606,7 +685,7 @@
        nunca hay dos filas compitiendo por el ancho. El panel de Filtros en sí es el
        mismo <dialog> centrado que en escritorio (ver #filtersDialog), no hace falta
        una variante "flotante" aparte para móvil. */
-    .filters { padding: 9px 14px; gap: 8px; flex-wrap: nowrap; }
+    .filters { padding: 10px 16px; gap: 8px; flex-wrap: nowrap; position: static; }
     .icon-btn { display: inline-flex; }
     .search { display: none; }
     body.searching .icon-btn, body.searching .filters-btn { display: none; }
@@ -620,22 +699,22 @@
 
     .reset { display: none; }
     /* Objetivos táctiles MÁS grandes en móvil, no más pequeños. */
-    input[type="search"] { padding-top: 11px; padding-bottom: 11px; }
-    .btn { padding: 9px 14px; font-size: 13px; }
+    input[type="search"] { padding-top: 12px; padding-bottom: 12px; }
+    .btn { padding: 10px 15px; font-size: 13px; }
 
-    main { flex: 1; min-height: 0; position: relative; }
+    main { flex: 1; min-height: 0; position: relative; padding: 0; gap: 0; }
     .view-bubble { display: block; }
     /* Solo una vista visible a la vez; JS pone view-map/view-list en <body>. */
-    #list { width: 100%; border-right: 0; height: 100%; }
-    #map { height: 100%; }
+    #list { width: 100%; height: 100%; padding: 14px; }
+    #map { height: 100%; border-radius: 0; box-shadow: none; }
     body.view-list #map, body.view-map #list { display: none; }
     /* Pie más compacto en móvil: iconos y CTA de Instagram más pequeños para que quepa
        sin comerse el mapa (envuelve a 2 líneas si hace falta, no se corta nada). */
-    .site-footer { gap: 6px 14px; padding: 8px 14px; }
-    .stat-icon { width: 22px; height: 22px; font-size: 11px; }
+    .site-footer { gap: 6px 14px; padding: 9px 16px; }
+    .stat-icon { width: 23px; height: 23px; font-size: 11px; }
     .stat-item b { font-size: 12.5px; }
     .stat-item small { font-size: 9px; }
-    .footer-ig { font-size: 11.5px; padding: 7px 12px 7px 9px; }
+    .footer-ig { font-size: 11.5px; padding: 8px 13px 8px 10px; }
   }
 </style>
 </head>
