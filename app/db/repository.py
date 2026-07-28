@@ -302,13 +302,18 @@ async def mark_published(project_id, message_id: int | None = None) -> None:
 
 # ── Contadores de la web (visitas + publicadas) ──────────────────────────────
 async def bump_visit() -> dict[str, int]:
-    """Suma 1 a las visitas y devuelve las visitas y el total histórico de publicadas."""
+    """Suma 1 a las visitas (contador acumulado + desglose del día de hoy) y devuelve las
+    visitas y el total histórico de publicadas."""
     async with get_pool().connection() as conn:
         cur = await conn.execute(
             "INSERT INTO counters (key, value) VALUES ('visits', 1) "
             "ON CONFLICT (key) DO UPDATE SET value = counters.value + 1 RETURNING value"
         )
         visits = (await cur.fetchone())[0]
+        await conn.execute(
+            "INSERT INTO daily_visits (day, count) VALUES (current_date, 1) "
+            "ON CONFLICT (day) DO UPDATE SET count = daily_visits.count + 1"
+        )
         cur = await conn.execute("SELECT value FROM counters WHERE key = 'published'")
         row = await cur.fetchone()
         return {"visits": visits, "published": row[0] if row else 0}
@@ -541,6 +546,23 @@ async def organiser_breakdown(limit: int = 200) -> list[dict[str, Any]]:
                 "WHERE organiser_name IS NOT NULL AND organiser_name != '' "
                 "GROUP BY organiser_name ORDER BY total DESC LIMIT %s",
                 (limit,),
+            )
+            return await cur.fetchall()
+
+
+async def daily_visits_since(days: int = 400) -> list[dict[str, Any]]:
+    """Visitas por día de los últimos `days` días (huecos rellenados a 0 -- un día sin
+    visitas también es dato). Solo hay datos reales desde que existe `daily_visits`
+    (0012_daily_visits.sql); los días anteriores a esa fecha salen a 0 aunque hubiera
+    visitas reales, porque no se guardó el desglose diario hasta entonces."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT to_char(d.day, 'YYYY-MM-DD') AS day, coalesce(v.count, 0) AS n FROM "
+                "generate_series(current_date - (%s || ' days')::interval, current_date, '1 day') AS d(day) "
+                "LEFT JOIN daily_visits v ON v.day = d.day::date "
+                "ORDER BY d.day",
+                (days - 1,),
             )
             return await cur.fetchall()
 

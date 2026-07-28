@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Estadísticas · Corradi Erasmus+</title>
-<meta name="description" content="Asociaciones, archivo de oportunidades cerradas y datos generales del catálogo Erasmus+ de Corradi.">
+<meta name="description" content="Visitas, asociaciones y archivo de oportunidades del catálogo Erasmus+ de Corradi.">
 <meta name="robots" content="noindex">
 <link rel="canonical" href="https://mapa.proactivefuture.eu/estadisticas">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'><rect width='4' height='3' fill='%23AA151B'/><rect y='.75' width='4' height='1.5' fill='%23F1BF00'/></svg>">
 <style>
 @font-face { font-family:"Sora"; font-weight:400; src:url("/fonts/Sora-Regular.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Sora"; font-weight:600; src:url("/fonts/Sora-SemiBold.ttf") format("truetype"); font-display:swap; }
 @font-face { font-family:"Sora"; font-weight:700; src:url("/fonts/Sora-Bold.ttf") format("truetype"); font-display:swap; }
 @font-face { font-family:"Sora"; font-weight:800; src:url("/fonts/Sora-ExtraBold.ttf") format("truetype"); font-display:swap; }
 @font-face { font-family:"Manrope"; font-weight:400; src:url("/fonts/Manrope-Regular.ttf") format("truetype"); font-display:swap; }
@@ -21,107 +22,265 @@
   --ink: #111113; --ink-soft: #4a4b50; --ink-faint: #8d8e93;
   --paper: #f6f5f3; --surface: #ffffff; --surface-sunk: #f1efec;
   --line: rgba(17,17,19,.09); --line-soft: rgba(17,17,19,.055);
-  --brand: #14265e; --brass: #a9803f;
+  --glass: rgba(255,255,255,.78); --glass-strong: rgba(255,255,255,.92);
+  --brand: #14265e; --brand-ink: #0c1a45; --brass: #a9803f;
   --ye: #35588f; --tc: #a9803f; --ecs: #3e6b4c; --other: #8d8e93;
+  --critical: #a83e37; --good: #2f7a4d;
   --radius-sm: 14px; --radius: 22px; --radius-lg: 30px;
   --shadow-1: 0 1px 2px rgba(17,17,19,.05), 0 2px 6px rgba(17,17,19,.05);
   --shadow-2: 0 4px 16px rgba(17,17,19,.09), 0 1px 3px rgba(17,17,19,.06);
+  --ease: cubic-bezier(.4,0,.2,1);
+  --ease-out: cubic-bezier(.16,1,.3,1);
   --font-display: "Sora", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink: #eeeeef; --ink-soft: #b7b8bd; --ink-faint: #7c7d82;
-    --paper: #131316; --surface: #1b1b1f; --surface-sunk: #202024;
-    --line: rgba(255,255,255,.09); --line-soft: rgba(255,255,255,.06);
+    --ink: #eeeeef; --ink-soft: #b7b8bd; --ink-faint: #83848a;
+    --paper: #111113; --surface: #1a1a1e; --surface-sunk: #202024;
+    --line: rgba(255,255,255,.1); --line-soft: rgba(255,255,255,.065);
+    --glass: rgba(26,26,30,.7); --glass-strong: rgba(26,26,30,.9);
   }
 }
+:root[data-theme="dark"] {
+  --ink: #eeeeef; --ink-soft: #b7b8bd; --ink-faint: #83848a;
+  --paper: #111113; --surface: #1a1a1e; --surface-sunk: #202024;
+  --line: rgba(255,255,255,.1); --line-soft: rgba(255,255,255,.065);
+  --glass: rgba(26,26,30,.7); --glass-strong: rgba(26,26,30,.9);
+}
+:root[data-theme="light"] {
+  --ink: #111113; --ink-soft: #4a4b50; --ink-faint: #8d8e93;
+  --paper: #f6f5f3; --surface: #ffffff; --surface-sunk: #f1efec;
+  --line: rgba(17,17,19,.09); --line-soft: rgba(17,17,19,.055);
+  --glass: rgba(255,255,255,.78); --glass-strong: rgba(255,255,255,.92);
+}
+
 * { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 body {
   margin: 0; background: var(--paper); color: var(--ink);
-  font: 400 15px/1.55 var(--font-body); -webkit-font-smoothing: antialiased;
+  font: 400 15px/1.55 var(--font-body); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
 }
 h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
 a { color: inherit; }
+button { font-family: inherit; }
+::selection { background: color-mix(in srgb, var(--brand) 22%, transparent); }
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 3px; border-radius: 4px; }
 
-.wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 80px; }
+/* ── Cabecera flotante, coherente con el mapa ─────────────────────────────── */
+header.top {
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 14px 24px; background: var(--glass); backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%); border-bottom: 1px solid var(--line-soft);
+}
+.brand-mark { display: flex; align-items: center; gap: 10px; }
+.brand-mark .glyph {
+  width: 34px; height: 34px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+  background: var(--brand); color: #fff; font-family: var(--font-display); font-weight: 800; font-size: 14px;
+}
+.brand-mark .word { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
+.brand-mark .word small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 11px; color: var(--ink-faint); letter-spacing: .01em; }
+.pill-btn {
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none; cursor: pointer; border: 0;
+  font: 600 13px var(--font-body); white-space: nowrap; background: var(--brand); color: #fff;
+  padding: 10px 18px; border-radius: 999px; box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 40%, transparent);
+  transition: box-shadow .2s var(--ease), transform .2s var(--ease-out);
+}
+.pill-btn:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--brand) 45%, transparent); transform: translateY(-1px); }
 
-header.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
-.back { display: inline-flex; align-items: center; gap: 8px; font: 600 13.5px var(--font-body); text-decoration: none; color: var(--ink-soft); padding: 10px 16px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-1); }
-.back:hover { color: var(--ink); }
-h1 { font-size: 26px; font-weight: 800; }
-p.lead { color: var(--ink-soft); margin: 6px 0 0; max-width: 60ch; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 90px; }
 
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 28px 0 40px; }
-.tile { background: var(--surface); border-radius: var(--radius-sm); padding: 18px 20px; box-shadow: var(--shadow-1); }
-.tile .n { font: 800 28px var(--font-display); display: block; font-variant-numeric: tabular-nums; }
-.tile .lbl { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+.hero { margin-bottom: 32px; }
+.hero h1 { font-size: 32px; font-weight: 800; letter-spacing: -.01em; }
+.hero p { color: var(--ink-soft); margin: 8px 0 0; max-width: 62ch; font-size: 15px; }
 
-section.card { background: var(--surface); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-1); margin-bottom: 24px; }
-section.card h2 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
-section.card p.hint { color: var(--ink-faint); font-size: 13px; margin: 0 0 18px; }
+/* ── KPI tiles ─────────────────────────────────────────────────────────── */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.tile {
+  position: relative; background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius);
+  padding: 20px 22px; box-shadow: var(--shadow-1); overflow: hidden;
+}
+.tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c, var(--brand)); }
+.tile .n { font: 800 30px var(--font-display); display: block; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.tile .lbl { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
 
-.timeline { display: flex; align-items: flex-end; gap: 6px; height: 140px; overflow-x: auto; padding-bottom: 4px; }
-.tl-bar { flex: 1; min-width: 22px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; }
-.tl-bar .bar { width: 100%; background: color-mix(in srgb, var(--brand) 82%, var(--surface)); border-radius: 6px 6px 2px 2px; min-height: 2px; }
-.tl-bar .m { font-size: 10.5px; color: var(--ink-faint); white-space: nowrap; }
-.tl-bar .v { font-size: 11px; font-weight: 700; color: var(--ink-soft); }
+/* ── Cards genéricas ───────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius);
+  padding: 26px 28px; box-shadow: var(--shadow-1); margin-bottom: 20px;
+}
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.card-head h2 { font-size: 18px; font-weight: 700; }
+.card-head p.hint { color: var(--ink-faint); font-size: 12.5px; margin: 4px 0 0; }
+.grid-2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+.grid-2 .card { margin-bottom: 0; height: 100%; }
 
-.rank-list { display: flex; flex-direction: column; gap: 10px; }
-.rank-row { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 12px; font-size: 13.5px; }
-.rank-row .bar-wrap { grid-column: 1 / -1; height: 8px; background: var(--surface-sunk); border-radius: 999px; overflow: hidden; margin-top: 2px; }
+/* ── Segmented control (rango del gráfico) ───────────────────────────────── */
+.seg { display: flex; gap: 3px; background: var(--surface-sunk); border-radius: 999px; padding: 3px; flex: none; }
+.seg button {
+  border: 0; background: none; cursor: pointer; padding: 7px 14px; border-radius: 999px;
+  font: 650 12.5px var(--font-body); color: var(--ink-soft); transition: background .18s var(--ease), color .18s var(--ease);
+}
+.seg button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+
+/* ── Gráfico de visitas ───────────────────────────────────────────────────── */
+.chart-readout { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+.chart-readout .big { font: 800 34px var(--font-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.chart-readout .delta { font: 700 12.5px var(--font-body); padding: 4px 10px; border-radius: 999px; }
+.chart-readout .delta.up { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.chart-readout .delta.down { color: var(--critical); background: color-mix(in srgb, var(--critical) 14%, transparent); }
+.chart-readout .delta.flat { color: var(--ink-faint); background: var(--surface-sunk); }
+.chart-readout .period { color: var(--ink-faint); font-size: 12.5px; }
+.chart-wrap { position: relative; }
+.chart-wrap svg { display: block; width: 100%; height: 220px; overflow: visible; }
+.chart-wrap .gridline { stroke: var(--line); stroke-width: 1; }
+.chart-wrap .axis-label { fill: var(--ink-faint); font: 500 10.5px var(--font-body); }
+.chart-wrap .line-path { fill: none; stroke: var(--brand); stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.chart-wrap .area-path { fill: url(#areaGrad); }
+.chart-wrap .hover-guide { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; }
+.chart-wrap .hover-dot { fill: var(--brand); stroke: var(--surface); stroke-width: 2; opacity: 0; }
+.chart-tooltip {
+  position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); font: 650 11.5px var(--font-body);
+  padding: 6px 10px; border-radius: 8px; white-space: nowrap; transform: translate(-50%, -130%); opacity: 0;
+  transition: opacity .12s var(--ease); box-shadow: var(--shadow-2); z-index: 5;
+}
+.chart-note { color: var(--ink-faint); font-size: 12px; margin-top: 14px; }
+
+/* ── Barras mensuales ─────────────────────────────────────────────────── */
+.timeline { display: flex; align-items: flex-end; gap: 5px; height: 130px; }
+.tl-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; }
+.tl-bar .bar { width: 100%; background: color-mix(in srgb, var(--brass) 85%, var(--surface)); border-radius: 5px 5px 2px 2px; min-height: 2px; }
+.tl-bar .m { font-size: 10px; color: var(--ink-faint); white-space: nowrap; }
+.tl-bar .v { font-size: 10.5px; font-weight: 700; color: var(--ink-soft); }
+
+/* ── Ranking de países ────────────────────────────────────────────────── */
+.rank-list { display: flex; flex-direction: column; gap: 13px; }
+.rank-row { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px; font-size: 13.5px; }
+.rank-row .bar-wrap { grid-column: 1 / -1; height: 7px; background: var(--surface-sunk); border-radius: 999px; overflow: hidden; margin-top: 1px; }
 .rank-row .bar-wrap .fill { height: 100%; background: var(--brass); border-radius: inherit; }
 .rank-row .name { font-weight: 600; }
-.rank-row .n { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.rank-row .n { color: var(--ink-soft); font-variant-numeric: tabular-nums; font-weight: 700; }
+.rank-row .pos { color: var(--ink-faint); font-weight: 700; font-size: 12px; }
 
-.assoc-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.assoc-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-faint); font-weight: 600; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
-.assoc-table td { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
-.assoc-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* ── Asociaciones ─────────────────────────────────────────────────────── */
+.assoc-list { display: flex; flex-direction: column; gap: 2px; }
+.assoc-row { display: flex; align-items: center; gap: 14px; padding: 12px 4px; border-bottom: 1px solid var(--line-soft); }
+.assoc-row:last-child { border-bottom: 0; }
+.assoc-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand); font: 700 13px var(--font-display);
+}
+.assoc-name { flex: 1; min-width: 0; font-weight: 650; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assoc-counts { display: flex; gap: 6px; flex: none; }
+.assoc-pill { font: 700 11px var(--font-body); padding: 4px 10px; border-radius: 999px; background: var(--surface-sunk); color: var(--ink-soft); white-space: nowrap; }
+.assoc-pill.open { background: color-mix(in srgb, var(--ecs) 15%, transparent); color: var(--ecs); }
 
-.archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.arch-card { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; background: var(--surface-sunk); }
-.arch-card .badge { display: inline-block; font: 650 10.5px var(--font-body); padding: 3px 9px; border-radius: 999px; background: var(--surface); color: var(--ink-soft); margin-bottom: 8px; }
-.arch-card .title { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+/* ── Archivo ──────────────────────────────────────────────────────────── */
+.archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.arch-card {
+  position: relative; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 15px 16px 15px 20px;
+  background: var(--surface-sunk);
+}
+.arch-card::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--c, var(--other)); }
+.arch-card[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
+.arch-card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
+.arch-card[data-type="VOLUNTEERING"] { --c: var(--ecs); }
+.arch-card .badge { display: inline-block; font: 700 10.5px var(--font-body); padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--c, var(--other)) 15%, transparent); color: var(--c, var(--other)); margin-bottom: 8px; }
+.arch-card .title { font-weight: 700; font-size: 13.5px; margin-bottom: 5px; line-height: 1.35; }
 .arch-card .meta { font-size: 12px; color: var(--ink-faint); }
 
-.empty { color: var(--ink-faint); font-size: 13.5px; padding: 12px 0; }
-footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; padding-top: 12px; }
+.empty { color: var(--ink-faint); font-size: 13.5px; padding: 8px 0; }
+footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; padding-top: 16px; }
+
+/* ── Overflow horizontal para las secciones anchas en móvil ──────────────── */
+@media (max-width: 560px) {
+  header.top { flex-wrap: wrap; row-gap: 10px; padding: 12px 16px; }
+  .brand-mark .word { font-size: 13.5px; }
+  .brand-mark .word small { font-size: 10px; }
+  .pill-btn { padding: 8px 14px; font-size: 12.5px; }
+  .wrap { padding: 28px 16px 70px; }
+  .card { padding: 20px; }
+  .chart-readout .big { font-size: 28px; }
+  .seg { flex-wrap: wrap; }
+  .seg button { padding: 7px 11px; font-size: 11.5px; }
+}
 </style>
 </head>
 <body>
+<header class="top">
+  <div class="brand-mark">
+    <div class="glyph">C</div>
+    <div class="word">Corradi Erasmus+<small>Estadísticas</small></div>
+  </div>
+  <a class="pill-btn" href="/mapa">← Volver al mapa</a>
+</header>
+
 <div class="wrap">
-  <header class="top">
-    <div>
-      <h1>Estadísticas</h1>
-      <p class="lead">Datos agregados del catálogo: histórico, asociaciones y oportunidades cerradas.</p>
-    </div>
-    <a class="back" href="/mapa">← Volver al mapa</a>
-  </header>
+  <div class="hero">
+    <h1>Estadísticas</h1>
+    <p>Cómo se mueve el catálogo: visitas al mapa, asociaciones que organizan las plazas y qué pasa con las oportunidades una vez se cierran.</p>
+  </div>
 
   <div class="tiles" id="tiles"></div>
 
+  <section class="card" id="chartCard">
+    <div class="card-head">
+      <div>
+        <h2>Visitas al mapa</h2>
+        <p class="hint">Personas distintas no identificadas, una visita por carga de página.</p>
+      </div>
+      <div class="seg" id="rangeSeg" role="tablist" aria-label="Rango de tiempo">
+        <button type="button" data-range="week" aria-pressed="false">Semana</button>
+        <button type="button" data-range="month" aria-pressed="true">Mes</button>
+        <button type="button" data-range="quarter" aria-pressed="false">Trimestre</button>
+        <button type="button" data-range="year" aria-pressed="false">Año</button>
+      </div>
+    </div>
+    <div class="chart-readout" id="chartReadout"></div>
+    <div class="chart-wrap" id="chartWrap"></div>
+    <p class="chart-note" id="chartNote"></p>
+  </section>
+
+  <div class="grid-2">
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Oportunidades por mes</h2>
+          <p class="hint">Últimos 12 meses, por fecha de publicación.</p>
+        </div>
+      </div>
+      <div class="timeline" id="timeline"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Países con más oportunidades</h2>
+          <p class="hint">Histórico completo.</p>
+        </div>
+      </div>
+      <div class="rank-list" id="countries"></div>
+    </section>
+  </div>
+
   <section class="card">
-    <h2>Oportunidades por mes</h2>
-    <p class="hint">Últimos 12 meses, por fecha de publicación.</p>
-    <div class="timeline" id="timeline"></div>
+    <div class="card-head">
+      <div>
+        <h2>Asociaciones</h2>
+        <p class="hint">Organizadores capturados en las fichas (dato parcial, se rellena con el tiempo).</p>
+      </div>
+    </div>
+    <div class="assoc-list" id="associations"></div>
   </section>
 
   <section class="card">
-    <h2>Países con más oportunidades</h2>
-    <p class="hint">Histórico completo de publicaciones.</p>
-    <div class="rank-list" id="countries"></div>
-  </section>
-
-  <section class="card">
-    <h2>Asociaciones</h2>
-    <p class="hint">Organizadores capturados en las fichas (dato parcial, se rellena con el tiempo).</p>
-    <div id="associations"></div>
-  </section>
-
-  <section class="card">
-    <h2>Archivo de cerradas</h2>
-    <p class="hint">Últimas oportunidades que ya no aceptan inscripción.</p>
+    <div class="card-head">
+      <div>
+        <h2>Archivo de cerradas</h2>
+        <p class="hint">Últimas oportunidades que ya no aceptan inscripción.</p>
+      </div>
+    </div>
     <div class="archive-grid" id="archive"></div>
   </section>
 
@@ -129,17 +288,24 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
 </div>
 
 <script>
+var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
+var DIAS = ["dom","lun","mar","mié","jue","vie","sáb"];
 var TIPOS = { YOUTH_EXCHANGE: "Youth Exchange", TRAINING_COURSE: "Training Course", VOLUNTEERING: "ECS" };
+
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
     return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
   });
 }
-function monthLabel(key) {
-  var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
-  var p = key.split("-");
-  return MESES[Number(p[1]) - 1] + " " + p[0].slice(2);
+function parseDay(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function monthLabel(key) { var p = key.split("-"); return MESES[Number(p[1]) - 1] + " " + p[0].slice(2); }
+function initials(name) {
+  var parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
 }
+
+var STATE = { daily: [], range: "month" };
 
 fetch("/api/stats", { headers: { Accept: "application/json" } })
   .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
@@ -148,15 +314,18 @@ fetch("/api/stats", { headers: { Accept: "application/json" } })
     document.getElementById("tiles").innerHTML = '<p class="empty">No se han podido cargar las estadísticas.</p>';
   });
 
-function tile(n, label) {
-  return '<div class="tile"><span class="n">' + n + '</span><span class="lbl">' + esc(label) + '</span></div>';
+function tile(n, label, color) {
+  return '<div class="tile" style="--c:' + color + '"><span class="n">' + n + '</span><span class="lbl">' + esc(label) + '</span></div>';
 }
+
 function render(data) {
+  STATE.daily = data.daily_visits || [];
+
   document.getElementById("tiles").innerHTML =
-    tile(data.total_published, "Proyectos publicados (histórico)") +
-    tile(data.total_open, "Abiertas ahora mismo") +
-    tile(data.organisers.length, "Asociaciones capturadas") +
-    tile(data.top_countries.length, "Países distintos");
+    tile(data.total_published, "Proyectos publicados (histórico)", "var(--brand)") +
+    tile(data.total_open, "Abiertas ahora mismo", "var(--ecs)") +
+    tile(data.organisers.length, "Asociaciones capturadas", "var(--brass)") +
+    tile(data.top_countries.length, "Países distintos", "var(--ye)");
 
   var maxMonth = Math.max.apply(null, data.monthly.map(function (m) { return m.n; }).concat([1]));
   document.getElementById("timeline").innerHTML = data.monthly.map(function (m) {
@@ -167,25 +336,176 @@ function render(data) {
   var maxCountry = Math.max.apply(null, data.top_countries.map(function (c) { return c.n; }).concat([1]));
   document.getElementById("countries").innerHTML = data.top_countries.map(function (c, i) {
     var pct = Math.round((c.n / maxCountry) * 100);
-    return '<div class="rank-row"><span>' + (i + 1) + '.</span><span class="name">' + esc(c.country_name) + '</span><span class="n">' + c.n + '</span>' +
+    return '<div class="rank-row"><span class="pos">' + (i + 1) + '</span><span class="name">' + esc(c.country_name) + '</span><span class="n">' + c.n + '</span>' +
       '<div class="bar-wrap"><div class="fill" style="width:' + pct + '%"></div></div></div>';
   }).join("") || '<p class="empty">Sin datos todavía.</p>';
 
   if (data.organisers.length) {
-    document.getElementById("associations").innerHTML =
-      '<table class="assoc-table"><thead><tr><th>Organizador</th><th>Total</th><th>Abiertas</th></tr></thead><tbody>' +
-      data.organisers.map(function (o) {
-        return '<tr><td>' + esc(o.name) + '</td><td class="num">' + o.total + '</td><td class="num">' + o.open + '</td></tr>';
-      }).join("") + '</tbody></table>';
+    document.getElementById("associations").innerHTML = data.organisers.map(function (o) {
+      return '<div class="assoc-row"><div class="assoc-avatar">' + esc(initials(o.name)) + '</div>' +
+        '<div class="assoc-name">' + esc(o.name) + '</div>' +
+        '<div class="assoc-counts"><span class="assoc-pill">' + o.total + ' total</span><span class="assoc-pill open">' + o.open + ' abiertas</span></div></div>';
+    }).join("");
   } else {
     document.getElementById("associations").innerHTML = '<p class="empty">Todavía no hay organizadores capturados.</p>';
   }
 
   document.getElementById("archive").innerHTML = data.closed.map(function (o) {
-    return '<div class="arch-card"><span class="badge">' + esc(TIPOS[o.type] || o.type || "") + '</span>' +
+    return '<div class="arch-card" data-type="' + esc(o.type || "") + '"><span class="badge">' + esc(TIPOS[o.type] || o.type || "") + '</span>' +
       '<div class="title">' + esc(o.title) + '</div>' +
       '<div class="meta">' + esc(o.location || o.country_code || "") + '</div></div>';
   }).join("") || '<p class="empty">Todavía no hay oportunidades archivadas.</p>';
+
+  wireRangeSeg();
+  renderChart();
+}
+
+function wireRangeSeg() {
+  Array.prototype.forEach.call(document.querySelectorAll("#rangeSeg button"), function (btn) {
+    btn.addEventListener("click", function () {
+      STATE.range = btn.dataset.range;
+      Array.prototype.forEach.call(document.querySelectorAll("#rangeSeg button"), function (b) {
+        b.setAttribute("aria-pressed", String(b === btn));
+      });
+      renderChart();
+    });
+  });
+}
+
+// Reduce la serie diaria completa a los puntos que le tocan al rango elegido, más el
+// tramo inmediatamente anterior de igual longitud (para la comparación de tendencia).
+function windowFor(range) {
+  var days = STATE.daily;
+  var cfg = {
+    week:    { n: 7,   bucket: 1,  label: "semana" },
+    month:   { n: 30,  bucket: 1,  label: "mes" },
+    quarter: { n: 90,  bucket: 7,  label: "trimestre" },
+    year:    { n: 365, bucket: 30, label: "año" },
+  }[range];
+  var current = days.slice(Math.max(0, days.length - cfg.n));
+  var prevStart = Math.max(0, days.length - cfg.n * 2);
+  var previous = days.slice(prevStart, Math.max(0, days.length - cfg.n));
+  return { current: current, previous: previous, cfg: cfg };
+}
+
+function bucketPoints(points, bucketSize) {
+  if (bucketSize <= 1) return points.map(function (p) { return { day: p.day, n: p.n }; });
+  var out = [];
+  for (var i = 0; i < points.length; i += bucketSize) {
+    var chunk = points.slice(i, i + bucketSize);
+    var sum = chunk.reduce(function (a, p) { return a + p.n; }, 0);
+    out.push({ day: chunk[chunk.length - 1].day, n: sum });
+  }
+  return out;
+}
+
+function labelFor(day, range) {
+  var d = parseDay(day);
+  if (range === "week") return DIAS[d.getDay()];
+  if (range === "month") return String(d.getDate());
+  if (range === "quarter") return String(d.getDate()) + " " + MESES[d.getMonth()];
+  return MESES[d.getMonth()];
+}
+
+function renderChart() {
+  var w = windowFor(STATE.range);
+  var points = bucketPoints(w.current, w.cfg.bucket);
+  var total = w.current.reduce(function (a, p) { return a + p.n; }, 0);
+  var prevTotal = w.previous.reduce(function (a, p) { return a + p.n; }, 0);
+
+  var deltaHtml;
+  if (!w.previous.length || prevTotal === 0) {
+    deltaHtml = total > 0 ? '<span class="delta flat">Sin periodo anterior para comparar</span>' : "";
+  } else {
+    var pct = Math.round(((total - prevTotal) / prevTotal) * 100);
+    var cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+    var sign = pct > 0 ? "+" : "";
+    deltaHtml = '<span class="delta ' + cls + '">' + sign + pct + '% vs. ' + w.cfg.label + ' anterior</span>';
+  }
+
+  document.getElementById("chartReadout").innerHTML =
+    '<span class="big">' + total + '</span><span class="period">visitas · último ' + w.cfg.label + '</span>' + deltaHtml;
+
+  document.getElementById("chartNote").textContent =
+    "El desglose diario se empezó a registrar hace poco: los días anteriores a esa fecha aparecen a 0 aunque hubiera visitas reales.";
+
+  drawLineChart(document.getElementById("chartWrap"), points, STATE.range);
+}
+
+function drawLineChart(container, points, range) {
+  var W = 800, H = 220, padL = 34, padR = 8, padT = 14, padB = 26;
+  var innerW = W - padL - padR, innerH = H - padT - padB;
+  var maxN = Math.max.apply(null, points.map(function (p) { return p.n; }).concat([1]));
+  var niceMax = maxN <= 5 ? 5 : Math.ceil(maxN * 1.15);
+
+  function x(i) { return points.length <= 1 ? padL : padL + (i / (points.length - 1)) * innerW; }
+  function y(n) { return padT + innerH - (n / niceMax) * innerH; }
+
+  var linePts = points.map(function (p, i) { return x(i) + "," + y(p.n); }).join(" ");
+  var areaPts = linePts + " " + x(points.length - 1) + "," + y(0) + " " + x(0) + "," + y(0);
+
+  var gridlines = "", axisLabels = "";
+  var gridN = 3;
+  for (var g = 0; g <= gridN; g++) {
+    var gy = padT + (innerH / gridN) * g;
+    gridlines += '<line class="gridline" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + gy + '" y2="' + gy + '"></line>';
+    var val = Math.round(niceMax - (niceMax / gridN) * g);
+    axisLabels += '<text class="axis-label" x="0" y="' + (gy + 3) + '" text-anchor="start">' + val + '</text>';
+  }
+
+  var labelEvery = Math.max(1, Math.ceil(points.length / 7));
+  var xLabels = "";
+  points.forEach(function (p, i) {
+    if (i % labelEvery !== 0 && i !== points.length - 1) return;
+    xLabels += '<text class="axis-label" x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle">' + esc(labelFor(p.day, range)) + '</text>';
+  });
+
+  container.innerHTML =
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+    '<defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="var(--brand)" stop-opacity="0.28"></stop>' +
+    '<stop offset="100%" stop-color="var(--brand)" stop-opacity="0"></stop>' +
+    '</linearGradient></defs>' +
+    gridlines + axisLabels +
+    '<polygon class="area-path" points="' + areaPts + '"></polygon>' +
+    '<polyline class="line-path" points="' + linePts + '"></polyline>' +
+    '<line class="hover-guide" id="hoverGuide" x1="0" x2="0" y1="' + padT + '" y2="' + (padT + innerH) + '"></line>' +
+    '<circle class="hover-dot" id="hoverDot" r="4"></circle>' +
+    xLabels +
+    '</svg>' +
+    '<div class="chart-tooltip" id="chartTooltip"></div>';
+
+  var svg = container.querySelector("svg");
+  var tooltip = document.getElementById("chartTooltip");
+  var guide = document.getElementById("hoverGuide");
+  var dot = document.getElementById("hoverDot");
+
+  function pointerMove(evt) {
+    var rect = svg.getBoundingClientRect();
+    var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    var relX = ((clientX - rect.left) / rect.width) * W;
+    var idx = points.length <= 1 ? 0 : Math.round(((relX - padL) / innerW) * (points.length - 1));
+    idx = Math.max(0, Math.min(points.length - 1, idx));
+    var p = points[idx];
+    if (!p) return;
+    var px = x(idx), py = y(p.n);
+    guide.setAttribute("x1", px); guide.setAttribute("x2", px); guide.style.opacity = 1;
+    dot.setAttribute("cx", px); dot.setAttribute("cy", py); dot.style.opacity = 1;
+    var d = parseDay(p.day);
+    var dateLabel = d.getDate() + " " + MESES[d.getMonth()];
+    tooltip.textContent = p.n + " visitas · " + dateLabel;
+    tooltip.style.left = (px / W) * 100 + "%";
+    tooltip.style.top = (py / H) * 100 + "%";
+    tooltip.style.opacity = 1;
+  }
+  function pointerLeave() {
+    guide.style.opacity = 0; dot.style.opacity = 0; tooltip.style.opacity = 0;
+  }
+  svg.addEventListener("mousemove", pointerMove);
+  svg.addEventListener("mouseleave", pointerLeave);
+  svg.addEventListener("touchstart", pointerMove, { passive: true });
+  svg.addEventListener("touchmove", pointerMove, { passive: true });
+  svg.addEventListener("touchend", pointerLeave);
 }
 </script>
 </body>

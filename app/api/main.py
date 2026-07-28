@@ -259,6 +259,7 @@ async def api_stats(response: Response) -> dict[str, Any]:
     months = await repo.monthly_counts(months=12)
     organisers = await repo.organiser_breakdown(limit=200)
     closed = await repo.list_closed(limit=60)
+    visits = await repo.daily_visits_since(days=400)
     return {
         "total_published": total,
         "total_open": open_n,
@@ -272,6 +273,7 @@ async def api_stats(response: Response) -> dict[str, Any]:
             for o in organisers
         ],
         "closed": [_serialize(r) for r in closed],
+        "daily_visits": [{"day": v["day"], "n": v["n"]} for v in visits],
     }
 
 
