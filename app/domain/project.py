@@ -40,6 +40,26 @@ def parse_date(value) -> date | None:
     return None
 
 
+_URL_RE = re.compile(r"^https?://", re.I)
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _clean_url(value) -> str | None:
+    """None si value no es una URL absoluta de verdad (p.ej. el nombre de un fichero
+    que el LLM confundio con un enlace) -- mejor no mostrar boton que mostrar uno roto.
+    Caso real (2026-07-29): a veces "donde apuntarse" es un email suelto, no un
+    formulario -- se convierte a mailto: en vez de descartarlo (sigue siendo una forma
+    valida de apuntarse, con href="correo@x.com" a secas el boton no hacia nada)."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if _URL_RE.match(value):
+        return value
+    if _EMAIL_RE.match(value):
+        return f"mailto:{value}"
+    return None
+
+
 def parse_int(value) -> int | None:
     try:
         return int(str(value).strip()) if value not in (None, "", "null") else None
@@ -165,4 +185,14 @@ def normalize(
 
     organiser = fields.get("organiser_name")
     out["organiser_name"] = organiser.strip() if isinstance(organiser, str) and organiser.strip() else None
+
+    # Red de seguridad barata (sin LLM) contra enlaces que no son enlaces de verdad --
+    # bug real encontrado (2026-07-29): el scraper de SALTO a veces solo conseguia el
+    # TEXTO visible de un enlace de descarga (p.ej. "Art-Mind, INFO PACK.pdf", el nombre
+    # del fichero) en vez de su href, y el LLM lo devolvia tal cual como infopack_url --
+    # se guardaba un nombre de fichero, no una URL, y el boton "Infopack" quedaba roto
+    # (enlazaba, sin querer, a una ruta relativa del propio mapa). Aplica a cualquier
+    # fuente (Telegram, WhatsApp, SALTO), no solo a la que lo disparo la primera vez.
+    out["infopack_url"] = _clean_url(fields.get("infopack_url"))
+    out["application_url"] = _clean_url(fields.get("application_url"))
     return out

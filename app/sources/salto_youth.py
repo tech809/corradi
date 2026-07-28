@@ -31,6 +31,14 @@ _TRAININGS_HOST = "trainings.salto-youth.net"
 
 _APPLY_HREF_RE = re.compile(r'href="([^"]+)"[^>]*class="[^"]*callforaction[^"]*"')
 _INFOPACK_RE = re.compile(r'INFOPACK.{0,120}?href="([^"]+)"', re.S)
+# Patrón real observado en producción (2026-07-29, ficha Art-Mind): el enlace de descarga
+# del PDF va en un <a class="download-helper ... wfd-filetype-pdf">, sin la palabra
+# "INFOPACK" cerca -- el regex de arriba nunca matcheaba ahi, asi que el href se perdia
+# y el LLM se quedaba solo con el TEXTO visible del enlace (el nombre del fichero, p.ej.
+# "Art-Mind, INFO PACK.pdf") como si fuera la URL -- infopack_url quedaba con un nombre
+# de fichero en vez de un enlace real. Se prueban los dos patrones, el que primero
+# matchee gana.
+_INFOPACK_DOWNLOAD_RE = re.compile(r'<a\s+href="([^"]+)"[^>]*class="[^"]*download-helper[^"]*"', re.S)
 _FORWARDED_RE = re.compile(r"forwarded to (https?://\S+?)\.?\)")
 # Párrafo fijo de disclaimer que SALTO mete en TODAS las fichas — su posición varía según
 # la ficha (a veces antes del bloque "Apply now!"/fecha límite, a veces después), así que
@@ -123,9 +131,12 @@ async def build_opportunity_text(client: httpx.AsyncClient, raw_html: str, detai
 
     lines = [body]
 
-    infopack_m = _INFOPACK_RE.search(raw_html)
+    infopack_m = _INFOPACK_RE.search(raw_html) or _INFOPACK_DOWNLOAD_RE.search(raw_html)
     if infopack_m:
-        lines.append(f"\nInfopack: {html_lib.unescape(infopack_m.group(1))}")
+        infopack_url = html_lib.unescape(infopack_m.group(1))
+        if not infopack_url.startswith("http"):
+            infopack_url = _BASE + infopack_url
+        lines.append(f"\nInfopack: {infopack_url}")
 
     apply_m = _APPLY_HREF_RE.search(raw_html)
     if apply_m:

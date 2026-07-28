@@ -1467,11 +1467,23 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         ["statVisits", "statVisitsModal", "statPublished", "statPublishedModal"].forEach(function (id) { document.getElementById(id).textContent = "—"; });
       });
   }
+  // Cookie de refuerzo (180 dias) ADEMAS de localStorage -- Safari (ITP) borra
+  // localStorage sola a los 7 dias sin visitar el sitio, asi que alguien que vuelve tras
+  // una temporada veia el aviso de Instagram otra vez aunque ya lo hubiera cerrado. Una
+  // cookie normal no cae bajo esa misma limpieza automatica, asi que sirve de respaldo.
+  function getCookie(name) {
+    var m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function setCookie(name, value) {
+    document.cookie = name + "=" + encodeURIComponent(value) + "; max-age=15552000; path=/; SameSite=Lax";
+  }
   function bumpVisitCounterAndMaybeShowIg() {
     var n = parseInt(localStorage.getItem("corradiVisits") || "0", 10) + 1;
     localStorage.setItem("corradiVisits", String(n));
-    if (n < 3 || localStorage.getItem("corradiIgPopupShown")) return;
+    if (n < 3 || localStorage.getItem("corradiIgPopupShown") || getCookie("corradiIgPopupShown")) return;
     localStorage.setItem("corradiIgPopupShown", "1");
+    setCookie("corradiIgPopupShown", "1");
     setTimeout(function () {
       var popup = document.getElementById("igPopup");
       popup.hidden = false;
