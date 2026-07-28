@@ -17,6 +17,13 @@ STEP 1 - CLASSIFY: decide if it is a REAL opportunity someone can apply to (not 
 chit-chat, not a generic call without an action). Set "is_opportunity": true or false.
 If false, set "reason" to a short explanation and leave the rest null.
 
+- Format restriction: this map ONLY covers three formats — Youth Exchange, Training Course,
+  and European Solidarity Corps volunteering (long or short-term). If the opportunity is a
+  workshop, seminar, webinar, conference, or any other short-format/one-off activity that
+  doesn't fit one of those three, set "is_opportunity": false with "reason": "workshop u
+  otro formato no cubierto por el mapa" — even if it otherwise looks like a legitimate,
+  well-organized activity. This is a deliberate scope decision, not a quality judgment.
+
 - Spain eligibility (READ THE WHOLE TEXT TO THE END, not just the first paragraph): this map
   is ONLY for people who can actually apply FROM SPAIN. Many listings open with a generic
   sentence like "for participants from Erasmus+ Programme countries" (which technically

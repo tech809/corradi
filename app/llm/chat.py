@@ -46,7 +46,7 @@ _warned_unknown_price = False
 # Abreviaturas de tipo para el catálogo (ahorran tokens frente al nombre completo del enum;
 # mismas etiquetas que ya usa el front en mapa.html, salvo VOLUNTEERING -> "ECS").
 _TYPE_ABBR = {
-    "YOUTH_EXCHANGE": "YE", "TRAINING_COURSE": "TC", "VOLUNTEERING": "ECS", "WORKSHOP": "WS",
+    "YOUTH_EXCHANGE": "YE", "TRAINING_COURSE": "TC", "VOLUNTEERING": "ECS",
 }
 
 

@@ -23,8 +23,8 @@ W, H = 1200, 360
 # clave equivocada estos tres diccionarios caían siempre al color/icono por defecto
 # (YOUTH_EXCHANGE, azul) tanto en el banner de Telegram como en el post/story/reel de
 # Instagram, aunque el mapa ya mostraba el verde correcto con su propio mapeo aparte.
-CAT_COLORS = {"YOUTH_EXCHANGE": "#2a78d6", "TRAINING_COURSE": "#eda100", "VOLUNTEERING": "#008300", "WORKSHOP": "#e87ba4"}
-CAT_LABELS = {"YOUTH_EXCHANGE": "YOUTH EXCHANGE", "TRAINING_COURSE": "TRAINING COURSE", "VOLUNTEERING": "ECS", "WORKSHOP": "WORKSHOP"}
+CAT_COLORS = {"YOUTH_EXCHANGE": "#2a78d6", "TRAINING_COURSE": "#eda100", "VOLUNTEERING": "#008300"}
+CAT_LABELS = {"YOUTH_EXCHANGE": "YOUTH EXCHANGE", "TRAINING_COURSE": "TRAINING COURSE", "VOLUNTEERING": "ECS"}
 WHITE = "#ffffff"
 
 # Banderas de los 27 países de la UE + un par de asociados habituales de Erasmus+

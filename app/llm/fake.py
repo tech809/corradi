@@ -23,7 +23,6 @@ _TYPE_HINTS = {
     "YOUTH_EXCHANGE": ["youth exchange", "intercambio", "ye "],
     "TRAINING_COURSE": ["training course", "curso de formaci", "tc "],
     "VOLUNTEERING": ["volunteer", "voluntariado", "esc ", "solidarity corps"],
-    "WORKSHOP": ["workshop", "taller"],
 }
 _DATE_RE = re.compile(r"\b(\d{1,2}/\d{1,2}/\d{4})\b")
 _URL_RE = re.compile(r"https?://\S+")

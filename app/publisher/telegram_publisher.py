@@ -33,7 +33,6 @@ _TIPOS_ES = {
     "YOUTH_EXCHANGE": "Intercambio juvenil",
     "TRAINING_COURSE": "Training course",
     "VOLUNTEERING": "Voluntariado",
-    "WORKSHOP": "Workshop",
 }
 
 # Etiqueta que sustituye a "Temática" en la línea 🏷️ de cada oportunidad.
@@ -41,7 +40,6 @@ _TIPO_LABEL_TEMA = {
     "YOUTH_EXCHANGE": "Youth Exchange",
     "TRAINING_COURSE": "Training Course",
     "VOLUNTEERING": "ECS",
-    "WORKSHOP": "Workshop",
 }
 
 # Orden y cabecera visual de los grupos del resumen diario.
@@ -49,7 +47,6 @@ _GRUPOS_RESUMEN = [
     ("YOUTH_EXCHANGE", "🎒 Youth Exchange"),
     ("TRAINING_COURSE", "🎓 Training Course"),
     ("VOLUNTEERING", "🤝 ECS"),
-    ("WORKSHOP", "🛠️ Workshop"),
 ]
 
 # Taxonomía para el resumen semanal de temáticas: el `topic` que manda el extractor es

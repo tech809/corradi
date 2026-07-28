@@ -26,7 +26,6 @@ _TYPE_LABEL = {
     "YOUTH_EXCHANGE": "Intercambio juvenil",
     "TRAINING_COURSE": "Training course",
     "VOLUNTEERING": "Voluntariado",
-    "WORKSHOP": "Workshop",
 }
 
 

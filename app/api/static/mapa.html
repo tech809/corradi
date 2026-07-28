@@ -3,779 +3,574 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mapa Corradi</title>
-<meta name="description" content="Mapa interactivo de las oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses, ECS y workshops.">
+<title>Corradi — Mapa de oportunidades</title>
 <meta name="color-scheme" content="light">
-<meta property="og:title" content="Mapa de oportunidades · Corradi Erasmus+">
-<meta property="og:description" content="Todas las oportunidades Erasmus+ con inscripción abierta, en el mapa.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://mapa.proactivefuture.eu/corradi-erasmus">
-<!-- Tarjeta de previsualización al compartir el enlace (WhatsApp, Telegram, LinkedIn…).
-     La imagen se genera a mano con scripts/make_og_image.py, no al vuelo. -->
-<meta property="og:image" content="https://mapa.proactivefuture.eu/og.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Mapa de oportunidades Corradi Erasmus+">
-<meta name="twitter:card" content="summary_large_image">
-<!-- Bandera de España sin escudo: franjas 1:2:1 -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'><rect width='4' height='3' fill='%23AA151B'/><rect y='.75' width='4' height='1.5' fill='%23F1BF00'/></svg>">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
       integrity="sha256-YU3qCpj/P06tdPBJGPax0bm6Q1wltfwjsho5TR4+TYc=" crossorigin="">
 <style>
-  /* Paleta: superficies/tinta neutras cálidas + 4 colores categóricos validados
-     (contraste CVD y normal-vision comprobados con el validador del sistema de
-     dataviz, modo "todos los pares visibles a la vez" — el uso real de un mapa
-     con varios pines simultáneos, no solo pares adyacentes).
-     A propósito SIEMPRE claro: no sigue el modo oscuro del sistema (antes lo
-     seguía y en un móvil en modo oscuro se veía todo negro — pedido explícito
-     de mantenerlo claro siempre, sin depender del tema del dispositivo).
+/* ═══════════════════════════════════════════════════════════════════════════
+   CORRADI — mapa v3, rediseño de cero (2026-07-28)
+   Dirección: minimalismo tipo Apple/Mercedes — negros y blancos muy cuidados,
+   tipografía editorial grande, mucho aire, un único acento de color contenido,
+   colores categóricos "piedra preciosa" (más profundos, menos saturados que el
+   arcoíris de parque de bomberos del original). El mapa es a sangre completa y
+   la interfaz flota encima como cristal — no hay cabecera ni barra clásicas.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-     Pase de diseño "premium" (v2): mismos tokens semánticos, valores más
-     refinados — bordes traslúcidos en vez de hex plano (se integran con el
-     desenfoque de cristal de cabecera/paneles), sistema de elevación en 3
-     niveles en vez de una sola sombra, radios más generosos, y una curva de
-     easing única para que todo se sienta cortado por el mismo patrón. */
-  :root {
-    --brand: #003399;
-    --brand-ink: #00256e;
-    --gold: #ffcc00;
-    --bg: #f7f7f5;
-    --surface: #ffffff;
-    --surface-2: #fbfbfa;
-    --text: #16181d;
-    --muted: #5b5d63;
-    --muted-2: #97989c;
-    --line: rgba(15, 15, 20, .08);
-    --line-strong: rgba(15, 15, 20, .14);
-    --shadow-xs: 0 1px 2px rgba(15,15,20,.04);
-    --shadow-sm: 0 2px 8px rgba(15,15,20,.06), 0 1px 2px rgba(15,15,20,.05);
-    --shadow-md: 0 8px 28px rgba(15,15,20,.10), 0 2px 8px rgba(15,15,20,.05);
-    --shadow-lg: 0 24px 64px rgba(15,15,20,.18), 0 4px 16px rgba(15,15,20,.08);
-    --shadow: var(--shadow-sm);
-    --radius-sm: 12px;
-    --radius: 18px;
-    --radius-lg: 26px;
-    --ease: cubic-bezier(.4, 0, .2, 1);
-    --ease-out: cubic-bezier(.16, 1, .3, 1);
-    --ye: #2a78d6; --tc: #eda100; --ecs: #008300; --ws: #e87ba4; --other: #898781;
-    --critical: #d03b3b; --warn: #c98400;
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
-    display: flex; flex-direction: column;
-  }
-  ::selection { background: color-mix(in srgb, var(--brand) 22%, transparent); }
-  :focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent);
-    outline-offset: 2px; border-radius: 4px;
-  }
-  /* Scrollbars finos y discretos (WebKit) — el listado, los paneles y el chat
-     tienen scroll interno frecuente; el scrollbar nativo grueso rompía la
-     sensación de "cristal" del resto de la interfaz. */
-  #list::-webkit-scrollbar, .fp-pane::-webkit-scrollbar, .chat-log::-webkit-scrollbar, .info-body::-webkit-scrollbar {
-    width: 8px;
-  }
-  #list::-webkit-scrollbar-thumb, .fp-pane::-webkit-scrollbar-thumb, .chat-log::-webkit-scrollbar-thumb, .info-body::-webkit-scrollbar-thumb {
-    background: rgba(15,15,20,.14); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box;
-  }
-  #list::-webkit-scrollbar-thumb:hover, .fp-pane::-webkit-scrollbar-thumb:hover, .chat-log::-webkit-scrollbar-thumb:hover, .info-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(15,15,20,.24); background-clip: padding-box;
-  }
+@font-face { font-family:"Sora"; font-weight:400; src:url("/fonts/Sora-Regular.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Sora"; font-weight:600; src:url("/fonts/Sora-SemiBold.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Sora"; font-weight:700; src:url("/fonts/Sora-Bold.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Sora"; font-weight:800; src:url("/fonts/Sora-ExtraBold.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Manrope"; font-weight:400; src:url("/fonts/Manrope-Regular.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Manrope"; font-weight:500; src:url("/fonts/Manrope-Medium.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Manrope"; font-weight:600; src:url("/fonts/Manrope-SemiBold.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Manrope"; font-weight:700; src:url("/fonts/Manrope-Bold.ttf") format("truetype"); font-display:swap; }
 
-  /* ── Cabecera ─────────────────────────────────────────────────── */
-  header {
-    background: color-mix(in srgb, var(--surface) 86%, transparent);
-    backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
-    border-bottom: 1px solid var(--line);
-    padding: 16px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    position: sticky; top: 0; z-index: 600;
-  }
-  .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
-  /* Proporción de bandera (4:3), no círculo: es una bandera, no un emblema. */
-  .brand svg { width: 36px; height: 27px; flex: none; border-radius: 5px; box-shadow: 0 0 0 1px var(--line); }
-  .brand h1 { font-size: 16.5px; font-weight: 650; margin: 0; letter-spacing: -.015em; color: var(--text); }
-  .brand p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); letter-spacing: -.005em; }
-  .count {
-    background: color-mix(in srgb, var(--brand) 10%, var(--surface)); color: var(--brand-ink);
-    font-weight: 650; font-size: 12.5px; padding: 7px 13px; border-radius: 999px; white-space: nowrap;
-    letter-spacing: -.005em;
-  }
-  .channel {
-    display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
-    background: var(--brand); color: #fff; font-weight: 600; font-size: 13.5px;
-    padding: 9px 16px; border-radius: 999px; transition: transform .2s var(--ease), box-shadow .2s var(--ease), opacity .2s var(--ease);
-    box-shadow: 0 1px 2px rgba(0,51,153,.15), 0 4px 14px rgba(0,51,153,.16);
-  }
-  .channel:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,51,153,.18), 0 8px 22px rgba(0,51,153,.22); }
-  .channel:active { transform: translateY(0); }
-  /* Variante secundaria (contorno, no rellena): para no competir con "Ver canal",
-     que sigue siendo la acción principal en color sólido. */
-  .channel.outline { background: var(--surface); color: var(--brand); border: 1px solid var(--line-strong); box-shadow: var(--shadow-xs); }
-  .channel.outline:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line-strong)); box-shadow: var(--shadow-sm); }
+:root {
+  --ink: #111113;
+  --ink-soft: #4a4b50;
+  --ink-faint: #8d8e93;
+  --paper: #f6f5f3;
+  --surface: #ffffff;
+  --surface-sunk: #f1efec;
+  --line: rgba(17,17,19,.09);
+  --line-soft: rgba(17,17,19,.055);
+  --glass: rgba(255,255,255,.78);
+  --glass-strong: rgba(255,255,255,.92);
+  --scrim: rgba(10,10,12,.46);
 
-  /* ── Filtros ──────────────────────────────────────────────────── */
-  .filters {
-    background: color-mix(in srgb, var(--surface) 80%, transparent);
-    backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px);
-    border-bottom: 1px solid var(--line);
-    padding: 14px 24px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-    position: relative; z-index: 590;
-  }
-  .search { position: relative; flex: 1 1 240px; max-width: 340px; }
-  .search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted-2); }
-  input[type="search"] {
-    width: 100%; font: inherit; font-size: 14px; color: var(--text);
-    background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px;
-    padding: 10px 13px 10px 40px; outline: none; transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
-  }
-  input[type="search"]:focus {
-    border-color: color-mix(in srgb, var(--brand) 55%, var(--line)); background: var(--surface);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 12%, transparent);
-  }
-  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip {
-    font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
-    background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
-    padding: 8px 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px;
-    transition: all .18s var(--ease); user-select: none;
-  }
-  .chip:hover { border-color: var(--line-strong); background: var(--surface); }
-  /* Misma especificidad que ".chip" (una clase) contra el "[hidden]{display:none}" del
-     navegador (un atributo) — al empate de especificidad gana quien va DESPUÉS en la
-     hoja, que es ".chip" — así que sin esto, ocultar un chip con `.hidden = true` (el
-     buscador de país) no lo escondía de verdad, solo lo marcaba como tal en el DOM. */
-  .chip[hidden] { display: none; }
-  /* El punto lleva SIEMPRE el color de su categoría (aunque el chip no esté
-     activo) — así la lista de filtros ya enseña el mismo código de color que
-     los pines/tarjetas, en vez de puntos grises indistinguibles en reposo. */
-  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c, currentColor); flex: none; }
-  /* Tono claro, no relleno sólido: fondo tintado al 16% + borde al 45%, texto SIEMPRE
-     en --text (nunca el hue) — igual que las píldoras de urgencia, mismo motivo: el
-     magenta/ámbar del validador bajan de 3:1 de contraste como color de texto plano. */
-  .chip[aria-pressed="true"] {
-    background: color-mix(in srgb, var(--c, var(--brand)) 16%, var(--surface));
-    border-color: color-mix(in srgb, var(--c, var(--brand)) 45%, transparent);
-    color: var(--text);
-  }
-  .chip[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
-  .chip[data-type="TRAINING_COURSE"] { --c: var(--tc); }
-  .chip[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
-  .chip[data-type="WORKSHOP"]        { --c: var(--ws); }
-  .chip[data-type="soon"]            { --c: var(--critical); }
-  .chip[data-type="new"]             { --c: var(--critical); }
-  .reset {
-    font: inherit; font-size: 13px; background: none; border: 0; color: var(--muted);
-    cursor: pointer; padding: 8px 6px; text-decoration: underline; text-underline-offset: 3px;
-    transition: color .15s var(--ease);
-  }
-  .reset:hover { color: var(--text); }
+  --brand: #14265e;
+  --brand-ink: #0c1a45;
+  --brass: #a9803f;
 
-  /* Botón redondo de icono (lupa en móvil, cerrar…) */
-  .icon-btn {
-    display: none; align-items: center; justify-content: center; flex: none;
-    width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
-    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
-    transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
-  }
-  .icon-btn:hover { border-color: var(--line-strong); color: var(--text); background: var(--surface); }
-  .search-close { display: none; }
+  /* categóricos: tonos "piedra preciosa" — más profundos y contenidos que el
+     original, cada uno sigue siendo distinguible a la vez para daltonismo. */
+  --ye: #35588f;   /* zafiro */
+  --tc: #a9803f;   /* bronce/latón */
+  --ecs: #3e6b4c;  /* esmeralda */
+  --other: #8d8e93;
+  --critical: #a83e37;
+  --warn: #a9803f;
 
-  /* Botón único que abre TODOS los filtros agrupados en un solo panel (ver
-     #filtersDialog) — antes eran 3 desplegables sueltos (Tipos/Fechas/Países), cada
-     uno con su propio criterio de cuándo mostrarse en línea o colapsado; un único
-     punto de entrada es más simple y dado que ahora también vive aquí Edad y
-     Urgencia, agruparlos así escala mejor que seguir añadiendo botones a la barra.
-     Misma clase para "💬 Preguntar" — Buscar / Preguntar / Filtros son las tres
-     formas de encontrar algo, agrupadas donde ya mira el usuario. */
-  .filters-btn {
-    display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 13px;
-    font-weight: 550; cursor: pointer; white-space: nowrap;
-    background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
-    padding: 10px 16px; border-radius: 999px; transition: border-color .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
-  }
-  .filters-btn:hover { border-color: var(--line-strong); background: var(--surface); box-shadow: var(--shadow-xs); }
-  /* Empuja TODO el grupo de la derecha (Preguntar + Filtros + Limpiar) al extremo —
-     se aplica una sola vez, al primero del grupo, o el auto-margin se repartiría
-     entre varios botones con la misma clase y descuadraría el hueco. */
-  #chatToggle { margin-left: auto; }
-  .dd-count {
-    background: var(--brand); color: #fff; font-size: 11px; font-weight: 700;
-    min-width: 18px; height: 18px; border-radius: 999px;
-    display: inline-flex; align-items: center; justify-content: center; padding: 0 5px;
-  }
+  --radius-sm: 14px;
+  --radius: 22px;
+  --radius-lg: 30px;
+  --radius-xl: 36px;
 
-  /* ── Panel de filtros (dialog) ────────────────────────────────────────────
-     Reutiliza la misma "chrome" que la ventana de información (cabecera fija +
-     fondo oscurecido) — mismo componente visual, contenido distinto — pero el
-     cuerpo es un sistema de PESTAÑAS (Categoría / Edad / Fechas / País), no una
-     lista larga con scroll: con 5 grupos de filtro (contando Urgencia dentro de
-     Categoría) el scroll único se hacía largo y costaba encontrar cada cosa. */
-  .fp-tabs {
-    display: flex; gap: 4px; padding: 12px 18px; border-bottom: 1px solid var(--line); flex: none;
-  }
-  .fp-tab {
-    flex: 1; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
-    padding: 10px 6px; border-radius: 10px; border: 1px solid transparent;
-    background: transparent; color: var(--muted);
-    display: flex; align-items: center; justify-content: center; gap: 5px;
-    transition: background .18s var(--ease), color .18s var(--ease);
-  }
-  .fp-tab:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
-  .fp-tab[aria-selected="true"] { background: color-mix(in srgb, var(--brand) 10%, var(--surface)); color: var(--brand-ink); }
-  .fp-tab .dd-count { font-size: 10px; min-width: 15px; height: 15px; }
-  .fp-pane { display: none; padding: 22px; max-height: calc(70vh - 108px); overflow-y: auto; }
-  .fp-pane[data-shown="true"] { display: block; }
-  .fp-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted-2); }
+  --shadow-1: 0 1px 2px rgba(17,17,19,.05), 0 2px 6px rgba(17,17,19,.05);
+  --shadow-2: 0 4px 16px rgba(17,17,19,.09), 0 1px 3px rgba(17,17,19,.06);
+  --shadow-3: 0 24px 64px -12px rgba(17,17,19,.32), 0 4px 16px rgba(17,17,19,.08);
 
-  /* Categorías: chip compacto de una sola línea (icono + nombre), no la tarjeta
-     alta de antes — las 4 caben casi sin ocupar alto. */
-  .cat-compact { display: flex; flex-wrap: wrap; gap: 9px; }
-  .cat-chip {
-    font: inherit; display: flex; align-items: center; gap: 8px; padding: 7px 15px 7px 7px;
-    border-radius: 999px; border: 1.5px solid var(--line); cursor: pointer; background: var(--surface-2);
-    transition: all .18s var(--ease);
-  }
-  .cat-chip:hover { border-color: var(--line-strong); }
-  .cat-chip[aria-pressed="true"] {
-    border-color: color-mix(in srgb, var(--c) 55%, transparent);
-    background: color-mix(in srgb, var(--c) 14%, var(--surface));
-  }
-  .cat-chip .dot2 {
-    width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center;
-    justify-content: center; background: color-mix(in srgb, var(--c) 26%, var(--surface));
-    color: var(--c); font-size: 12px; flex: none;
-  }
-  .cat-chip .name { font-size: 13.5px; font-weight: 610; color: var(--text); letter-spacing: -.005em; }
+  --ease: cubic-bezier(.4,0,.2,1);
+  --ease-out: cubic-bezier(.16,1,.3,1);
+  --ease-spring: cubic-bezier(.34,1.4,.44,1);
 
-  /* Urgencia: SIN encabezado de sección propio — va justo debajo de Categoría en la
-     misma pestaña. Cada fila lleva un "?" que despliega su aclaración al clicar, en
-     vez de un párrafo de ayuda siempre visible. */
-  .sw-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 13px 2px; border-bottom: 1px solid var(--line);
-  }
-  .sw-row:last-of-type { border-bottom: 0; }
-  .sw-row .lbl { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 560; }
-  .info-q {
-    width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--line-strong); background: none;
-    color: var(--muted-2); font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; line-height: 1;
-    display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: none;
-    transition: border-color .15s var(--ease), color .15s var(--ease);
-  }
-  .info-q:hover, .info-q[aria-expanded="true"] { border-color: var(--brand); color: var(--brand); }
-  .switch {
-    width: 42px; height: 25px; border-radius: 999px; background: var(--line-strong); position: relative;
-    cursor: pointer; flex: none; transition: background .2s var(--ease); border: 0; padding: 0;
-  }
-  .switch[aria-pressed="true"] { background: var(--brand); }
-  .switch i {
-    position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%;
-    background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.28); transition: transform .2s var(--ease-out);
-  }
-  .switch[aria-pressed="true"] i { transform: translateX(17px); }
-  .info-note { margin: -2px 0 10px; font-size: 12px; color: var(--muted-2); padding: 0 2px; display: none; }
-  .info-note[data-open="true"] { display: block; }
+  --font-display: "Sora", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
+}
 
-  /* Edad: stepper +/- en vez de un <input type=number> pelado — más cómodo en móvil
-     y visualmente más resuelto que las flechitas nativas del navegador. */
-  .age-stepper { display: flex; align-items: center; gap: 16px; }
-  .step-btn {
-    width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line);
-    background: var(--surface-2); font: inherit; font-size: 17px; font-weight: 650; cursor: pointer; color: var(--brand);
-    transition: border-color .15s var(--ease), background .15s var(--ease), transform .15s var(--ease);
-  }
-  .step-btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); background: var(--surface); }
-  .step-btn:active { transform: scale(.94); }
-  .age-val { font-size: 23px; font-weight: 700; min-width: 72px; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-  .age-val small { display: block; font-size: 11.5px; font-weight: 550; color: var(--muted-2); }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 15px/1.55 var(--font-body);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+h1, h2, h3 { font-family: var(--font-display); }
+::selection { background: color-mix(in srgb, var(--brand) 22%, transparent); }
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 3px; border-radius: 4px; }
+a { color: inherit; }
+button { font-family: inherit; }
+svg.icon { width: 16px; height: 16px; flex: none; display: block; }
 
-  /* País: buscador que filtra los chips en vivo — con ~22 países una lista plana
-     entera se hacía pesada de escanear. */
-  .country-search {
-    display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--line);
-    border-radius: 12px; padding: 10px 13px; margin-bottom: 14px;
-  }
-  .country-search input {
-    border: 0; background: none; outline: none; font: inherit; font-size: 13.5px; width: 100%; color: var(--text);
-  }
+/* scrollbars finos */
+.dock-body::-webkit-scrollbar, .fp-pane::-webkit-scrollbar, .chat-log::-webkit-scrollbar, .info-body::-webkit-scrollbar { width: 7px; }
+.dock-body::-webkit-scrollbar-thumb, .fp-pane::-webkit-scrollbar-thumb, .chat-log::-webkit-scrollbar-thumb, .info-body::-webkit-scrollbar-thumb {
+  background: rgba(17,17,19,.16); border-radius: 999px; background-clip: padding-box; border: 2px solid transparent;
+}
 
-  .fp-foot {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 16px 22px; border-top: 1px solid var(--line);
-    position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  }
-  .fp-foot .reset { padding: 8px 4px; }
-  .fp-foot .btn.primary { padding: 11px 20px; font-size: 13.5px; font-weight: 650; }
+/* ── Escenario: el mapa ocupa TODO, la interfaz flota encima ─────────────── */
+#stage { position: fixed; inset: 0; }
+#map { position: absolute; inset: 0; background: var(--paper); }
+/* Tono cálido/reducido sobre el basemap para que no compita con el cristal de
+   la interfaz — pequeño desaturado + calentado, casi imperceptible pero se
+   nota en la sensación general "premium" en vez de "mapa de utilidad". */
+#map .leaflet-tile-pane { filter: saturate(.82) brightness(1.02) contrast(.97); }
 
-  /* ── Diálogo del asistente (chat) ──────────────────────────────────────────
-     Reutiliza la misma "chrome" (.info-dialog) y las MISMAS .card que la lista
-     (ver cardHTML()) — el chat no es una pantalla aparte, es otra puerta a las
-     mismas fichas. */
-  .chat-body { padding: 18px 22px 4px; }
-  /* Una sola fila SIEMPRE (escritorio y móvil) — en vez de envolver a varias líneas,
-     si no caben todas se desliza en horizontal (más notorio en móvil, pero mismo
-     mecanismo en los dos). Chips más compactos que los del resto del panel. */
-  .chat-suggestions {
-    display: flex; flex-wrap: nowrap; gap: 5px; margin-top: 13px;
-    overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin;
-  }
-  .chat-suggestions .chip { flex: none; white-space: nowrap; padding: 7px 9px; font-size: 11.5px; gap: 4px; }
-  .chat-log { display: flex; flex-direction: column; gap: 18px; padding: 16px 22px; max-height: calc(70vh - 158px); overflow-y: auto; }
-  .chat-turn { display: flex; flex-direction: column; gap: 10px; }
-  .chat-q {
-    align-self: flex-end; max-width: 85%; background: var(--brand); color: #fff;
-    padding: 10px 15px; border-radius: 16px 16px 3px 16px; font-size: 13.5px; font-weight: 550;
-    box-shadow: 0 2px 8px rgba(0,51,153,.18);
-  }
-  .chat-a { font-size: 14px; color: var(--text); line-height: 1.55; }
-  .chat-cards { display: flex; flex-direction: column; gap: 10px; }
-  .chat-see-all { align-self: flex-start; }
-  .chat-unavailable { text-align: center; color: var(--muted); padding: 34px 24px; font-size: 14px; line-height: 1.5; }
-  /* Sin esto, `.chat-foot[hidden]` pierde contra el `display:flex` de abajo (misma
-     especificidad, una clase, y `.chat-foot` va después en la cascada) — el input y el
-     botón de enviar se quedaban visibles aunque el chat estuviera marcado como no
-     disponible. Mismo patrón de bug ya visto y arreglado en `.chip[hidden]`. */
-  .chat-foot[hidden] { display: none; }
-  .chat-foot {
-    display: flex; align-items: center; gap: 8px; padding: 14px 18px;
-    border-top: 1px solid var(--line); position: sticky; bottom: 0; background: var(--surface);
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  }
-  .chat-foot input {
-    flex: 1; font: inherit; font-size: 14px; padding: 11px 16px; border-radius: 999px;
-    border: 1px solid var(--line); background: var(--surface-2); color: var(--text); outline: none;
-    transition: border-color .18s var(--ease), background .18s var(--ease);
-  }
-  .chat-foot input:focus { border-color: color-mix(in srgb, var(--brand) 55%, var(--line)); background: var(--surface); }
-  .chat-send {
-    width: 42px; height: 42px; border-radius: 50%; border: 0; background: var(--brand); color: #fff;
-    font-size: 15px; cursor: pointer; flex: none; display: flex; align-items: center; justify-content: center;
-    transition: transform .15s var(--ease), opacity .15s var(--ease); box-shadow: 0 2px 8px rgba(0,51,153,.22);
-  }
-  .chat-send:hover:not(:disabled) { transform: scale(1.05); }
-  .chat-send:disabled { opacity: .4; cursor: default; box-shadow: none; }
-  .chat-skel {
-    height: 58px; border-radius: var(--radius); background: var(--surface-2);
-    border: 1px solid var(--line); position: relative; overflow: hidden;
-  }
-  .chat-skel::after {
-    content: ""; position: absolute; inset: 0; transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 6%, transparent), transparent);
-    animation: shimmer 1.4s infinite;
-  }
+.hud { position: absolute; inset: 0; pointer-events: none; z-index: 400; }
+.hud > * { pointer-events: auto; }
 
-  /* Filtro de fechas: dos submodos, meses (por defecto, más simple) o rango exacto. */
-  .date-mode-switch {
-    display: flex; gap: 4px; padding: 2px 2px 10px; margin-bottom: 8px;
-    border-bottom: 1px solid var(--line);
-  }
-  .mode-btn {
-    flex: 1; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
-    padding: 8px 8px; border-radius: 9px; border: 1px solid transparent;
-    background: transparent; color: var(--muted); transition: background .18s var(--ease), color .18s var(--ease);
-  }
-  .mode-btn[aria-pressed="true"] {
-    background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand-ink);
-  }
-  /* Rejilla 2 columnas con los próximos 8 meses: alineados y del mismo tamaño. */
-  .month-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-  .month-chips .chip { justify-content: center; }
-  /* "Todos los meses" no es un mes: ocupa las 2 columnas y va primero, como acción de
-     reset — sin esto, una vez aislado un mes concreto no había forma de volver a "todos"
-     salvo el botón general de Limpiar filtros (que además borra el resto de filtros). */
-  .month-chips .chip.all-months { grid-column: 1 / -1; font-weight: 650; }
-  .range-inputs { display: flex; flex-direction: column; gap: 9px; padding: 4px 2px 2px; }
-  /* El atributo HTML `hidden` por sí solo pierde contra el `display:flex` de arriba (mi
-     regla tiene más especificidad que la hoja de estilos por defecto) — hay que
-     reforzarlo explícitamente para que oculte de verdad al cambiar de submodo. */
-  .range-inputs[hidden], .month-chips[hidden] { display: none; }
-  .range-inputs label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); font-weight: 600; }
-  .range-inputs input[type="date"] {
-    font: inherit; font-size: 13px; padding: 9px 11px; border-radius: 10px;
-    border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
-  }
+/* ── Marca, arriba a la izquierda ─────────────────────────────────────────── */
+.brand-mark {
+  position: absolute; top: 20px; left: 20px; display: flex; align-items: center; gap: 10px;
+  background: var(--glass); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--line-soft); border-radius: 999px; padding: 8px 16px 8px 8px; box-shadow: var(--shadow-1);
+}
+.brand-mark .glyph {
+  width: 30px; height: 30px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+  background: var(--brand); color: #fff; font-family: var(--font-display); font-weight: 800; font-size: 13px;
+}
+.brand-mark .word { font-family: var(--font-display); font-weight: 700; font-size: 14.5px; letter-spacing: -.01em; white-space: nowrap; }
+.brand-mark .word small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 10.5px; color: var(--ink-faint); letter-spacing: .01em; }
 
-  /* Burbuja flotante Mapa/Lista (solo móvil) */
-  .view-bubble {
-    display: none; position: absolute; top: 14px; right: 14px; z-index: 500;
-    font: inherit; font-size: 13px; font-weight: 620; cursor: pointer;
-    background: var(--brand); color: #fff; border: 0;
-    padding: 11px 18px; border-radius: 999px; box-shadow: 0 4px 16px rgba(0,51,153,.3);
-    transition: transform .15s var(--ease);
-  }
-  .view-bubble:active { transform: scale(.96); }
+/* ── Barra de mando: flota arriba centrada, une buscar + preguntar ───────── */
+.command {
+  position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+  width: min(560px, calc(100vw - 240px));
+  display: flex; align-items: center; gap: 4px;
+  background: var(--glass); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--line-soft); border-radius: 999px; padding: 6px; box-shadow: var(--shadow-2);
+  transition: box-shadow .25s var(--ease);
+}
+.command:focus-within { box-shadow: var(--shadow-2), 0 0 0 4px color-mix(in srgb, var(--brand) 14%, transparent); }
+.command .icon-slot { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; color: var(--ink-faint); }
+.command input {
+  flex: 1; min-width: 0; border: 0; background: none; outline: none; font: 500 14.5px/1 var(--font-body); color: var(--ink);
+  padding: 10px 4px;
+}
+.command input::placeholder { color: var(--ink-faint); }
+.command .ask-btn {
+  display: flex; align-items: center; gap: 6px; flex: none; font: 600 13px var(--font-body); cursor: pointer;
+  background: var(--brand); color: #fff; border: 0; padding: 10px 16px; border-radius: 999px;
+  transition: transform .18s var(--ease-out), box-shadow .18s var(--ease);
+}
+.command .ask-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px color-mix(in srgb, var(--brand) 45%, transparent); }
+.command .search-close {
+  display: none; flex: none; width: 34px; height: 34px; border-radius: 50%; border: 0; background: none; color: var(--ink-faint); cursor: pointer;
+}
 
-  /* Pie: barra FIJA abajo, oculta por defecto (no consume pantalla) — aparece deslizándose
-     solo cuando se llega al final de la lista (ver JS). Dos mitades: estadísticas (izda,
-     cada una con su icono en circulito, número+etiqueta apilados) y un CTA a Instagram
-     (dcha, con el degradado de marca de Instagram — el único sitio del mapa donde se usa,
-     a propósito, para que se reconozca al vuelo qué es sin tener que leer el texto). */
-  .site-footer {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 550;
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-    gap: 10px 20px; padding: 11px 24px;
-    background: color-mix(in srgb, var(--surface) 88%, transparent);
-    backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
-    border-top: 1px solid var(--line); box-shadow: 0 -8px 28px rgba(15,15,20,.07);
-    transform: translateY(110%); transition: transform .3s var(--ease-out);
-  }
-  .site-footer.show { transform: translateY(0); }
-  .footer-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; }
-  .stat-item { display: flex; align-items: center; gap: 9px; }
-  .stat-icon {
-    width: 28px; height: 28px; border-radius: 50%; flex: none;
-    display: flex; align-items: center; justify-content: center;
-    background: color-mix(in srgb, var(--brand) 10%, var(--surface-2)); font-size: 13px;
-  }
-  .stat-item b {
-    display: block; color: var(--text); font-weight: 700; font-size: 13.5px;
-    line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.01em;
-  }
-  .stat-item small {
-    display: block; color: var(--muted-2); font-size: 10px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .05em;
-  }
-  .footer-ig {
-    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
-    background: linear-gradient(135deg, #f9ce34, #ee2a7b 55%, #6228d7);
-    color: #fff; font-weight: 650; font-size: 12.5px; padding: 9px 15px 9px 11px;
-    border-radius: 999px; white-space: nowrap; transition: opacity .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
-    box-shadow: 0 2px 10px rgba(238,42,123,.22);
-  }
-  .footer-ig:hover { opacity: .92; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(238,42,123,.3); }
-  .footer-ig svg { flex: none; }
-  .footer-ig strong { font-weight: 800; }
+/* ── Chips de categoría flotantes, debajo de la barra de mando ───────────── */
+.quick-filters {
+  position: absolute; top: 78px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 8px; flex-wrap: nowrap; max-width: calc(100vw - 40px); overflow-x: auto;
+  padding: 2px; scrollbar-width: none;
+}
+.quick-filters::-webkit-scrollbar { display: none; }
+.qf-categories { display: flex; gap: 8px; }
+.qf-chip {
+  display: inline-flex; align-items: center; gap: 7px; flex: none; cursor: pointer; user-select: none;
+  background: var(--glass); backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--line-soft); border-radius: 999px; padding: 8px 14px 8px 8px; box-shadow: var(--shadow-1);
+  font: 600 12.5px var(--font-body); color: var(--ink-soft); transition: all .2s var(--ease);
+}
+.qf-chip .dot { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--c) 20%, var(--surface)); color: var(--c); flex: none; }
+.qf-chip .dot svg { width: 11px; height: 11px; }
+.qf-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 92%, var(--surface)); border-color: transparent; color: #fff; box-shadow: var(--shadow-2); }
+.qf-chip[aria-pressed="true"] .dot { background: rgba(255,255,255,.28); color: #fff; }
+.qf-chip.more { color: var(--ink-soft); }
+.qf-chip .badge-count {
+  background: var(--brand); color: #fff; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; margin-left: -2px;
+}
 
-  /* Aviso efímero (p.ej. "Enlace copiado") */
-  .toast {
-    position: fixed; left: 50%; bottom: 26px; z-index: 900;
-    transform: translateX(-50%) translateY(20px);
-    background: var(--text); color: var(--surface); font-size: 13px; font-weight: 550;
-    padding: 11px 18px; border-radius: 999px; box-shadow: var(--shadow-lg);
-    opacity: 0; pointer-events: none; transition: opacity .25s var(--ease), transform .25s var(--ease-out);
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* ── Dock de acciones, arriba a la derecha ────────────────────────────────── */
+.top-actions { position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 8px; }
+.pill-btn {
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none; cursor: pointer; border: 0;
+  font: 600 13px var(--font-body); white-space: nowrap;
+  background: var(--glass); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+  color: var(--ink); border: 1px solid var(--line-soft); padding: 10px 16px; border-radius: 999px; box-shadow: var(--shadow-1);
+  transition: box-shadow .2s var(--ease), transform .2s var(--ease-out);
+}
+.pill-btn:hover { box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.pill-btn.solid { background: var(--brand); color: #fff; border-color: transparent; box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 40%, transparent); }
+.pill-btn.solid:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--brand) 45%, transparent); }
+.icon-btn {
+  display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; flex: none; cursor: pointer; border: 0;
+  background: var(--glass); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+  color: var(--ink); border: 1px solid var(--line-soft); box-shadow: var(--shadow-1);
+  transition: box-shadow .2s var(--ease), transform .2s var(--ease-out);
+}
+.icon-btn:hover { box-shadow: var(--shadow-2); transform: translateY(-1px); }
 
-  /* Popup de Instagram para quien ya ha entrado varias veces (contador en localStorage,
-     ver JS) — se enseña UNA sola vez en la vida del navegador, no en cada visita. */
-  .ig-popup {
-    position: fixed; right: 22px; bottom: 22px; z-index: 800; width: 296px; max-width: calc(100vw - 28px);
-    background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
-    box-shadow: var(--shadow-lg); padding: 20px 20px 18px;
-    transform: translateY(16px) scale(.97); opacity: 0; pointer-events: none;
-    transition: transform .3s var(--ease-out), opacity .3s var(--ease-out);
-  }
-  .ig-popup.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
-  .ig-popup-close {
-    position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%;
-    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); cursor: pointer;
-    font-size: 12px; line-height: 1; transition: color .15s var(--ease), border-color .15s var(--ease);
-  }
-  .ig-popup-close:hover { color: var(--text); border-color: var(--line-strong); }
-  .ig-popup-icon {
-    width: 40px; height: 40px; border-radius: 50%; margin-bottom: 12px;
-    background: linear-gradient(135deg, #f9ce34, #ee2a7b 55%, #6228d7);
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 14px rgba(238,42,123,.28);
-  }
-  .ig-popup p { margin: 0 0 15px; font-size: 13.5px; line-height: 1.5; color: var(--text); padding-right: 10px; }
-  .ig-popup p strong { display: block; margin-bottom: 3px; font-size: 14.5px; }
-  .ig-popup .footer-ig { width: 100%; justify-content: center; box-sizing: border-box; }
-  @media (max-width: 880px) {
-    .ig-popup { left: 14px; right: 14px; bottom: 92px; width: auto; max-width: none; }
-  }
+/* ── Dock de resultados (escritorio: panel flotante a la izquierda) ──────── */
+.dock {
+  position: absolute; top: 136px; left: 20px; bottom: 20px; width: 392px; max-width: calc(100vw - 40px);
+  background: var(--glass-strong); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--line-soft); border-radius: var(--radius-lg); box-shadow: var(--shadow-3);
+  display: flex; flex-direction: column; overflow: hidden; transition: transform .35s var(--ease-out), opacity .3s var(--ease);
+}
+.dock.collapsed { transform: translateX(calc(-100% - 32px)); opacity: 0; pointer-events: none; }
+.dock-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 20px 10px; flex: none; }
+.dock-head h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.dock-head .count-word { font-weight: 500; color: var(--ink-faint); font-size: 13px; }
+.dock-collapse { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); cursor: pointer; flex: none; }
+.dock-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+.dock-rail {
+  position: absolute; top: 136px; left: 20px; bottom: 20px; width: 56px;
+  background: var(--glass-strong); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--line-soft); border-radius: var(--radius-lg); box-shadow: var(--shadow-2);
+  display: none; flex-direction: column; align-items: center; padding-top: 16px; gap: 6px; cursor: pointer;
+  transition: opacity .3s var(--ease);
+}
+.dock-rail.show { display: flex; }
+.dock-rail .rail-count { font-family: var(--font-display); font-weight: 800; font-size: 18px; }
+.dock-rail .rail-label { font-size: 9.5px; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; writing-mode: vertical-rl; margin-top: 8px; }
 
-  /* Badge "Nuevo" (oportunidades de las últimas 48h) */
-  .new-tag {
-    display: inline-block; margin-left: 7px; font-size: 10.5px; font-weight: 700;
-    letter-spacing: .04em; text-transform: uppercase; vertical-align: middle;
-    color: #fff; background: var(--critical); padding: 2px 8px; border-radius: 7px;
-  }
+/* ── Tarjetas ─────────────────────────────────────────────────────────────── */
+.card {
+  position: relative; background: var(--surface); border: 1px solid var(--line-soft);
+  border-radius: var(--radius); padding: 16px 17px 15px; cursor: pointer;
+  transition: transform .2s var(--ease-out), box-shadow .2s var(--ease), border-color .2s var(--ease);
+}
+.card::before {
+  content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 3px; background: var(--c, var(--other));
+}
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.card.active { border-color: color-mix(in srgb, var(--c, var(--brand)) 45%, var(--line-soft)); box-shadow: var(--shadow-2); }
+.card[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
+.card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
+.card[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 9px; padding-left: 9px; }
+.card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.badge {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .01em;
+  color: var(--c, var(--other)); background: color-mix(in srgb, var(--c, var(--other)) 13%, transparent);
+  padding: 4px 9px 4px 7px; border-radius: 7px;
+}
+.badge svg { width: 12px; height: 12px; }
+.new-tag {
+  display: inline-flex; align-items: center; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: #fff; background: var(--critical); padding: 4px 8px; border-radius: 7px;
+}
+.corner-actions { display: flex; gap: 6px; flex: none; }
+.corner-btn {
+  display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; padding: 0;
+  background: var(--surface-sunk); border: 1px solid var(--line); color: var(--ink-faint); text-decoration: none;
+  transition: border-color .15s var(--ease), color .15s var(--ease);
+}
+.corner-btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); color: var(--brand); }
+.corner-btn svg { width: 14px; height: 14px; }
+.card h3 { margin: 0 0 9px; padding-left: 9px; font-size: 15.5px; font-weight: 650; line-height: 1.35; letter-spacing: -.012em; color: var(--ink); }
+.meta { font-size: 12.5px; color: var(--ink-soft); display: flex; flex-direction: column; gap: 5px; padding-left: 9px; }
+.meta span { display: flex; align-items: center; gap: 7px; }
+.meta .flag-emoji { font-size: 13px; line-height: 1; }
+.meta svg { color: var(--ink-faint); }
+.nogeo { color: var(--ink-faint); font-style: italic; }
+.deadline {
+  font-weight: 650; margin: 10px 0 0 9px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px;
+}
+.deadline.urgent, .deadline.soon { padding: 5px 11px; border-radius: 999px; background: color-mix(in srgb, var(--c) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 32%, transparent); }
+.deadline.urgent { --c: var(--critical); }
+.deadline.soon { --c: var(--warn); }
+.est { font-weight: 400; color: var(--ink-faint); font-size: 11.5px; }
+.card.unlocated::before { background: var(--ink-faint); }
+.actions { display: flex; gap: 7px; margin: 12px 0 0 9px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; text-decoration: none; padding: 8px 13px;
+  border-radius: 10px; border: 1px solid var(--line); color: var(--ink); background: var(--surface-sunk);
+  transition: border-color .18s var(--ease), background .18s var(--ease);
+}
+.btn svg { width: 13px; height: 13px; }
+.btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 25%, transparent); }
+.btn.primary:hover { opacity: .92; }
 
-  /* Ventana de información */
-  .info-dialog {
-    border: 0; border-radius: var(--radius-lg); padding: 0; max-width: 560px; width: calc(100% - 32px);
-    color: var(--text); background: var(--surface); box-shadow: var(--shadow-lg);
-  }
-  .info-dialog::backdrop { background: rgba(10,10,14,.5); backdrop-filter: blur(3px); }
-  .info-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 20px 22px; border-bottom: 1px solid var(--line);
-    position: sticky; top: 0; background: color-mix(in srgb, var(--surface) 92%, transparent);
-    backdrop-filter: blur(12px); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  }
-  .info-head h2 { margin: 0; font-size: 17.5px; font-weight: 650; letter-spacing: -.01em; }
-  .info-close {
-    font: inherit; font-size: 15px; line-height: 1; cursor: pointer; flex: none;
-    width: 34px; height: 34px; border-radius: 50%;
-    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
-    transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease);
-  }
-  .info-close:hover { color: var(--text); border-color: var(--line-strong); background: var(--surface); }
-  .info-body { padding: 6px 22px 24px; max-height: 70vh; overflow-y: auto; }
-  .info-body h3 {
-    margin: 22px 0 7px; font-size: 12.5px; font-weight: 700; letter-spacing: .05em;
-    text-transform: uppercase; color: var(--brand-ink);
-  }
-  .info-body p, .info-body li { margin: 0 0 8px; font-size: 14px; color: var(--muted); line-height: 1.6; }
-  .info-body strong { color: var(--text); }
-  .info-body ul { margin: 0; padding-left: 18px; }
-  .info-body a { color: var(--brand); font-weight: 600; text-decoration: none; }
-  .info-body a:hover { text-decoration: underline; }
-  .info-stats {
-    display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 18px; padding-top: 16px;
-    border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px;
-  }
-  .info-stats span { white-space: nowrap; }
-  .info-stats b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
-  .info-btn { cursor: pointer; }
+.empty { text-align: center; color: var(--ink-soft); padding: 60px 24px; font-size: 14px; }
+.empty strong { display: block; color: var(--ink); font-family: var(--font-display); font-size: 17px; margin-bottom: 8px; font-weight: 700; }
+.skeleton { height: 128px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line-soft); position: relative; overflow: hidden; }
+.skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 6%, transparent), transparent); animation: shimmer 1.4s infinite; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
 
-  /* ── Layout principal ─────────────────────────────────────────────────────
-     El mapa y la lista viven dentro de un lienzo con un margen fino alrededor
-     (en vez de a sangre con el borde de la ventana) y bordes redondeados en su
-     propio recuadro — sensación de "tarjeta flotante" en vez de paneles pegados
-     al cristal, sin tocar ninguna medida de la que dependa Leaflet (el propio
-     div #map sigue llenando su caja igual que antes). */
-  main { flex: 1; display: flex; min-height: 0; gap: 14px; padding: 14px; background: var(--bg); }
-  #list {
-    width: 380px; flex: none; overflow-y: auto; padding: 4px;
-    background: var(--bg);
-    display: flex; flex-direction: column; gap: 11px; scroll-behavior: smooth;
-  }
-  #map {
-    flex: 1; min-width: 0; background: var(--surface-2); z-index: 0;
-    border-radius: var(--radius-lg); box-shadow: var(--shadow-md); overflow: hidden;
-  }
+/* Hoja inferior móvil: oculta por defecto — solo cobra su chrome flotante dentro
+   del media query de abajo. Sin esto renderiza como bloque estático a ancho
+   completo también en escritorio, tapando el dock flotante. */
+.sheet { display: none; }
 
-  /* ── Tarjetas ─────────────────────────────────────────────────── */
-  .card {
-    position: relative;
-    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c, var(--other));
-    border-radius: var(--radius); padding: 15px 17px; cursor: pointer;
-    transition: transform .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease);
-  }
-  .card:hover, .card.active { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-  .card.active { border-color: var(--c, var(--brand)); }
-  .card[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
-  .card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
-  .card[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
-  .card[data-type="WORKSHOP"]        { --c: var(--ws); }
-  /* padding-right: deja hueco para que el título no se meta debajo del grupo de
-     iconos (recordar + compartir) flotando en la esquina superior derecha. */
-  .card h3 { margin: 0 0 8px; padding-right: 66px; font-size: 15.5px; font-weight: 640; line-height: 1.35; letter-spacing: -.015em; }
-  /* Recordar (Google Calendar) + Compartir: solo icono, agrupados arriba a la derecha —
-     igual en la tarjeta y en el popup del mapa (ahí queda cerca de la ✕ de Leaflet). */
-  .corner-actions { position: absolute; top: 11px; right: 11px; z-index: 5; display: flex; gap: 6px; }
-  .corner-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 29px; height: 29px; border-radius: 50%; cursor: pointer; padding: 0;
-    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); font-size: 14px;
-    text-decoration: none; transition: border-color .15s var(--ease), color .15s var(--ease);
-  }
-  .corner-btn:hover { border-color: var(--brand); color: var(--brand); }
-  .corner-btn.cal-btn { border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); }
-  .badge {
-    display: inline-block; font-size: 11.5px; font-weight: 650; letter-spacing: .02em;
-    color: var(--c, var(--other)); background: color-mix(in srgb, var(--c, var(--other)) 12%, transparent);
-    padding: 4px 10px; border-radius: 7px; margin-bottom: 9px;
-  }
-  .meta { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 5px; }
-  .meta span { display: flex; align-items: baseline; gap: 7px; }
-  .meta i, .deadline i { font-style: normal; flex: none; width: 16px; text-align: center; }
-  /* La urgencia se marca con un fondo/borde de color (chip), NUNCA coloreando el
-     texto directamente: el ámbar y el magenta del validador bajan de 3:1 como
-     texto plano, así que la tinta se queda siempre en --text y el color solo
-     entra de fondo — el icono ⏳ ya aporta la señal visual sin depender del hue. */
-  .deadline {
-    font-weight: 600; margin-top: 9px; font-size: 13px;
-    display: inline-flex; align-items: center; gap: 6px;
-  }
-  .deadline.urgent, .deadline.soon {
-    padding: 5px 11px; border-radius: 999px;
-    background: color-mix(in srgb, var(--c) 16%, var(--surface));
-    border: 1px solid color-mix(in srgb, var(--c) 38%, transparent);
-  }
-  .deadline.urgent { --c: var(--critical); }
-  .deadline.soon { --c: var(--warn); }
-  .est { font-weight: 400; color: var(--muted-2); font-size: 12px; }
-  /* Oportunidad que no se ha podido situar: sigue siendo válida y se muestra igual,
-     solo se avisa de que no tiene pin. Borde gris para distinguirla de un vistazo. */
-  .card.unlocated { border-left-color: var(--muted-2); }
-  .nogeo { color: var(--muted-2); font-style: italic; }
-  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  .btn {
-    font-size: 12.5px; font-weight: 600; text-decoration: none; padding: 8px 13px;
-    border-radius: 9px; border: 1px solid var(--line); color: var(--text); background: var(--surface-2);
-    transition: border-color .18s var(--ease), background .18s var(--ease), transform .18s var(--ease);
-  }
-  .btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); background: var(--surface); }
-  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 2px 8px rgba(0,51,153,.2); }
-  .btn.primary:hover { opacity: .92; transform: translateY(-1px); }
+/* ── Pines: marca minimalista "gota+anillo", en vez de la chincheta clásica ── */
+.pin { transition: transform .2s var(--ease-out); transform-origin: 50% 90%; }
+.pin .plate { filter: drop-shadow(0 2px 5px rgba(17,17,19,.35)); }
+.pin.active, .pin:hover { transform: scale(1.18); z-index: 1000 !important; }
+.cluster {
+  display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--brand); color: #fff;
+  font-family: var(--font-display); font-weight: 700; font-size: 13.5px; border: 3px solid var(--surface);
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--brand) 40%, transparent); transition: transform .18s var(--ease-out);
+}
+.cluster:hover { transform: scale(1.1); }
+.leaflet-popup-content-wrapper { border-radius: var(--radius); box-shadow: var(--shadow-3); padding: 2px; }
+.leaflet-popup-content { margin: 15px 16px; font-family: var(--font-body); width: 270px !important; }
+.leaflet-popup-tip-container .leaflet-popup-tip { box-shadow: none; }
+.popup h3 { margin: 0 0 8px; padding-right: 0; font-size: 14.5px; font-weight: 650; line-height: 1.35; }
+.popup .meta { padding-left: 0; font-size: 12.5px; }
+.popup .card-top { padding-left: 0; margin-bottom: 8px; }
+.popup .deadline { margin-left: 0; }
+.popup .actions { margin-left: 0; gap: 6px; }
+.popup .btn { padding: 7px 9px; font-size: 11.5px; }
+.approx { font-size: 11px; color: var(--ink-faint); font-style: italic; margin-top: 8px; display: flex; align-items: center; gap: 5px; }
 
-  .empty { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
-  .empty strong { display: block; color: var(--text); font-size: 15.5px; margin-bottom: 7px; }
-  .skeleton {
-    height: 118px; border-radius: var(--radius); background: var(--surface);
-    border: 1px solid var(--line); position: relative; overflow: hidden;
-  }
-  .skeleton::after {
-    content: ""; position: absolute; inset: 0; transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 6%, transparent), transparent);
-    animation: shimmer 1.4s infinite;
-  }
-  @keyframes shimmer { 100% { transform: translateX(100%); } }
+/* ── Barra inferior flotante: estadísticas + Instagram ───────────────────── */
+.bottom-dock {
+  position: absolute; bottom: 20px; right: 20px; display: flex; align-items: center; gap: 10px;
+  transform: translateY(140%); opacity: 0; transition: transform .4s var(--ease-out), opacity .3s var(--ease);
+}
+.bottom-dock.show { transform: translateY(0); opacity: 1; }
+.stat-pill {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--glass-strong); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--line-soft); border-radius: 999px; padding: 10px 18px; box-shadow: var(--shadow-2);
+}
+.stat-pill .s { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.stat-pill .s b { font-family: var(--font-display); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.stat-pill .s small { font-size: 9px; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .05em; margin-top: 1px; }
+.stat-pill .divider { width: 1px; height: 22px; background: var(--line); }
+.ig-cta {
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; font-size: 12.5px; color: #fff;
+  background: linear-gradient(135deg, #f9ce34, #ee2a7b 55%, #6228d7); padding: 11px 18px 11px 12px; border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(238,42,123,.28); transition: transform .2s var(--ease-out), box-shadow .2s var(--ease);
+}
+.ig-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(238,42,123,.36); }
 
-  /* ── Pines ────────────────────────────────────────────────────── */
-  .pin { transition: transform .18s var(--ease-out); transform-origin: 50% 100%; }
-  .pin svg { display: block; filter: drop-shadow(0 3px 6px rgba(15,15,20,.32)); }
-  .pin.active, .pin:hover { transform: scale(1.24); z-index: 1000 !important; }
-  /* Grupo de pines: círculo azul de marca con el nº de oportunidades. Estilo propio
-     en vez de MarkerCluster.Default.css, para no arrastrar su paleta verde/amarilla. */
-  .cluster {
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 50%; background: var(--brand); color: #fff;
-    font-weight: 700; font-size: 14px; border: 3px solid var(--surface);
-    box-shadow: 0 3px 10px rgba(0,51,153,.35); transition: transform .18s var(--ease-out);
+/* ── Diálogos (Filtros / Preguntar / Info) ───────────────────────────────── */
+dialog { border: 0; padding: 0; background: none; overflow: visible; }
+dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
+.sheet-dialog {
+  border-radius: var(--radius-xl); max-width: 580px; width: calc(100% - 32px);
+  background: var(--surface); box-shadow: var(--shadow-3); color: var(--ink);
+  animation: sheetIn .35s var(--ease-out);
+}
+@keyframes sheetIn { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: none; } }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 22px 24px; border-bottom: 1px solid var(--line-soft); position: sticky; top: 0; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(12px); border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+.sheet-head h2 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.015em; }
+.sheet-close { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: var(--surface-sunk); border: 1px solid var(--line); color: var(--ink-soft); cursor: pointer; flex: none; }
+.sheet-close:hover { color: var(--ink); border-color: var(--line-soft); }
+
+.fp-tabs { display: flex; gap: 4px; padding: 12px 20px; border-bottom: 1px solid var(--line-soft); }
+.fp-tab { flex: 1; font: 650 12.5px var(--font-body); cursor: pointer; padding: 10px 6px; border-radius: 11px; border: 1px solid transparent; background: transparent; color: var(--ink-soft); display: flex; align-items: center; justify-content: center; gap: 5px; transition: background .18s var(--ease), color .18s var(--ease); }
+.fp-tab:hover { background: var(--surface-sunk); }
+.fp-tab[aria-selected="true"] { background: var(--brand); color: #fff; }
+.fp-pane { display: none; padding: 22px 24px; max-height: calc(70vh - 130px); overflow-y: auto; }
+.fp-pane[data-shown="true"] { display: block; }
+.fp-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-faint); }
+
+.cat-compact { display: flex; flex-wrap: wrap; gap: 9px; }
+.cat-chip { font: inherit; display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 8px; border-radius: 999px; border: 1.5px solid var(--line); cursor: pointer; background: var(--surface-sunk); transition: all .18s var(--ease); }
+.cat-chip:hover { border-color: color-mix(in srgb, var(--c) 40%, var(--line)); }
+.cat-chip[aria-pressed="true"] { border-color: transparent; background: var(--c); }
+.cat-chip[aria-pressed="true"] .name { color: #fff; }
+.cat-chip[aria-pressed="true"] .dot2 { background: rgba(255,255,255,.3); color: #fff; }
+.cat-chip .dot2 { width: 25px; height: 25px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--c) 22%, var(--surface)); color: var(--c); flex: none; }
+.cat-chip .dot2 svg { width: 13px; height: 13px; }
+.cat-chip .name { font-size: 13.5px; font-weight: 640; color: var(--ink); }
+
+.sw-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 2px; border-bottom: 1px solid var(--line-soft); }
+.sw-row:last-of-type { border-bottom: 0; }
+.sw-row .lbl { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; }
+.sw-row .lbl svg { color: var(--ink-faint); }
+.info-q { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--ink-faint); font: 700 10.5px var(--font-body); cursor: pointer; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: none; }
+.info-q:hover, .info-q[aria-expanded="true"] { border-color: var(--brand); color: var(--brand); }
+.switch { width: 44px; height: 26px; border-radius: 999px; background: var(--line); position: relative; cursor: pointer; flex: none; transition: background .2s var(--ease); border: 0; padding: 0; }
+.switch[aria-pressed="true"] { background: var(--brand); }
+.switch i { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); transition: transform .2s var(--ease-out); }
+.switch[aria-pressed="true"] i { transform: translateX(18px); }
+.info-note { margin: -2px 0 12px; font-size: 12px; color: var(--ink-faint); padding: 0 2px; display: none; }
+.info-note[data-open="true"] { display: block; }
+
+.age-stepper { display: flex; align-items: center; gap: 18px; }
+.step-btn { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-sunk); font: 650 18px var(--font-body); cursor: pointer; color: var(--brand); transition: all .15s var(--ease); }
+.step-btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
+.age-val { font-family: var(--font-display); font-size: 25px; font-weight: 800; min-width: 76px; text-align: center; font-variant-numeric: tabular-nums; }
+.age-val small { display: block; font-family: var(--font-body); font-size: 11.5px; font-weight: 550; color: var(--ink-faint); }
+
+.country-search { display: flex; align-items: center; gap: 9px; background: var(--surface-sunk); border: 1px solid var(--line); border-radius: 13px; padding: 11px 14px; margin-bottom: 14px; }
+.country-search svg { color: var(--ink-faint); flex: none; }
+.country-search input { border: 0; background: none; outline: none; font: inherit; font-size: 13.5px; width: 100%; color: var(--ink); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { font: 550 13px var(--font-body); cursor: pointer; background: var(--surface-sunk); color: var(--ink-soft); border: 1px solid var(--line); padding: 8px 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px; transition: all .18s var(--ease); }
+.chip:hover { border-color: var(--line); background: var(--surface); }
+.chip[hidden] { display: none; }
+.chip[aria-pressed="true"] { background: var(--brand); border-color: transparent; color: #fff; }
+.reset { font: 600 12.5px var(--font-body); background: none; border: 0; color: var(--ink-faint); cursor: pointer; padding: 8px 6px; text-decoration: underline; text-underline-offset: 3px; }
+.reset:hover { color: var(--ink); }
+
+.date-mode-switch { display: flex; gap: 4px; padding: 2px 2px 10px; margin-bottom: 8px; border-bottom: 1px solid var(--line-soft); }
+.mode-btn { flex: 1; font: 650 12.5px var(--font-body); cursor: pointer; padding: 9px 8px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: var(--ink-soft); }
+.mode-btn[aria-pressed="true"] { background: var(--brand); color: #fff; }
+.month-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.month-chips .chip { justify-content: center; }
+.month-chips .chip.all-months { grid-column: 1 / -1; font-weight: 650; }
+.range-inputs { display: flex; flex-direction: column; gap: 9px; padding: 4px 2px 2px; }
+.range-inputs[hidden], .month-chips[hidden] { display: none; }
+.range-inputs label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+.range-inputs input[type="date"] { font: inherit; font-size: 13px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink); }
+
+.sheet-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--line-soft); position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
+.sheet-foot .btn.primary { padding: 12px 22px; font-size: 13.5px; }
+
+/* Chat */
+.chat-body { padding: 20px 24px 4px; }
+.chat-suggestions { display: flex; flex-wrap: nowrap; gap: 5px; margin-top: 14px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.chat-suggestions .chip { flex: none; white-space: nowrap; padding: 7px 10px; font-size: 11.5px; gap: 4px; }
+.chat-log { display: flex; flex-direction: column; gap: 20px; padding: 16px 24px; max-height: calc(70vh - 170px); overflow-y: auto; }
+.chat-turn { display: flex; flex-direction: column; gap: 11px; }
+.chat-q { align-self: flex-end; max-width: 85%; background: var(--brand); color: #fff; padding: 11px 16px; border-radius: 18px 18px 4px 18px; font-size: 13.5px; font-weight: 550; box-shadow: 0 3px 10px color-mix(in srgb, var(--brand) 25%, transparent); }
+.chat-a { font-size: 14px; color: var(--ink); line-height: 1.55; }
+.chat-cards { display: flex; flex-direction: column; gap: 10px; }
+.chat-see-all { align-self: flex-start; }
+.chat-unavailable { text-align: center; color: var(--ink-soft); padding: 40px 26px; font-size: 14px; line-height: 1.5; }
+.chat-foot[hidden] { display: none; }
+.chat-foot { display: flex; align-items: center; gap: 9px; padding: 16px 20px; border-top: 1px solid var(--line-soft); position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
+.chat-foot input { flex: 1; font: inherit; font-size: 14px; padding: 12px 17px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink); outline: none; }
+.chat-foot input:focus { border-color: color-mix(in srgb, var(--brand) 55%, var(--line)); background: var(--surface); }
+.chat-send { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--brand); color: #fff; cursor: pointer; flex: none; display: flex; align-items: center; justify-content: center; transition: transform .15s var(--ease); box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 30%, transparent); }
+.chat-send svg { width: 16px; height: 16px; }
+.chat-send:hover:not(:disabled) { transform: scale(1.06); }
+.chat-send:disabled { opacity: .4; box-shadow: none; }
+.chat-skel { height: 60px; border-radius: var(--radius); background: var(--surface-sunk); border: 1px solid var(--line-soft); position: relative; overflow: hidden; }
+.chat-skel::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 6%, transparent), transparent); animation: shimmer 1.4s infinite; }
+
+/* Info */
+.info-body { padding: 8px 24px 26px; max-height: 70vh; overflow-y: auto; }
+.info-body h3 { margin: 24px 0 8px; font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--brand-ink); font-family: var(--font-body); }
+.info-body p, .info-body li { margin: 0 0 9px; font-size: 14px; color: var(--ink-soft); line-height: 1.6; }
+.info-body strong { color: var(--ink); }
+.info-body ul { margin: 0; padding-left: 18px; }
+.info-body a { color: var(--brand); font-weight: 600; text-decoration: none; }
+.info-body a:hover { text-decoration: underline; }
+.info-stats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-soft); color: var(--ink-soft); font-size: 12.5px; }
+.info-stats b { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* Toast */
+.toast { position: fixed; left: 50%; bottom: 28px; z-index: 900; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; font-size: 13px; font-weight: 550; padding: 12px 20px; border-radius: 999px; box-shadow: var(--shadow-3); opacity: 0; pointer-events: none; transition: opacity .25s var(--ease), transform .25s var(--ease-out); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Popup Instagram */
+.ig-popup { position: fixed; right: 22px; bottom: 22px; z-index: 800; width: 300px; max-width: calc(100vw - 28px); background: var(--surface); border: 1px solid var(--line-soft); border-radius: 22px; box-shadow: var(--shadow-3); padding: 22px 22px 20px; transform: translateY(16px) scale(.97); opacity: 0; pointer-events: none; transition: transform .3s var(--ease-out), opacity .3s var(--ease-out); }
+.ig-popup.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+.ig-popup-close { position: absolute; top: 12px; right: 12px; width: 27px; height: 27px; border-radius: 50%; background: var(--surface-sunk); border: 1px solid var(--line); color: var(--ink-soft); cursor: pointer; font-size: 12px; }
+.ig-popup-icon { width: 42px; height: 42px; border-radius: 50%; margin-bottom: 12px; background: linear-gradient(135deg, #f9ce34, #ee2a7b 55%, #6228d7); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(238,42,123,.3); }
+.ig-popup p { margin: 0 0 16px; font-size: 13.5px; line-height: 1.5; color: var(--ink); padding-right: 8px; }
+.ig-popup p strong { display: block; margin-bottom: 4px; font-family: var(--font-display); font-size: 15px; }
+.ig-popup .ig-cta { width: 100%; justify-content: center; box-sizing: border-box; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Móvil: la interfaz colapsa a hoja inferior (bottom sheet) con dos estados —
+   "peek" (asoma, mapa protagonista) y "full" (lista protagonista, mapa asoma
+   arriba) — en vez del selector Lista/Mapa de pantalla completa del original.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 880px) {
+  /* La marca (logo+nombre) cede el sitio a la barra de mando en móvil — no hay
+     hueco para las dos y la barra de búsqueda es lo que de verdad se usa aquí. */
+  .brand-mark { display: none; }
+  /* `right` (no un width calculado a mano) para que SIEMPRE deje sitio de sobra
+     a `.top-actions` sea cual sea su ancho real (3 iconos de 40px + huecos) —
+     un width fijo aquí es justo el bug que se coló la primera vez: la barra
+     invadía los botones de la derecha porque el cálculo no coincidía con su
+     ancho real. */
+  .command { top: 14px; left: 14px; right: 166px; width: auto; transform: none; }
+  body.searching .command { right: 14px; }
+  body.searching .top-actions { display: none; }
+  .command .ask-btn .label { display: none; }
+  .command .ask-btn { width: 36px; height: 36px; padding: 0; justify-content: center; flex: none; margin-right: 2px; }
+  /* Los chips de categoría se quedan solo en escritorio (poco sitio en móvil) pero el
+     botón "Filtros" (edad/fechas/país/urgencia — no solo categoría) tiene que seguir
+     accesible: sin esto no había NINGUNA forma de abrir ese panel en móvil. */
+  #qfCategories { display: none; }
+  .quick-filters { position: absolute; top: 92px; left: 14px; right: auto; transform: none; max-width: none; }
+  body.searching .quick-filters { display: none; }
+  .top-actions { top: 14px; right: 14px; }
+  .top-actions .pill-btn .label { display: none; }
+  .top-actions .pill-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
+
+  .dock, .dock-rail { display: none; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 500; display: flex; flex-direction: column;
+    background: var(--glass-strong); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-radius: 26px 26px 0 0; box-shadow: 0 -8px 32px rgba(17,17,19,.18); border-top: 1px solid var(--line-soft);
+    height: 86vh; transform: translateY(calc(86vh - 128px)); transition: transform .38s var(--ease-out);
   }
-  .cluster:hover { transform: scale(1.12); }
-  .leaflet-popup-content-wrapper { border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 2px; }
-  .leaflet-popup-content { margin: 14px 16px; font: inherit; width: 268px !important; }
-  .leaflet-popup-tip-container .leaflet-popup-tip { box-shadow: none; }
-  .popup { position: relative; }
-  .popup h3 { margin: 0 0 7px; padding-right: 62px; font-size: 14.5px; font-weight: 640; line-height: 1.35; }
-  .popup .meta { font-size: 12.5px; }
-  /* El popup mide 268px fijos (más estrecho que la barra lateral): con el padding
-     normal los 3 botones no cabían en una línea y "Form" se caía a la siguiente. */
-  .popup .actions { gap: 6px; }
-  .popup .btn { padding: 7px 8px; font-size: 12px; }
-  .approx { font-size: 11.5px; color: var(--muted-2); font-style: italic; margin-top: 7px; }
+  .sheet.full { transform: translateY(0); }
+  .sheet-handle { flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 20px 6px; cursor: pointer; }
+  .sheet-handle .bar { width: 40px; height: 4px; border-radius: 999px; background: var(--line); }
+  .sheet-handle .summary { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+  .sheet-handle .summary strong { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+  .sheet-handle .summary span { font-size: 12px; color: var(--ink-faint); font-weight: 600; }
+  .sheet .dock-body { padding: 6px 16px 26px; }
 
-  /* ── Móvil ────────────────────────────────────────────────────────────────
-     En vez de apilar mapa (bajo, apretado) + lista (scroll infinito) en una
-     pantalla pequeña, se alterna entre las dos a pantalla completa con el
-     selector Lista/Mapa — mismo patrón que las apps de viajes con mapa+listado. */
-  @media (max-width: 880px) {
-    /* La marca (logo+título) ocupa su propia línea entera; debajo, contador +
-       contribuir + canal van juntos en la misma línea — el botón de contribuir
-       se reduce a un icono "+" para que los tres quepan sin envolver. */
-    header { padding: max(10px, env(safe-area-inset-top)) 16px 10px; gap: 8px 10px; }
-    .brand { min-width: 0; flex: 1 1 100%; }
-    .brand h1 { font-size: 15.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .brand p { display: none; }
-    .brand svg { width: 32px; height: 24px; }
-    .count { font-size: 12px; padding: 6px 11px; }
-    .channel { padding: 9px 14px; font-size: 12.5px; }
-    /* Ancho y alto FIJOS e iguales: con solo padding, el carácter "?" (más estrecho
-       que alto) daba un óvalo en vez de un círculo — un SVG cuadrado (el "+") sí
-       salía redondo por casualidad, un carácter de texto no. */
-    .channel.outline { width: 40px; height: 40px; padding: 0; border-radius: 50%; justify-content: center; }
-    .channel.outline .label { display: none; }
-    /* Con la marca ocupando su propia línea, el auto-margin de `.brand` ya no separa
-       nada en esta segunda línea — sin esto, el "?" quedaba pegado a "Ver canal" en
-       vez de ir al borde derecho del todo. */
-    #infoBtn { margin-left: auto; }
-    /* UNA sola fila de filtros: [lupa] [Filtros]. El buscador vive colapsado tras la
-       lupa y, al abrirlo, ocupa la fila entera tapando al botón de Filtros — así
-       nunca hay dos filas compitiendo por el ancho. El panel de Filtros en sí es el
-       mismo <dialog> centrado que en escritorio (ver #filtersDialog), no hace falta
-       una variante "flotante" aparte para móvil. */
-    .filters { padding: 10px 16px; gap: 8px; flex-wrap: nowrap; position: static; }
-    .icon-btn { display: inline-flex; }
-    .search { display: none; }
-    body.searching .icon-btn, body.searching .filters-btn { display: none; }
-    body.searching .search { display: block; flex: 1 1 auto; max-width: none; min-width: 0; }
-    .search-close {
-      display: block; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-      width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 13px;
-      background: none; border: 0; color: var(--muted);
-    }
-    input[type="search"] { padding-right: 38px; }
-
-    .reset { display: none; }
-    /* Objetivos táctiles MÁS grandes en móvil, no más pequeños. */
-    input[type="search"] { padding-top: 12px; padding-bottom: 12px; }
-    .btn { padding: 10px 15px; font-size: 13px; }
-
-    main { flex: 1; min-height: 0; position: relative; padding: 0; gap: 0; }
-    .view-bubble { display: block; }
-    /* Solo una vista visible a la vez; JS pone view-map/view-list en <body>. */
-    #list { width: 100%; height: 100%; padding: 14px; }
-    #map { height: 100%; border-radius: 0; box-shadow: none; }
-    body.view-list #map, body.view-map #list { display: none; }
-    /* Pie más compacto en móvil: iconos y CTA de Instagram más pequeños para que quepa
-       sin comerse el mapa (envuelve a 2 líneas si hace falta, no se corta nada). */
-    .site-footer { gap: 6px 14px; padding: 9px 16px; }
-    .stat-icon { width: 23px; height: 23px; font-size: 11px; }
-    .stat-item b { font-size: 12.5px; }
-    .stat-item small { font-size: 9px; }
-    .footer-ig { font-size: 11.5px; padding: 8px 13px 8px 10px; }
-  }
+  .bottom-dock { display: none; }
+  .card { padding: 15px 16px 14px; }
+}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="brand">
-    <!-- Bandera de España sin escudo: franjas horizontales 1:2:1 -->
-    <svg viewBox="0 0 4 3" role="img" aria-label="España">
-      <rect width="4" height="3" fill="#AA151B"/>
-      <rect y=".75" width="4" height="1.5" fill="#F1BF00"/>
-    </svg>
-    <div>
-      <h1>Corradi Erasmus+ | Mapa de oportunidades</h1>
-      <p>Para residentes en España · inscripción abierta ahora mismo</p>
+<div id="stage">
+  <div id="map" role="application" aria-label="Mapa de oportunidades"></div>
+
+  <div class="hud">
+    <div class="brand-mark">
+      <span class="glyph">C</span>
+      <span class="word">Corradi Erasmus+<small>Mapa de oportunidades</small></span>
+    </div>
+
+    <div class="command" id="commandBar">
+      <span class="icon-slot" id="searchIconSlot"></span>
+      <input type="search" id="q" placeholder="Busca país, ciudad, temática…" autocomplete="off" aria-label="Buscar oportunidades">
+      <button type="button" class="search-close" id="searchClose" aria-label="Cerrar búsqueda"></button>
+      <button type="button" class="ask-btn" id="chatToggle"><span class="icon-slot" id="askIconSlot"></span><span class="label">Preguntar</span></button>
+    </div>
+
+    <div class="quick-filters" id="quickFilters">
+      <div class="qf-categories" id="qfCategories"></div>
+      <button type="button" class="qf-chip more" id="filtersToggle"><span id="filtersIconSlot"></span>Filtros<span class="badge-count" id="filtersCount" hidden></span></button>
+    </div>
+
+    <div class="top-actions">
+      <a class="pill-btn solid" id="channel" href="https://t.me/erasmuscorradi" target="_blank" rel="noopener">
+        <span id="channelIconSlot"></span><span class="label">Ver canal</span>
+      </a>
+      <button type="button" class="icon-btn" id="contribute" aria-label="¿Quieres contribuir?" title="¿Quieres contribuir?"></button>
+      <button type="button" class="icon-btn" id="infoBtn" aria-label="Más información" title="Más información"></button>
+    </div>
+
+    <!-- Escritorio: panel de resultados flotante, colapsable a riel de icono -->
+    <div class="dock" id="dock">
+      <div class="dock-head">
+        <div><h2>Oportunidades</h2><div class="count-word" id="dockCount">cargando…</div></div>
+        <button type="button" class="dock-collapse" id="dockCollapse" aria-label="Contraer panel"></button>
+      </div>
+      <div class="dock-body" id="list" aria-live="polite">
+        <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+      </div>
+    </div>
+    <div class="dock-rail" id="dockRail" aria-label="Mostrar panel de resultados">
+      <span class="rail-count" id="railCount">…</span>
+      <span class="rail-label">Abiertas</span>
+    </div>
+
+    <!-- Móvil: hoja inferior con dos estados -->
+    <div class="sheet" id="sheet">
+      <div class="sheet-handle" id="sheetHandle">
+        <div class="bar"></div>
+        <div class="summary"><strong>Oportunidades</strong><span id="sheetCount">cargando…</span></div>
+      </div>
+      <div class="dock-body" id="listMobile" aria-live="polite">
+        <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+      </div>
+    </div>
+
+    <div class="bottom-dock" id="bottomDock">
+      <div class="stat-pill">
+        <div class="s"><b id="statOpen">…</b><small>abiertas</small></div>
+        <div class="divider"></div>
+        <div class="s"><b id="statPublished">…</b><small>publicadas</small></div>
+        <div class="divider"></div>
+        <div class="s"><b id="statVisits">…</b><small>visitas</small></div>
+      </div>
+      <a class="ig-cta" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener">
+        <span id="igIconSlot"></span>Entérate en Instagram
+      </a>
     </div>
   </div>
-  <a class="channel" id="channel" href="https://t.me/erasmuscorradi" target="_blank" rel="noopener">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.7 19.4c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-.9.5l.3-4.8 8.8-8c.4-.3-.1-.5-.6-.2L6.7 13.2l-4.7-1.5c-1-.3-1-1 .2-1.5l18.4-7.1c.9-.3 1.6.2 1.3 1.2z"/></svg>
-    Ver canal
-  </a>
-  <a class="channel outline" id="contribute" href="https://t.me/corradi_erasmus_bot" target="_blank" rel="noopener" aria-label="¿Quieres contribuir?">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-    <span class="label">¿Quieres contribuir?</span>
-  </a>
-  <button type="button" class="channel outline info-btn" id="infoBtn" aria-label="Más información">
-    <span aria-hidden="true">?</span><span class="label">Más información</span>
-  </button>
-</header>
-
-<!-- Una sola fila de filtros. El buscador vive colapsado tras la lupa en móvil, y un
-     único botón "Filtros" abre TODOS los filtros agrupados en un panel (#filtersDialog)
-     — categoría, urgencia, edad, fechas y país juntos, en vez de un desplegable por grupo. -->
-<div class="filters">
-  <button type="button" class="icon-btn" id="searchToggle" aria-label="Buscar" aria-expanded="false">
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-  </button>
-  <div class="search" id="searchBox">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-    <input type="search" id="q" placeholder="Buscar país, ciudad, temática…" autocomplete="off" aria-label="Buscar oportunidades">
-    <button type="button" class="search-close" id="searchClose" aria-label="Cerrar búsqueda">✕</button>
-  </div>
-
-  <button type="button" class="filters-btn" id="chatToggle" aria-haspopup="dialog">
-    <span aria-hidden="true">💬</span> Preguntar
-  </button>
-  <button type="button" class="filters-btn" id="filtersToggle" aria-haspopup="dialog">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-    Filtros <span class="dd-count" id="filtersCount" hidden></span>
-  </button>
-  <button class="reset" id="reset" hidden>Limpiar filtros</button>
 </div>
 
-<dialog id="chatDialog" class="info-dialog" aria-labelledby="chatTitle">
-  <div class="info-head">
+<dialog id="chatDialog" class="sheet-dialog" aria-labelledby="chatTitle">
+  <div class="sheet-head">
     <h2 id="chatTitle">Encuentra lo que mejor te encaja</h2>
-    <button type="button" class="info-close" id="chatClose" aria-label="Cerrar">✕</button>
+    <button type="button" class="sheet-close" id="chatClose" aria-label="Cerrar"></button>
   </div>
-
   <div class="chat-unavailable" id="chatUnavailable" hidden></div>
-
   <div id="chatReady">
     <div class="chat-body">
       <p class="fp-hint">Cuéntame qué buscas, con tus propias palabras: un país, un tema, tu edad,
@@ -789,17 +584,16 @@
     </div>
     <div class="chat-log" id="chatLog"></div>
   </div>
-
   <form class="chat-foot" id="chatForm">
     <input type="text" id="chatInput" placeholder="Escribe tu pregunta…" maxlength="500" autocomplete="off" aria-label="Tu pregunta">
-    <button type="submit" class="chat-send" id="chatSend" aria-label="Enviar">➤</button>
+    <button type="submit" class="chat-send" id="chatSend" aria-label="Enviar"></button>
   </form>
 </dialog>
 
-<dialog id="filtersDialog" class="info-dialog" aria-labelledby="filtersTitle">
-  <div class="info-head">
+<dialog id="filtersDialog" class="sheet-dialog" aria-labelledby="filtersTitle">
+  <div class="sheet-head">
     <h2 id="filtersTitle">Filtros</h2>
-    <button type="button" class="info-close" id="filtersClose" aria-label="Cerrar">✕</button>
+    <button type="button" class="sheet-close" id="filtersClose" aria-label="Cerrar"></button>
   </div>
   <div class="fp-tabs" role="tablist" aria-label="Grupos de filtro">
     <button type="button" class="fp-tab" data-tab="cat" role="tab" aria-selected="true">Categoría</button>
@@ -810,16 +604,14 @@
 
   <div class="fp-pane" data-pane="cat" data-shown="true">
     <div class="chips cat-compact" id="chips" role="group" aria-label="Filtrar por categoría"></div>
-
-    <div style="margin-top:20px">
+    <div style="margin-top:22px">
       <div class="sw-row">
-        <div class="lbl">⏳ Cierran pronto <button type="button" class="info-q" data-note="noteSoon" aria-expanded="false" aria-label="Qué significa">?</button></div>
+        <div class="lbl" id="lblSoon"><span></span>Cierran pronto <button type="button" class="info-q" data-note="noteSoon" aria-expanded="false" aria-label="Qué significa">?</button></div>
         <button type="button" class="switch" data-urgency="soon" aria-pressed="false"><i></i></button>
       </div>
       <p class="info-note" id="noteSoon">Cierra en menos de 48 horas.</p>
-
       <div class="sw-row">
-        <div class="lbl">🆕 Nuevo <button type="button" class="info-q" data-note="noteNew" aria-expanded="false" aria-label="Qué significa">?</button></div>
+        <div class="lbl" id="lblNew"><span></span>Nuevo <button type="button" class="info-q" data-note="noteNew" aria-expanded="false" aria-label="Qué significa">?</button></div>
         <button type="button" class="switch" data-urgency="new" aria-pressed="false"><i></i></button>
       </div>
       <p class="info-note" id="noteNew">Publicada hace 24 horas o menos.</p>
@@ -827,7 +619,7 @@
   </div>
 
   <div class="fp-pane" data-pane="edad">
-    <p class="fp-hint" style="margin:0 0 14px">¿Cuántos años tienes?</p>
+    <p class="fp-hint" style="margin:0 0 16px">¿Cuántos años tienes?</p>
     <div class="age-stepper">
       <button type="button" class="step-btn" id="ageMinus" aria-label="Restar un año">−</button>
       <div class="age-val" id="ageVal">–<small>años</small></div>
@@ -849,61 +641,22 @@
   </div>
 
   <div class="fp-pane" data-pane="pais">
-    <div class="country-search">
-      <span aria-hidden="true">🔍</span>
+    <div class="country-search" id="countrySearchWrap">
       <input type="search" id="countrySearch" placeholder="Buscar país…" autocomplete="off">
     </div>
     <div class="chips" id="countryChips" role="group" aria-label="Filtrar por país"></div>
   </div>
 
-  <div class="fp-foot">
+  <div class="sheet-foot">
     <button type="button" class="reset" id="resetInDialog">Limpiar filtros</button>
     <button type="button" class="btn primary" id="filtersApply">Ver <span id="filtersApplyCount">…</span> oportunidades</button>
   </div>
 </dialog>
 
-<main>
-  <div id="list" aria-live="polite">
-    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
-  </div>
-  <div id="map" role="application" aria-label="Mapa de oportunidades"></div>
-  <!-- Burbuja flotante: enseña SIEMPRE la vista a la que se va, no en la que estás.
-       Solo móvil; en escritorio se ven mapa y lista a la vez y no hace falta. -->
-  <button type="button" class="view-bubble" id="viewBubble">☰ Lista</button>
-</main>
-
-<!-- Pie: estadísticas (nº abiertas ahora, total histórico publicado, visitas) + CTA a
-     Instagram. Barra fina, misma altura en escritorio y móvil. -->
-<footer class="site-footer" id="stats">
-  <div class="footer-stats">
-    <div class="stat-item"><span class="stat-icon" aria-hidden="true">🎯</span><div><b id="statOpen">…</b><small>abiertas</small></div></div>
-    <div class="stat-item"><span class="stat-icon" aria-hidden="true">📢</span><div><b id="statPublished">…</b><small>publicadas</small></div></div>
-    <div class="stat-item"><span class="stat-icon" aria-hidden="true">👁️</span><div><b id="statVisits">…</b><small>visitas</small></div></div>
-  </div>
-  <a class="footer-ig" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor" stroke="none"/></svg>
-    Entérate en Instagram
-  </a>
-</footer>
-
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-<div class="ig-popup" id="igPopup" hidden role="complementary" aria-label="Síguenos en Instagram">
-  <button type="button" class="ig-popup-close" id="igPopupClose" aria-label="Cerrar">✕</button>
-  <div class="ig-popup-icon" aria-hidden="true">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="#fff" stroke="none"/></svg>
-  </div>
-  <p><strong>¿Ya nos sigues en Instagram?</strong>Entérate también ahí de las oportunidades nuevas, en cuanto se publican.</p>
-  <a class="footer-ig" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="currentColor" stroke="none"/></svg>
-    Entérate en Instagram
-  </a>
-</div>
-
-<dialog id="infoDialog" class="info-dialog" aria-labelledby="infoTitle">
-  <div class="info-head">
+<dialog id="infoDialog" class="sheet-dialog" aria-labelledby="infoTitle">
+  <div class="sheet-head">
     <h2 id="infoTitle">Cómo funciona este mapa</h2>
-    <button type="button" class="info-close" id="infoClose" aria-label="Cerrar">✕</button>
+    <button type="button" class="sheet-close" id="infoClose" aria-label="Cerrar"></button>
   </div>
   <div class="info-body">
     <h3>Qué vas a encontrar</h3>
@@ -913,24 +666,23 @@
 
     <h3>Saca el máximo partido al mapa</h3>
     <ul>
-      <li><strong>🔍 Buscar</strong> — por país, ciudad o temática, arriba a la izquierda.</li>
-      <li><strong>💬 Preguntar</strong> — pregunta con tus palabras qué buscas ("algo en Italia
+      <li><strong>Buscar</strong> — por país, ciudad o temática, en la barra de arriba.</li>
+      <li><strong>Preguntar</strong> — pregunta con tus palabras qué buscas ("algo en Italia
       para mayores de 25", "qué hay de medio ambiente") y responde solo sobre las
       oportunidades abiertas ahora mismo, citando fichas reales. No escribas datos
       personales ahí — la pregunta se procesa fuera para interpretarla (más detalle en
       la política de privacidad).</li>
       <li><strong>Filtros</strong> — tipo, urgencia, edad, fechas y país, todos juntos en un
       solo panel: combínalos, por ejemplo "Training Course" + "tengo 22 años" + "Italia"
-      + "próximos 2 meses" a la vez. <strong>⏳ Cierran pronto</strong> y <strong>🆕 Nuevo</strong>
-      viven ahí dentro, en su propio grupo, para ver primero lo que tiene más prisa o lo
-      que se acaba de publicar.</li>
-      <li><strong>☰ Lista / Mapa</strong> — en el móvil alternas entre las dos vistas con la
-      burbuja de abajo; en escritorio se ven a la vez.</li>
-      <li><strong>🔗 Compartir</strong> (arriba a la derecha de cada tarjeta) — genera un
+      + "próximos 2 meses" a la vez.</li>
+      <li><strong>Panel de resultados</strong> — en escritorio se contrae a un rielito con
+      solo el número; en el móvil, desliza la hoja de abajo hacia arriba para ver la lista
+      entera con el mapa siempre debajo.</li>
+      <li><strong>Compartir</strong> (arriba a la derecha de cada tarjeta) — genera un
       enlace directo a esa oportunidad concreta, ideal para pasarlo por WhatsApp o Telegram.</li>
-      <li><strong>📅 Recordar</strong> (junto al de compartir) — añade la <strong>fecha límite
-      de inscripción</strong> a tu Google Calendar en un clic, para que no se te pase el
-      plazo. No guarda nada en nuestro lado: el recordatorio queda solo en tu calendario.</li>
+      <li><strong>Recordar</strong> (junto al de compartir) — añade la <strong>fecha límite
+      de inscripción</strong> a tu Google Calendar en un clic. No guarda nada en nuestro
+      lado: el recordatorio queda solo en tu calendario.</li>
     </ul>
 
     <h3>De dónde salen</h3>
@@ -948,20 +700,11 @@
     Es una estimación nuestra, así que <strong>confirma siempre la fecha real en el
     formulario de inscripción</strong>.</p>
 
-    <h3>Las etiquetas de los pines</h3>
-    <ul>
-      <li><strong>Cierra hoy / en X días</strong> — calculado sobre la fecha límite.</li>
-      <li><strong>Ubicación aproximada (país)</strong> — no hemos podido situar la ciudad
-      exacta, así que el pin va al centro del país.</li>
-      <li><strong>Sin ubicación exacta</strong> — no se ha podido situar en el mapa, pero
-      la oportunidad es válida y sale en la lista.</li>
-    </ul>
-
     <h3>Cómo apuntarse</h3>
     <p>Cada tarjeta puede traer hasta tres botones, según lo que haya compartido quien
-    organiza: <strong>ℹ️ Más info</strong> lleva al post original en el canal de Telegram,
-    <strong>📄 Infopack</strong> abre el dossier completo (fechas, requisitos, programa) y
-    <strong>✍️ Form</strong> es el formulario de inscripción en sí. Corradi <strong>solo
+    organiza: <strong>Más info</strong> lleva al post original en el canal de Telegram,
+    <strong>Infopack</strong> abre el dossier completo (fechas, requisitos, programa) y
+    <strong>Form</strong> es el formulario de inscripción en sí. Corradi <strong>solo
     difunde</strong>: no gestionamos las inscripciones ni seleccionamos a los participantes.
     Cualquier duda sobre una plaza concreta va directa a quien la organiza.</p>
 
@@ -976,12 +719,21 @@
     encantados de echarte una mano.</p>
 
     <div class="info-stats">
-      <span><span aria-hidden="true">🎯</span> <b id="statOpenModal">…</b> abiertas</span>
-      <span><span aria-hidden="true">📢</span> <b id="statPublishedModal">…</b> publicadas</span>
-      <span><span aria-hidden="true">👁️</span> <b id="statVisitsModal">…</b> visitas</span>
+      <span><b id="statOpenModal">…</b> abiertas</span>
+      <span><b id="statPublishedModal">…</b> publicadas</span>
+      <span><b id="statVisitsModal">…</b> visitas</span>
     </div>
   </div>
 </dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="ig-popup" id="igPopup" hidden role="complementary" aria-label="Síguenos en Instagram">
+  <button type="button" class="ig-popup-close" id="igPopupClose" aria-label="Cerrar"></button>
+  <div class="ig-popup-icon" aria-hidden="true"></div>
+  <p><strong>¿Ya nos sigues en Instagram?</strong>Entérate también ahí de las oportunidades nuevas, en cuanto se publican.</p>
+  <a class="ig-cta" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener"><span></span>Entérate en Instagram</a>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -991,24 +743,37 @@
 (function () {
   "use strict";
 
-  // Hex de los pines: un único valor por tipo (no cambia con el tema) — la variante
-  // "oscura" de la paleta validada, que se lee bien tanto sobre el basemap claro como
-  // el oscuro gracias al contorno blanco del propio pin (ver pinIcon).
+  // ── Sistema de iconos: línea fina, sin emoji — coherencia visual de gama alta ──
+  var ICON = {
+    pin: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.4"/></svg>',
+    calendar: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>',
+    tag: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 12.6 12.6 20.4a2 2 0 0 1-2.8 0l-6.2-6.2a2 2 0 0 1 0-2.8L11.4 3.6A2 2 0 0 1 12.8 3H19a1 1 0 0 1 1 1v6.2a2 2 0 0 1-.6 1.4Z"/><circle cx="15.5" cy="7.5" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    hourglass: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 21h12M7 3c0 5 10 6 10 9s-10 4-10 9M17 3c0 5-10 6-10 9s10 4 10 9"/></svg>',
+    compass: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m14.8 9.2-2 5.6-5.6 2 2-5.6z"/></svg>',
+    cap: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 4 10 5-10 5L2 9z"/><path d="M6 11v5c0 1.4 2.7 3 6 3s6-1.6 6-3v-5"/></svg>',
+    heart: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5s-7.8-4.9-10-9.7C.5 7.6 2.3 4 6 4c2 0 3.4 1 6 3.6C14.6 5 16 4 18 4c3.7 0 5.5 3.6 4 6.8-2.2 4.8-10 9.7-10 9.7Z"/></svg>',
+    search: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+    sparkle: '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2c.5 4 2.5 6 6 6-3.5 0-5.5 2-6 6-.5-4-2.5-6-6-6 3.5 0 5.5-2 6-6Z"/><path d="M19 15c.25 1.6 1 2.35 2.6 2.6-1.6.25-2.35 1-2.6 2.6-.25-1.6-1-2.35-2.6-2.6 1.6-.25 2.35-1 2.6-2.6Z"/></svg>',
+    sliders: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 18h2M10 18h10M4 12h16"/><circle cx="16" cy="6" r="2.1" fill="var(--surface,#fff)"/><circle cx="8" cy="18" r="2.1" fill="var(--surface,#fff)"/><circle cx="16" cy="12" r="2.1" fill="var(--surface,#fff)"/></svg>',
+    send: '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="m3 11 18-8-6.5 18-3.5-7.5L3 11Z"/></svg>',
+    plus: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    info: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.7v.1"/></svg>',
+    doc: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M9.5 12h5M9.5 15.5h5"/></svg>',
+    pencil: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16.5 3.5 4 4L7 21l-4.5 1L4 17.5Z"/><path d="m14 6 4 4"/></svg>',
+    calendarPlus: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17M12 13.5v5M9.5 16h5"/></svg>',
+    link: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5 14.5 9.5"/><path d="M11 6.5 12.4 5a3.8 3.8 0 1 1 5.4 5.4l-1.6 1.6M13 17.5 11.6 19a3.8 3.8 0 1 1-5.4-5.4l1.6-1.6"/></svg>',
+    close: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5 5 19"/></svg>',
+    warn: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20Z"/><path d="M12 9.5v4.5M12 17v.1"/></svg>',
+    ig: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="#fff" stroke="none"/></svg>'
+  };
+
   var TYPES = {
-    YOUTH_EXCHANGE:  { label: "Youth Exchange",  color: "var(--ye)",    hex: "#3987e5" },
-    TRAINING_COURSE: { label: "Training Course", color: "var(--tc)",    hex: "#c98500" },
-    VOLUNTEERING:    { label: "ECS",             color: "var(--ecs)",   hex: "#008300" },
-    WORKSHOP:        { label: "Workshop",        color: "var(--ws)",    hex: "#d55181" }
+    YOUTH_EXCHANGE:  { label: "Youth Exchange",  colorVar: "--ye",  icon: ICON.compass },
+    TRAINING_COURSE: { label: "Training Course", colorVar: "--tc",  icon: ICON.cap },
+    VOLUNTEERING:    { label: "ECS",             colorVar: "--ecs", icon: ICON.heart }
   };
-  var OTHER = { label: "Otras", color: "var(--other)", hex: "#898781" };
-  // Rango de edad "de convocatoria" cuando la ficha concreta no lo dice (frecuente: solo
-  // 32-57% de las oportunidades traen min/max real). Se aplica SOLO al campo que falte —
-  // si una ficha sí trae min_age pero no max_age, el default solo rellena el max_age. ECS
-  // y Workshop no tienen convención fija, así que se quedan sin default (permisivos).
-  var AGE_DEFAULTS = {
-    YOUTH_EXCHANGE:  { min: 18, max: 30 },
-    TRAINING_COURSE: { min: 18, max: null }
-  };
+  var OTHER = { label: "Otras", colorVar: "--other", icon: ICON.tag };
+  var AGE_DEFAULTS = { YOUTH_EXCHANGE: { min: 18, max: 30 }, TRAINING_COURSE: { min: 18, max: null } };
   var COUNTRIES = {
     ES:"España", PT:"Portugal", FR:"Francia", IT:"Italia", DE:"Alemania", AT:"Austria",
     BE:"Bélgica", NL:"Países Bajos", LU:"Luxemburgo", IE:"Irlanda", PL:"Polonia",
@@ -1020,46 +785,34 @@
     UA:"Ucrania", MD:"Moldavia", CH:"Suiza", GB:"Reino Unido", LI:"Liechtenstein", AZ:"Azerbaiyán"
   };
   var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
-  var SOON_DAYS = 2;   // "Cierran pronto" = cierra en menos de 48h (antes: 7 días)
+  var SOON_DAYS = 2;
 
   var state = { q: "", types: new Set(), countries: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
-  var dateMode = "months";   // "months" | "range" — submodo del filtro de fechas
-  var ageValue = null;       // valor mostrado en el stepper de Edad (null = "–", sin fijar)
-  var CAT_ICONS = { YOUTH_EXCHANGE: "🧭", TRAINING_COURSE: "🎓", VOLUNTEERING: "💚", WORKSHOP: "⚙️" };
+  var dateMode = "months";
+  var ageValue = null;
 
-  function renderAge() {
-    document.getElementById("ageVal").innerHTML = (ageValue == null ? "–" : ageValue) + "<small>años</small>";
-  }
+  function renderAge() { document.getElementById("ageVal").innerHTML = (ageValue == null ? "–" : ageValue) + "<small>años</small>"; }
+
   var all = [], shown = [], markers = {}, map, layer, activeId = null;
   var isMobileQuery = window.matchMedia && window.matchMedia("(max-width: 880px)");
 
-  // ── Utilidades ───────────────────────────────────────────────────
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
     });
   }
   function typeOf(o) { return TYPES[o.type] || OTHER; }
-  // Un único sitio donde se decide si una oportunidad se puede situar en el mapa.
+  function typeColor(o) { return "var(" + typeOf(o).colorVar + ")"; }
   function hasCoords(o) {
     return o.latitude !== null && o.latitude !== undefined && isFinite(Number(o.latitude)) &&
            o.longitude !== null && o.longitude !== undefined && isFinite(Number(o.longitude));
   }
   function flag(cc) {
     if (!cc || cc.length !== 2) return "";
-    return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) {
-      return 0x1f1e6 + c.charCodeAt(0) - 65;
-    }));
+    return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) { return 0x1f1e6 + c.charCodeAt(0) - 65; }));
   }
   function countryName(cc) { return COUNTRIES[cc] || cc || ""; }
-  function fmtDate(iso) {
-    if (!iso) return "";
-    var p = iso.split("-");
-    return Number(p[2]) + " " + MESES[Number(p[1]) - 1];
-  }
-  // Fechas de realización compactas, ignorando el año (mismo criterio que el resumen de
-  // Telegram): mismo mes -> "5-15 sept"; distinto mes -> "5 oct - 15 nov"; distinto año se
-  // sobreentiende -> "28 dic - 5 ene".
+  function fmtDate(iso) { if (!iso) return ""; var p = iso.split("-"); return Number(p[2]) + " " + MESES[Number(p[1]) - 1]; }
   function fmtRange(o) {
     function p(iso) { var a = iso.split("-"); return { y: +a[0], m: +a[1], d: +a[2] }; }
     var s = o.start_date, e = o.end_date;
@@ -1072,17 +825,8 @@
     if (one) { var c = p(one); return c.d + " " + MESES[c.m - 1]; }
     return "Fechas por confirmar";
   }
-  // "Nuevo" = publicada/creada en las últimas 24h (created viene de la API en ISO).
-  function isNew(o) {
-    if (!o.created) return false;
-    return (Date.now() - new Date(o.created).getTime()) < 24 * 3600 * 1000;
-  }
-
-  function daysLeft(iso) {
-    if (!iso) return null;
-    var today = new Date(); today.setHours(0, 0, 0, 0);
-    return Math.round((new Date(iso + "T00:00:00") - today) / 86400000);
-  }
+  function isNew(o) { if (!o.created) return false; return (Date.now() - new Date(o.created).getTime()) < 24 * 3600 * 1000; }
+  function daysLeft(iso) { if (!iso) return null; var today = new Date(); today.setHours(0,0,0,0); return Math.round((new Date(iso + "T00:00:00") - today) / 86400000); }
   function deadlineText(o) {
     var d = daysLeft(o.application_deadline);
     if (d === null) return { text: "Sin fecha límite", cls: "" };
@@ -1091,91 +835,55 @@
     if (d <= SOON_DAYS) return { text: "Cierra en " + d + " días", cls: "soon" };
     return { text: "Hasta el " + fmtDate(o.application_deadline), cls: "" };
   }
-
-  // Evento de un día en Google Calendar para recordar la fecha límite de inscripción
-  // (NO las fechas de realización): lo que de verdad se le olvida a la gente es
-  // apuntarse a tiempo. Formato "dates" de día completo: fin = inicio + 1 día.
   function gcalUrl(o) {
     if (!o.application_deadline) return null;
     var start = o.application_deadline.replace(/-/g, "");
-    var d = new Date(o.application_deadline + "T00:00:00");
-    d.setDate(d.getDate() + 1);
+    var d = new Date(o.application_deadline + "T00:00:00"); d.setDate(d.getDate() + 1);
     var end = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
     var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
     var details = "Última fecha para inscribirse: \"" + o.title + "\" (Erasmus+, vía Corradi).";
     var link = o.channel_url || o.application_url || o.infopack_url;
     if (link) details += "\n" + link;
-    var params = new URLSearchParams({
-      action: "TEMPLATE", text: "⏰ Cierra: " + o.title, dates: start + "/" + end, details: details
-    });
+    var params = new URLSearchParams({ action: "TEMPLATE", text: "⏰ Cierra: " + o.title, dates: start + "/" + end, details: details });
     if (place) params.set("location", place);
     return "https://calendar.google.com/calendar/render?" + params.toString();
   }
-
-  // ── Fechas ───────────────────────────────────────────────────────
-  // Fechas de REALIZACIÓN del proyecto (start_date/end_date), no la fecha límite de
-  // inscripción — es un filtro de "cuándo pasa la oportunidad", no de "cuándo hay
-  // que apuntarse".
   function monthsSpan(o) {
-    // Lista de claves "YYYY-MM" que cubre [start_date, end_date] (ambos incluidos).
-    // Sin fecha alguna, lista vacía — matchesDate() lo trata como "no evaluable" y
-    // NUNCA lo oculta, mismo criterio que el resto del mapa con datos que faltan.
     var s = o.start_date || o.end_date, e = o.end_date || o.start_date;
     if (!s) return [];
     var d = new Date(s + "T00:00:00"), end = new Date(e + "T00:00:00");
     d.setDate(1); end.setDate(1);
-    var out = [], guard = 0;   // guard: red de seguridad ante una fecha corrupta
-    while (d <= end && guard < 60) {
-      out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
-      d.setMonth(d.getMonth() + 1);
-      guard++;
-    }
+    var out = [], guard = 0;
+    while (d <= end && guard < 60) { out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); d.setMonth(d.getMonth() + 1); guard++; }
     return out;
   }
-
-  // Claves "YYYY-MM" de los próximos N meses a partir del mes actual (incluido).
   function nextMonthsKeys(n) {
     var out = [], d = new Date(); d.setDate(1);
-    for (var i = 0; i < n; i++) {
-      out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
-      d.setMonth(d.getMonth() + 1);
-    }
+    for (var i = 0; i < n; i++) { out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); d.setMonth(d.getMonth() + 1); }
     return out;
   }
-
-  // El filtro de meses ofrece SIEMPRE los próximos 8 meses (no todos los que haya en los
-  // datos): más limpio y suficiente para el horizonte real de las convocatorias.
   function defaultMonthSet() { return new Set(nextMonthsKeys(8)); }
-
   function matchesDate(o) {
     if (dateMode === "range") {
-      if (!state.dateFrom && !state.dateTo) return true;   // sin rango puesto: no filtra
+      if (!state.dateFrom && !state.dateTo) return true;
       var s = o.start_date || o.end_date, e = o.end_date || o.start_date;
-      if (!s) return true;   // sin fechas: no se oculta, igual que en el resto del mapa
+      if (!s) return true;
       if (state.dateFrom && e < state.dateFrom) return false;
       if (state.dateTo && s > state.dateTo) return false;
       return true;
     }
     var span = monthsSpan(o);
     if (!span.length) return true;
-    if (sameSet(state.months, defaultMonthSet())) return true;   // "todos": no filtra de verdad
+    if (sameSet(state.months, defaultMonthSet())) return true;
     return span.some(function (m) { return state.months.has(m); });
   }
-
-  // ── Filtrado ─────────────────────────────────────────────────────
   function matches(o) {
-    // "Ver estas N en el mapa" desde el chat: mientras esté activo, es el ÚNICO
-    // criterio — el chat ya hizo el trabajo de filtrar, no tiene sentido combinarlo
-    // con lo que hubiera puesto antes en Filtros. Se limpia con "Limpiar filtros".
     if (state.only) return state.only.has(o.identifier);
     if (state.types.size && !state.types.has(o.type || "OTHER")) return false;
     if (state.countries.size && !state.countries.has(o.country_code || "OTHER")) return false;
     if (!matchesDate(o)) return false;
     if (state.soon) { var d = daysLeft(o.application_deadline); if (d === null || d > SOON_DAYS) return false; }
     if (state.isNewFilter && !isNew(o)) return false;
-    // Edad: si la ficha no trae min/max, se usa el rango habitual de su categoría
-    // (AGE_DEFAULTS) para ese campo en concreto — sin dato Y sin default para esa
-    // categoría, no se descarta, mismo criterio permisivo que el resto del mapa.
     if (state.age != null) {
       var ageDef = AGE_DEFAULTS[o.type] || {};
       var minAge = o.participant_min_age != null ? o.participant_min_age : ageDef.min;
@@ -1184,57 +892,33 @@
       if (maxAge != null && state.age > maxAge) return false;
     }
     if (state.q) {
-      var hay = [o.title, o.topic, o.location, countryName(o.country_code), o.summary,
-                 typeOf(o).label].join(" ").toLowerCase();
+      var hay = [o.title, o.topic, o.location, countryName(o.country_code), o.summary, typeOf(o).label].join(" ").toLowerCase();
       if (hay.indexOf(state.q) === -1) return false;
     }
     return true;
   }
-
-  // Estado "sin filtrar": los 4 chips de tipo marcados (igual en móvil y escritorio),
-  // así se ve de un vistazo qué categorías hay y se van QUITANDO en vez de añadiendo.
-  // "Hay algo que limpiar" se compara contra ESE estado, no contra un Set vacío, o
-  // "Limpiar filtros" saldría siempre visible.
-  // Si hay oportunidades de un tipo no reconocido (bucket "Otras", que no tiene chip
-  // propio), se añade OTHER al set: si no, quedarían ocultas sin forma de recuperarlas.
   function defaultTypeSet() {
     var s = new Set(Object.keys(TYPES));
     if (all.some(function (o) { return !TYPES[o.type]; })) s.add("OTHER");
     return s;
   }
-
-  // Mismo criterio para países: todos los que aparecen en los datos, marcados por
-  // defecto — clicar uno lo deja como único filtro, clicar otro más lo AÑADE, y
-  // clicar uno ya marcado lo quita.
   function defaultCountrySet() {
     var s = new Set();
     all.forEach(function (o) { s.add(o.country_code || "OTHER"); });
     return s;
   }
-
-  function sameSet(a, b) {
-    return a.size === b.size && Array.from(a).every(function (x) { return b.has(x); });
-  }
-
+  function sameSet(a, b) { return a.size === b.size && Array.from(a).every(function (x) { return b.has(x); }); }
   function isDirty() {
     var sameTypes = sameSet(state.types, defaultTypeSet());
     var sameCountries = sameSet(state.countries, defaultCountrySet());
-    var dateDirty = dateMode === "range"
-      ? !!(state.dateFrom || state.dateTo)
-      : !sameSet(state.months, defaultMonthSet());
+    var dateDirty = dateMode === "range" ? !!(state.dateFrom || state.dateTo) : !sameSet(state.months, defaultMonthSet());
     return !!(state.q || state.soon || state.isNewFilter || state.age != null || !!state.only || !sameTypes || !sameCountries || dateDirty);
   }
-
-  // Nº de GRUPOS de filtro tocados (no la suma de chips) — para el badge del botón
-  // "Filtros": un "1" cuando solo has tocado Edad se lee mejor que un número que
-  // fuera contando chips sueltos de grupos distintos sin decir de qué son.
   function activeFilterGroups() {
     var n = 0;
     if (!sameSet(state.types, defaultTypeSet())) n++;
     if (!sameSet(state.countries, defaultCountrySet())) n++;
-    var dateDirty = dateMode === "range"
-      ? !!(state.dateFrom || state.dateTo)
-      : !sameSet(state.months, defaultMonthSet());
+    var dateDirty = dateMode === "range" ? !!(state.dateFrom || state.dateTo) : !sameSet(state.months, defaultMonthSet());
     if (dateDirty) n++;
     if (state.soon || state.isNewFilter) n++;
     if (state.age != null) n++;
@@ -1245,49 +929,42 @@
     shown = all.filter(matches);
     renderList();
     renderMarkers();
-    // Nº de abiertas en el pie: el total si no hay filtro, o "n de N" si se ha filtrado.
     var n = shown.length;
     var openText = n === all.length ? String(n) : n + " de " + all.length;
     document.getElementById("statOpen").textContent = openText;
     document.getElementById("statOpenModal").textContent = openText;
-    document.getElementById("reset").hidden = !isDirty();
-
-    var groups = activeFilterGroups();
-    var badge = document.getElementById("filtersCount");
-    badge.textContent = groups; badge.hidden = !groups;
+    document.getElementById("dockCount").textContent = n + (n === 1 ? " oportunidad abierta" : " oportunidades abiertas");
+    document.getElementById("sheetCount").textContent = n + (n === 1 ? " oportunidad" : " oportunidades");
+    document.getElementById("railCount").textContent = n;
     document.getElementById("filtersApplyCount").textContent = n;
+    syncQuickFilters();
   }
 
-  // ── Lista ────────────────────────────────────────────────────────
-  // Extraída de renderList() para reutilizarla tal cual en el chat (mismas tarjetas,
-  // mismos botones — el chat no es una pantalla aparte, es otra puerta a las mismas
-  // fichas). wireCards() cablea el click/hover/teclado sobre CUALQUIER contenedor que
-  // tenga tarjetas dentro (la lista o el log del chat).
+  // ── Tarjetas ─────────────────────────────────────────────────────
   function cardHTML(o) {
     var t = typeOf(o), dl = deadlineText(o);
     var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
     var located = hasCoords(o);
-    return '<article class="card' + (located ? "" : " unlocated") + '" data-id="' + esc(o.identifier) +
-      '" data-type="' + esc(o.type || "") + '" tabindex="0">' +
-      '<span class="badge">' + esc(t.label) + "</span>" +
-        (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") +
+    return '<article class="card' + (located ? "" : " unlocated") + '" data-id="' + esc(o.identifier) + '" data-type="' + esc(o.type || "") + '" tabindex="0">' +
+      '<div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
+        (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") + "</div>" +
+        '<div class="corner-actions">' +
+          (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
+          '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
+        "</div></div>" +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
-        (place ? "<span><i>" + (flag(o.country_code) || "📍") + "</i>" + esc(place) + "</span>" : "") +
-        (located ? "" : '<span class="nogeo"><i>❓</i>Sin ubicación exacta — no sale en el mapa</span>') +
-        "<span><i>📅</i>" + esc(fmtRange(o)) + "</span>" +
-        (o.topic ? "<span><i>🏷️</i>" + esc(o.topic) + "</span>" : "") +
+        (place ? '<span><span class="flag-emoji">' + (flag(o.country_code) || "") + '</span>' + (flag(o.country_code) ? "" : ICON.pin) + esc(place) + "</span>" : "") +
+        (located ? "" : '<span class="nogeo">' + ICON.warn + 'Sin ubicación exacta — no sale en el mapa</span>') +
+        "<span>" + ICON.calendar + esc(fmtRange(o)) + "</span>" +
+        (o.topic ? "<span>" + ICON.tag + esc(o.topic) + "</span>" : "") +
       "</div>" +
-      '<div class="deadline ' + dl.cls + '"><i>⏳</i>' + esc(dl.text) +
+      '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
       '<div class="actions">' +
-        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
-        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
-        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
-      "</div>" +
-      '<div class="corner-actions">' +
-        (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" aria-label="Recordar cierre" title="Añadir el cierre de inscripción a Google Calendar">📅</a>' : "") +
-        '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
+        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">' + ICON.info + 'Más info</a>' : "") +
+        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">' + ICON.doc + 'Infopack</a>' : "") +
+        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">' + ICON.pencil + 'Form</a>' : "") +
       "</div>" +
     "</article>";
   }
@@ -1296,116 +973,88 @@
     Array.prototype.forEach.call(container.querySelectorAll(".card"), function (el) {
       el.addEventListener("click", function (e) {
         if (e.target.closest("a,button")) return;
-        // En móvil, tocar una tarjeta lleva directo al mapa a ver su pin — si no,
-        // el usuario tendría que cambiar de vista a mano para verlo. Importante el
-        // ORDEN: primero cambiar de vista (su fit() encuadra TODOS los pines), y
-        // solo DESPUÉS volar al pin concreto — al revés, el fit() general pisaba
-        // el vuelo específico y la vista se quedaba descuadrada.
-        if (isMobileQuery && isMobileQuery.matches) setMobileView("map");
+        if (isMobileQuery && isMobileQuery.matches) setSheet("peek");
         focusOpportunity(el.dataset.id, true);
       });
-      el.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusOpportunity(el.dataset.id, true); }
-      });
+      el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusOpportunity(el.dataset.id, true); } });
       el.addEventListener("mouseenter", function () { highlight(el.dataset.id); });
       el.addEventListener("mouseleave", function () { highlight(activeId); });
     });
   }
 
   function renderList() {
-    var list = document.getElementById("list");
-    if (!shown.length) {
-      list.innerHTML = '<div class="empty"><strong>Nada por aquí</strong>' +
-        (all.length ? "Prueba a quitar algún filtro." : "Ahora mismo no hay oportunidades abiertas.") +
-        "</div>";
-      return;
-    }
-    list.innerHTML = shown.map(cardHTML).join("");
-    wireCards(list);
-    updateStatsBar();   // lista recién pintada (scroll arriba): muestra la barra si es corta
+    var lists = [document.getElementById("list"), document.getElementById("listMobile")];
+    lists.forEach(function (list) {
+      if (!shown.length) {
+        list.innerHTML = '<div class="empty"><strong>Nada por aquí</strong>' +
+          (all.length ? "Prueba a quitar algún filtro." : "Ahora mismo no hay oportunidades abiertas.") + "</div>";
+        return;
+      }
+      list.innerHTML = shown.map(cardHTML).join("");
+      wireCards(list);
+    });
   }
 
   // ── Mapa ─────────────────────────────────────────────────────────
   function pinIcon(o, active) {
-    var hex = typeOf(o).hex;
+    var hex = getComputedStyle(document.documentElement).getPropertyValue(typeOf(o).colorVar).trim();
     return L.divIcon({
-      className: "", iconSize: [30, 40], iconAnchor: [15, 39], popupAnchor: [0, -34],
+      className: "", iconSize: [26, 34], iconAnchor: [13, 32], popupAnchor: [0, -30],
       html: '<div class="pin' + (active ? " active" : "") + '" data-id="' + esc(o.identifier) + '">' +
-        '<svg width="30" height="40" viewBox="0 0 30 40" aria-hidden="true">' +
-        '<path d="M15 39C15 39 28 24.5 28 15A13 13 0 1 0 2 15c0 9.5 13 24 13 24z" fill="' + hex + '" stroke="#fff" stroke-width="2.5"/>' +
-        '<circle cx="15" cy="15" r="5" fill="#fff"/></svg></div>'
+        '<svg class="plate" width="26" height="34" viewBox="0 0 26 34" aria-hidden="true">' +
+        '<path d="M13 33c0 0 11-11.5 11-20A11 11 0 1 0 2 13c0 8.5 11 20 11 20z" fill="' + hex + '" stroke="#fff" stroke-width="2.2"/>' +
+        '<circle cx="13" cy="13" r="4.5" fill="#fff"/></svg></div>'
     });
   }
-
   function popupHtml(o) {
     var t = typeOf(o), dl = deadlineText(o);
     var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
-    return '<div class="popup"><span class="badge" style="--c:' + t.color + '">' + esc(t.label) + "</span>" +
-      (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") +
+    return '<div class="popup"><div class="card-top"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
+      (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") + "</div>" +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
-        (place ? "<span><i>" + (flag(o.country_code) || "📍") + "</i>" + esc(place) + "</span>" : "") +
-        "<span><i>📅</i>" + esc(fmtRange(o)) + "</span>" +
-        (o.topic ? "<span><i>🏷️</i>" + esc(o.topic) + "</span>" : "") +
+        (place ? "<span>" + (flag(o.country_code) ? '<span class="flag-emoji">' + flag(o.country_code) + '</span>' : ICON.pin) + esc(place) + "</span>" : "") +
+        "<span>" + ICON.calendar + esc(fmtRange(o)) + "</span>" +
+        (o.topic ? "<span>" + ICON.tag + esc(o.topic) + "</span>" : "") +
       "</div>" +
-      '<div class="deadline ' + dl.cls + '"><i>⏳</i>' + esc(dl.text) +
+      '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
       '<div class="actions">' +
-        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">ℹ️ Más info</a>' : "") +
-        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">📄 Infopack</a>' : "") +
-        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">✍️ Form</a>' : "") +
+        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">' + ICON.info + 'Más info</a>' : "") +
+        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">' + ICON.doc + 'Infopack</a>' : "") +
+        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">' + ICON.pencil + 'Form</a>' : "") +
       "</div>" +
-      (o.approx_location ? '<div class="approx">📍 Ubicación aproximada (país)</div>' : "") +
+      (o.approx_location ? '<div class="approx">' + ICON.pin + 'Ubicación aproximada (país)</div>' : "") +
       '<div class="corner-actions">' +
-        (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" aria-label="Recordar cierre" title="Añadir el cierre de inscripción a Google Calendar">📅</a>' : "") +
-        '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">🔗</button>' +
-      "</div>" +
-      "</div>";
+        (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
+        '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
+      "</div></div>";
   }
-
   function renderMarkers() {
-    layer.clearLayers();
-    markers = {};
+    layer.clearLayers(); markers = {};
     var batch = [];
     shown.forEach(function (o) {
-      // OJO con el orden: Number(null) es 0 y isFinite(0) es true, así que sin este
-      // descarte explícito las oportunidades sin ubicación acababan pintadas en (0,0)
-      // — el golfo de Guinea, la "isla nula" — y encima descuadraban el encuadre.
-      if (!hasCoords(o)) return;   // sin ubicación: solo sale en la lista
+      if (!hasCoords(o)) return;
       var lat = Number(o.latitude), lon = Number(o.longitude);
-      // Coordenadas REALES, sin desplazarlas: los pines que coinciden en el mismo punto
-      // los agrupa y abre en abanico el propio clustering, sin mentir sobre dónde caen.
       var m = L.marker([lat, lon], { icon: pinIcon(o, false), title: o.title, riseOnHover: true })
         .bindPopup(popupHtml(o), { closeButton: true, autoPanPadding: [30, 30] })
         .on("click", function () { setActive(o.identifier, false); });
-      markers[o.identifier] = m;
-      batch.push(m);
+      markers[o.identifier] = m; batch.push(m);
     });
-    layer.addLayers(batch);   // en bloque: mucho más rápido que uno a uno al crecer
+    layer.addLayers(batch);
     fit();
   }
-
   function fit() {
     var bounds = [];
     for (var id in markers) bounds.push(markers[id].getLatLng());
     if (!bounds.length) return;
-    // invalidateSize() es imprescindible: si Leaflet aún cree que el contenedor mide 0,
-    // fitBounds calcula el zoom sobre ese tamaño y el mapa se queda en zoom mundial.
     map.invalidateSize({ animate: false });
-    // animate:false a propósito: con animación, Leaflet calcula el encuadre contra un
-    // tamaño de contenedor que todavía está cambiando y deja pines fuera de pantalla.
     if (bounds.length === 1) map.setView(bounds[0], 7, { animate: false });
-    // Padding en PÍXELES, no pad() proporcional: el pin mide 40px hacia arriba desde su
-    // punto de anclaje, así que con un margen relativo se corta en pantallas bajas (móvil).
-    else map.fitBounds(L.latLngBounds(bounds), { animate: false, maxZoom: 9, padding: [48, 48] });
+    else map.fitBounds(L.latLngBounds(bounds), { animate: false, maxZoom: 9, padding: [64, 64] });
   }
-
   function highlight(id) {
-    Array.prototype.forEach.call(document.querySelectorAll(".pin"), function (p) {
-      p.classList.toggle("active", p.dataset.id === id);
-    });
+    Array.prototype.forEach.call(document.querySelectorAll(".pin"), function (p) { p.classList.toggle("active", p.dataset.id === id); });
   }
-
   function setActive(id, scrollList) {
     activeId = id;
     Array.prototype.forEach.call(document.querySelectorAll(".card"), function (c) {
@@ -1415,61 +1064,71 @@
     });
     highlight(id);
   }
-
   function focusOpportunity(id, fromList) {
     var m = markers[id];
     setActive(id, !fromList);
-    if (!m) return;   // sin coordenadas: se selecciona en la lista, pero no hay pin al que ir
-    // Si el pin está dentro de un grupo cerrado, openPopup() no haría nada: hay que
-    // pedirle al clustering que lo saque a la vista primero (abre el grupo o hace zoom).
-    layer.zoomToShowLayer(m, function () {
-      map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 7), { duration: .6 });
-      m.openPopup();
+    if (!m) return;
+    layer.zoomToShowLayer(m, function () { map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 7), { duration: .6 }); m.openPopup(); });
+  }
+
+  // ── Filtros rápidos flotantes (categoría) ─────────────────────────
+  function buildQuickFilters() {
+    var box = document.getElementById("qfCategories"), html = "";
+    Object.keys(TYPES).forEach(function (k) {
+      html += '<button type="button" class="qf-chip" data-type="' + k + '" aria-pressed="false" style="--c:var(' + TYPES[k].colorVar + ')">' +
+              '<span class="dot">' + TYPES[k].icon + '</span>' + esc(TYPES[k].label) + '<span class="badge-count" data-count-for="' + k + '"></span></button>';
+    });
+    box.innerHTML = html;
+    Array.prototype.forEach.call(box.querySelectorAll(".qf-chip"), function (chip) {
+      chip.addEventListener("click", function () {
+        var k = chip.dataset.type;
+        if (sameSet(state.types, defaultTypeSet())) state.types = new Set([k]);
+        else if (state.types.has(k)) state.types.delete(k);
+        else state.types.add(k);
+        apply();
+        syncFilterDialogChips();
+      });
+    });
+  }
+  function syncQuickFilters() {
+    Array.prototype.forEach.call(document.querySelectorAll("#qfCategories .qf-chip"), function (c) {
+      c.setAttribute("aria-pressed", String(state.types.has(c.dataset.type)));
+      var n = all.filter(function (o) { return (o.type || "OTHER") === c.dataset.type; }).length;
+      var b = c.querySelector(".badge-count"); if (b) b.textContent = n;
+    });
+    var groups = activeFilterGroups();
+    var badge = document.getElementById("filtersCount");
+    badge.textContent = groups; badge.hidden = !groups;
+  }
+  function syncFilterDialogChips() {
+    Array.prototype.forEach.call(document.querySelectorAll("#chips .cat-chip"), function (c) {
+      c.setAttribute("aria-pressed", String(state.types.has(c.dataset.type)));
     });
   }
 
-  // ── Controles ────────────────────────────────────────────────────
-  // Categoría: chip compacto de una línea (icono + nombre), no la píldora con punto
-  // de antes — más fácil de escanear en la pestaña dedicada.
   function buildChips() {
     var box = document.getElementById("chips"), html = "";
     Object.keys(TYPES).forEach(function (k) {
-      html += '<button type="button" class="cat-chip" data-type="' + k + '" aria-pressed="false" style="--c:' + TYPES[k].color + '">' +
-              '<span class="dot2">' + (CAT_ICONS[k] || "") + '</span><span class="name">' + esc(TYPES[k].label) + "</span></button>";
+      html += '<button type="button" class="cat-chip" data-type="' + k + '" aria-pressed="false" style="--c:var(' + TYPES[k].colorVar + ')">' +
+              '<span class="dot2">' + TYPES[k].icon + '</span><span class="name">' + esc(TYPES[k].label) + "</span></button>";
     });
     box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll(".cat-chip"), function (chip) {
       chip.addEventListener("click", function () {
         var k = chip.dataset.type;
-        // Mismo criterio "aislar al primer clic" que País y Meses: con todas activas
-        // (estado por defecto), el primer clic deja SOLO esa marcada; a partir de ahí,
-        // cada clic suma o quita sobre esa selección — antes esto solo quitaba una a una.
-        if (sameSet(state.types, defaultTypeSet())) {
-          state.types = new Set([k]);
-        } else if (state.types.has(k)) {
-          state.types.delete(k);
-        } else {
-          state.types.add(k);
-        }
-        Array.prototype.forEach.call(box.querySelectorAll(".cat-chip"), function (c) {
-          c.setAttribute("aria-pressed", String(state.types.has(c.dataset.type)));
-        });
+        if (sameSet(state.types, defaultTypeSet())) state.types = new Set([k]);
+        else if (state.types.has(k)) state.types.delete(k);
+        else state.types.add(k);
+        syncFilterDialogChips();
         apply();
       });
     });
   }
-
-  // "Cierran pronto"/"Nuevo" son de otra naturaleza que Categoría (urgencia, no categoría):
-  // sin encabezado de sección propio, van justo debajo de Categoría en la misma pestaña,
-  // como interruptores (no chips) — su marcado ya viene fijo en el HTML, solo hace falta
-  // cablear el clic. Cada uno lleva un "?" que despliega su aclaración al clicar, en vez
-  // de un párrafo de ayuda siempre visible.
   function buildUrgencyChips() {
     Array.prototype.forEach.call(document.querySelectorAll(".switch[data-urgency]"), function (sw) {
       sw.addEventListener("click", function () {
         var k = sw.dataset.urgency, on;
-        if (k === "soon") { state.soon = on = !state.soon; }
-        else { state.isNewFilter = on = !state.isNewFilter; }
+        if (k === "soon") { state.soon = on = !state.soon; } else { state.isNewFilter = on = !state.isNewFilter; }
         sw.setAttribute("aria-pressed", String(on));
         apply();
       });
@@ -1484,50 +1143,26 @@
       });
     });
   }
-
   function buildCountries() {
     var box = document.getElementById("countryChips");
     var codes = {}, sinPais = 0;
-    all.forEach(function (o) {
-      if (o.country_code) codes[o.country_code] = (codes[o.country_code] || 0) + 1;
-      else sinPais++;
-    });
-    var html = Object.keys(codes).sort(function (a, b) {
-      return countryName(a).localeCompare(countryName(b), "es");
-    }).map(function (cc) {
-      return '<button class="chip" data-country="' + cc + '" aria-pressed="false">' +
-        flag(cc) + " " + esc(countryName(cc)) + " (" + codes[cc] + ")</button>";
+    all.forEach(function (o) { if (o.country_code) codes[o.country_code] = (codes[o.country_code] || 0) + 1; else sinPais++; });
+    var html = Object.keys(codes).sort(function (a, b) { return countryName(a).localeCompare(countryName(b), "es"); }).map(function (cc) {
+      return '<button class="chip" data-country="' + cc + '" aria-pressed="false">' + flag(cc) + " " + esc(countryName(cc)) + " (" + codes[cc] + ")</button>";
     }).join("");
-    if (sinPais) {
-      html += '<button class="chip" data-country="OTHER" aria-pressed="false">Sin país (' + sinPais + ")</button>";
-    }
+    if (sinPais) html += '<button class="chip" data-country="OTHER" aria-pressed="false">Sin país (' + sinPais + ")</button>";
     box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
       chip.addEventListener("click", function () {
         var k = chip.dataset.country;
-        // Con "todos" activos (el estado inicial, sin filtrar de verdad), el primer
-        // clic NO quita ese país: lo AÍSLA como único filtro — igual que elegir una
-        // sola opción en una lista de facetas. A partir de ahí, cada clic ya suma o
-        // resta sobre esa selección concreta (comportamiento de toggle normal).
-        if (sameSet(state.countries, defaultCountrySet())) {
-          state.countries = new Set([k]);
-        } else if (state.countries.has(k)) {
-          state.countries.delete(k);
-        } else {
-          state.countries.add(k);
-        }
-        // Un solo clic puede cambiar MUCHOS chips a la vez (el caso "aislar"), así que
-        // se refresca todo el panel, no solo el botón clicado.
-        Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (c) {
-          c.setAttribute("aria-pressed", String(state.countries.has(c.dataset.country)));
-        });
+        if (sameSet(state.countries, defaultCountrySet())) state.countries = new Set([k]);
+        else if (state.countries.has(k)) state.countries.delete(k);
+        else state.countries.add(k);
+        Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (c) { c.setAttribute("aria-pressed", String(state.countries.has(c.dataset.country))); });
         apply();
       });
     });
   }
-
-  // Con ~22 países la lista plana entera se hacía pesada de escanear: filtra los chips
-  // ya construidos por texto visible, sin tocar el estado de selección de ninguno.
   function wireCountrySearch() {
     document.getElementById("countrySearch").addEventListener("input", debounce(function () {
       var q = document.getElementById("countrySearch").value.trim().toLowerCase();
@@ -1536,211 +1171,101 @@
       });
     }, 120));
   }
-
-  function monthLabel(key) {
-    var p = key.split("-");
-    return MESES[Number(p[1]) - 1] + " " + p[0].slice(2);   // "sep 26"
-  }
-
-  // Refresca el ✓ de todos los chips de mes a la vez, incluido "Todos los meses" (que no
-  // es un mes de verdad — se marca activo cuando el set actual coincide con el completo).
+  function monthLabel(key) { var p = key.split("-"); return MESES[Number(p[1]) - 1] + " " + p[0].slice(2); }
   function syncMonthChips() {
-    var all = sameSet(state.months, defaultMonthSet());
+    var allSet = sameSet(state.months, defaultMonthSet());
     Array.prototype.forEach.call(document.querySelectorAll("#monthChips .chip"), function (c) {
-      c.setAttribute("aria-pressed", c.dataset.month === "ALL" ? String(all) : String(state.months.has(c.dataset.month)));
+      c.setAttribute("aria-pressed", c.dataset.month === "ALL" ? String(allSet) : String(state.months.has(c.dataset.month)));
     });
   }
-
   function buildMonths() {
     var box = document.getElementById("monthChips");
     var keys = nextMonthsKeys(8);
-    // "Todos los meses" primero: sin él, una vez aislado un mes concreto no había forma
-    // de volver al estado "sin filtrar" salvo el botón general de Limpiar filtros.
     var html = '<button class="chip all-months" data-month="ALL" aria-pressed="false">Todos los meses</button>';
-    html += keys.map(function (k) {
-      return '<button class="chip" data-month="' + k + '" aria-pressed="false">' + monthLabel(k) + "</button>";
-    }).join("");
+    html += keys.map(function (k) { return '<button class="chip" data-month="' + k + '" aria-pressed="false">' + monthLabel(k) + "</button>"; }).join("");
     box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll(".chip"), function (chip) {
       chip.addEventListener("click", function () {
         var k = chip.dataset.month;
-        if (k === "ALL") {
-          state.months = defaultMonthSet();
-        } else if (sameSet(state.months, defaultMonthSet())) {
-          // Mismo criterio que países: con "todos" activos, el primer clic AÍSLA ese
-          // mes; a partir de ahí, toggle normal (sumar/quitar).
-          state.months = new Set([k]);
-        } else if (state.months.has(k)) {
-          state.months.delete(k);
-        } else {
-          state.months.add(k);
-        }
+        if (k === "ALL") state.months = defaultMonthSet();
+        else if (sameSet(state.months, defaultMonthSet())) state.months = new Set([k]);
+        else if (state.months.has(k)) state.months.delete(k);
+        else state.months.add(k);
         syncMonthChips();
         apply();
       });
     });
   }
+  function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
 
-  function debounce(fn, ms) {
-    var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+  // ── Hoja inferior (móvil): peek <-> full ──────────────────────────
+  function setSheet(mode) {
+    document.getElementById("sheet").classList.toggle("full", mode === "full");
   }
 
-  // ── Selector Lista/Mapa (solo móvil) ──────────────────────────────
-  function setMobileView(view) {
-    document.body.classList.toggle("view-map", view === "map");
-    document.body.classList.toggle("view-list", view !== "map");
-    // La burbuja anuncia SIEMPRE a dónde vas, no dónde estás.
-    var bubble = document.getElementById("viewBubble");
-    bubble.textContent = view === "map" ? "☰ Lista" : "🗺️ Mapa";
-    bubble.dataset.goto = view === "map" ? "list" : "map";
-    // El contenedor estaba en display:none (tamaño 0): Leaflet necesita que se lo
-    // digan en cuanto vuelve a ser visible, y encima el encuadre calculado mientras
-    // medía 0 era basura — hay que recalcularlo (fit), no solo invalidar el tamaño.
-    if (view === "map" && map) {
-      map.invalidateSize({ animate: false });
-      fit();
-    }
-    updateStatsBar();   // ocultar la barra en vista mapa; recalcular en vista lista
-  }
-
-  // Estado "por defecto": todos los tipos y países activos (se ven de un vistazo y se
-  // van QUITANDO en vez de añadiendo), sin urgencia/edad/fechas concretas.
   function resetFilters() {
-    state = {
-      q: "", types: defaultTypeSet(), countries: defaultCountrySet(),
-      months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null
-    };
+    state = { q: "", types: defaultTypeSet(), countries: defaultCountrySet(), months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
     dateMode = "months";
     document.getElementById("q").value = "";
     document.getElementById("ageInput").value = "";
-    ageValue = null;
-    renderAge();
+    ageValue = null; renderAge();
     document.getElementById("countrySearch").value = "";
     Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) { c.hidden = false; });
     document.getElementById("dateFrom").value = "";
     document.getElementById("dateTo").value = "";
     document.getElementById("monthChips").hidden = false;
     document.getElementById("rangeInputs").hidden = true;
-    Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (b) {
-      b.setAttribute("aria-pressed", String(b.dataset.mode === "months"));
-    });
-    Array.prototype.forEach.call(document.querySelectorAll("#chips .cat-chip"), function (c) {
-      c.setAttribute("aria-pressed", String(state.types.has(c.dataset.type)));
-    });
-    Array.prototype.forEach.call(document.querySelectorAll(".switch[data-urgency]"), function (c) {
-      c.setAttribute("aria-pressed", "false");
-    });
-    Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) {
-      c.setAttribute("aria-pressed", String(state.countries.has(c.dataset.country)));
-    });
+    Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (b) { b.setAttribute("aria-pressed", String(b.dataset.mode === "months")); });
+    syncFilterDialogChips();
+    Array.prototype.forEach.call(document.querySelectorAll(".switch[data-urgency]"), function (c) { c.setAttribute("aria-pressed", "false"); });
+    Array.prototype.forEach.call(document.querySelectorAll("#countryChips .chip"), function (c) { c.setAttribute("aria-pressed", String(state.countries.has(c.dataset.country))); });
     syncMonthChips();
     apply();
   }
 
-  // ── Chat (asistente conversacional) ───────────────────────────────
-  // Contrato del backend (docs/chatbot_mapa.md §5): POST /api/chat {pregunta} ->
-  // {respuesta, ids, aviso}. El LLM solo devuelve identificadores — las tarjetas se
-  // pintan SIEMPRE desde `all` (el JSON que el navegador ya tiene), nunca desde texto
-  // del modelo, así que mostrar una oportunidad inexistente es imposible por
-  // construcción de este lado también (el backend ya valida los ids, esto es cinturón
-  // y tirantes).
+  // ── Chat ───────────────────────────────────────────────────────────
   var chatBusy = false;
-
   function appendChatTurn(question, data) {
     var log = document.getElementById("chatLog");
-    var turn = document.createElement("div");
-    turn.className = "chat-turn";
-
-    var qEl = document.createElement("div");
-    qEl.className = "chat-q";
-    qEl.textContent = question;
-    turn.appendChild(qEl);
-
-    var aEl = document.createElement("div");
-    aEl.className = "chat-a";
-    aEl.textContent = data.respuesta || "No he podido interpretar la pregunta.";
-    turn.appendChild(aEl);
-
-    if (data.aviso) {
-      var avisoEl = document.createElement("p");
-      avisoEl.className = "fp-hint";
-      avisoEl.textContent = data.aviso;
-      turn.appendChild(avisoEl);
-    }
-
-    var matched = (data.ids || []).map(function (id) {
-      return all.filter(function (o) { return o.identifier === id; })[0];
-    }).filter(Boolean);
-
+    var turn = document.createElement("div"); turn.className = "chat-turn";
+    var qEl = document.createElement("div"); qEl.className = "chat-q"; qEl.textContent = question; turn.appendChild(qEl);
+    var aEl = document.createElement("div"); aEl.className = "chat-a"; aEl.textContent = data.respuesta || "No he podido interpretar la pregunta."; turn.appendChild(aEl);
+    if (data.aviso) { var avisoEl = document.createElement("p"); avisoEl.className = "fp-hint"; avisoEl.textContent = data.aviso; turn.appendChild(avisoEl); }
+    var matched = (data.ids || []).map(function (id) { return all.filter(function (o) { return o.identifier === id; })[0]; }).filter(Boolean);
     if (matched.length) {
-      var cardsEl = document.createElement("div");
-      cardsEl.className = "chat-cards";
-      cardsEl.innerHTML = matched.map(cardHTML).join("");
-      turn.appendChild(cardsEl);
-      wireCards(cardsEl);
-
-      var seeBtn = document.createElement("button");
-      seeBtn.type = "button";
-      seeBtn.className = "btn primary chat-see-all";
-      seeBtn.textContent = "🗺️ Ver estas " + matched.length + " en el mapa";
+      var cardsEl = document.createElement("div"); cardsEl.className = "chat-cards"; cardsEl.innerHTML = matched.map(cardHTML).join("");
+      turn.appendChild(cardsEl); wireCards(cardsEl);
+      var seeBtn = document.createElement("button"); seeBtn.type = "button"; seeBtn.className = "btn primary chat-see-all";
+      seeBtn.textContent = "Ver estas " + matched.length + " en el mapa";
       seeBtn.addEventListener("click", function () {
         state.only = new Set(matched.map(function (o) { return o.identifier; }));
         document.getElementById("chatDialog").close();
         apply();
-        if (isMobileQuery && isMobileQuery.matches) setMobileView("map");
+        if (isMobileQuery && isMobileQuery.matches) setSheet("peek");
       });
       turn.appendChild(seeBtn);
     }
-
     log.appendChild(turn);
-    // El PRINCIPIO del turno nuevo queda arriba del todo, no el final — con
-    // varias tarjetas de resultado, saltar al fondo del log escondía la
-    // respuesta y el aviso por encima del scroll.
     turn.scrollIntoView({ block: "start", behavior: "smooth" });
   }
-
   function sendChatQuestion(q) {
     q = (q || "").trim();
     if (chatBusy || !q) return;
     chatBusy = true;
     document.getElementById("chatSend").disabled = true;
     document.getElementById("chatInput").value = "";
-
     var log = document.getElementById("chatLog");
-    var pending = document.createElement("div");
-    pending.className = "chat-turn";
-    var qEl = document.createElement("div");
-    qEl.className = "chat-q";
-    qEl.textContent = q;
-    var skel = document.createElement("div");
-    skel.className = "chat-skel";
-    pending.appendChild(qEl);
-    pending.appendChild(skel);
-    log.appendChild(pending);
+    var pending = document.createElement("div"); pending.className = "chat-turn";
+    var qEl = document.createElement("div"); qEl.className = "chat-q"; qEl.textContent = q;
+    var skel = document.createElement("div"); skel.className = "chat-skel";
+    pending.appendChild(qEl); pending.appendChild(skel); log.appendChild(pending);
     pending.scrollIntoView({ block: "start", behavior: "smooth" });
-
-    fetch("/api/chat", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pregunta: q.slice(0, 500) })
-    })
+    fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pregunta: q.slice(0, 500) }) })
       .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .then(function (data) { pending.remove(); appendChatTurn(q, data); })
-      .catch(function () {
-        pending.remove();
-        appendChatTurn(q, {
-          respuesta: "No he podido responder ahora mismo. Prueba los filtros o el buscador mientras tanto.",
-          ids: [],
-        });
-      })
-      .then(function () {
-        chatBusy = false;
-        document.getElementById("chatSend").disabled = false;
-      });
+      .catch(function () { pending.remove(); appendChatTurn(q, { respuesta: "No he podido responder ahora mismo. Prueba los filtros o el buscador mientras tanto.", ids: [] }); })
+      .then(function () { chatBusy = false; document.getElementById("chatSend").disabled = false; });
   }
-
-  // Antes de abrir, se comprueba el presupuesto (§3/§6 del documento): si está
-  // agotado este mes, se enseña el aviso en vez del formulario — no hace falta
-  // esperar a un envío fallido para que el usuario se entere.
   function openChat() {
     var dlg = document.getElementById("chatDialog");
     dlg.showModal();
@@ -1752,72 +1277,49 @@
         document.getElementById("chatUnavailable").hidden = ok;
         document.getElementById("chatReady").hidden = !ok;
         document.getElementById("chatForm").hidden = !ok;
-        if (!ok) {
-          document.getElementById("chatUnavailable").textContent =
-            s.motivo || "El asistente no está disponible ahora mismo. Prueba los filtros o el buscador.";
-        }
+        if (!ok) document.getElementById("chatUnavailable").textContent = s.motivo || "El asistente no está disponible ahora mismo. Prueba los filtros o el buscador.";
       })
-      .catch(function () { /* si falla el status, se deja intentar igualmente al enviar */ });
+      .catch(function () {});
   }
 
   function wire() {
-    var bubble = document.getElementById("viewBubble");
-    bubble.addEventListener("click", function () { setMobileView(bubble.dataset.goto); });
+    document.getElementById("igPopupClose").addEventListener("click", function () { document.getElementById("igPopup").classList.remove("show"); });
 
-    document.getElementById("igPopupClose").addEventListener("click", function () {
-      document.getElementById("igPopup").classList.remove("show");
+    document.getElementById("sheetHandle").addEventListener("click", function () {
+      var sheet = document.getElementById("sheet");
+      setSheet(sheet.classList.contains("full") ? "peek" : "full");
     });
 
-    // Buscador colapsable (móvil): la lupa lo abre y le da el foco.
-    var searchToggle = document.getElementById("searchToggle");
-    searchToggle.addEventListener("click", function () {
-      document.body.classList.add("searching");
-      searchToggle.setAttribute("aria-expanded", "true");
-      document.getElementById("q").focus();
-    });
-    document.getElementById("searchClose").addEventListener("click", function () {
-      document.body.classList.remove("searching");
-      searchToggle.setAttribute("aria-expanded", "false");
-      // Al cerrar se limpia: si no, quedaría un filtro activo invisible tras la lupa.
-      document.getElementById("q").value = "";
-      state.q = "";
-      apply();
-    });
-
-    // Diálogo del asistente: mismo patrón <dialog> que Filtros e Información.
     var chatDlg = document.getElementById("chatDialog");
     document.getElementById("chatToggle").addEventListener("click", openChat);
     document.getElementById("chatClose").addEventListener("click", function () { chatDlg.close(); });
     chatDlg.addEventListener("click", function (e) { if (e.target === chatDlg) chatDlg.close(); });
-    document.getElementById("chatForm").addEventListener("submit", function (e) {
-      e.preventDefault();
-      sendChatQuestion(document.getElementById("chatInput").value);
-    });
-    Array.prototype.forEach.call(document.querySelectorAll("#chatSuggestions .chip"), function (chip) {
-      chip.addEventListener("click", function () { sendChatQuestion(chip.dataset.q); });
-    });
+    document.getElementById("chatForm").addEventListener("submit", function (e) { e.preventDefault(); sendChatQuestion(document.getElementById("chatInput").value); });
+    Array.prototype.forEach.call(document.querySelectorAll("#chatSuggestions .chip"), function (chip) { chip.addEventListener("click", function () { sendChatQuestion(chip.dataset.q); }); });
 
-    // Panel único de filtros (Categoría+Urgencia+Edad+Fechas+País agrupados): mismo patrón
-    // de <dialog> que la ventana de información, ver justo debajo. "Ver N oportunidades"
-    // solo cierra — el filtrado ya se ha ido aplicando en vivo con cada chip/campo.
     var filtersDlg = document.getElementById("filtersDialog");
     document.getElementById("filtersToggle").addEventListener("click", function () { filtersDlg.showModal(); });
+    document.getElementById("infoBtn").addEventListener("click", function () { document.getElementById("infoDialog").showModal(); });
+
+    document.getElementById("dockCollapse").addEventListener("click", function () {
+      document.getElementById("dock").classList.add("collapsed");
+      document.getElementById("dockRail").classList.add("show");
+    });
+    document.getElementById("dockRail").addEventListener("click", function () {
+      document.getElementById("dock").classList.remove("collapsed");
+      document.getElementById("dockRail").classList.remove("show");
+    });
+
     document.getElementById("filtersClose").addEventListener("click", function () { filtersDlg.close(); });
     document.getElementById("filtersApply").addEventListener("click", function () { filtersDlg.close(); });
     document.getElementById("resetInDialog").addEventListener("click", resetFilters);
     filtersDlg.addEventListener("click", function (e) { if (e.target === filtersDlg) filtersDlg.close(); });
 
-    // Pestañas del panel de filtros (Categoría / Edad / Fechas / País): solo una visible
-    // a la vez, en vez del scroll único de antes.
     Array.prototype.forEach.call(document.querySelectorAll(".fp-tab"), function (tab) {
       tab.addEventListener("click", function () {
-        Array.prototype.forEach.call(document.querySelectorAll(".fp-tab"), function (t) {
-          t.setAttribute("aria-selected", "false");
-        });
+        Array.prototype.forEach.call(document.querySelectorAll(".fp-tab"), function (t) { t.setAttribute("aria-selected", "false"); });
         tab.setAttribute("aria-selected", "true");
-        Array.prototype.forEach.call(document.querySelectorAll(".fp-pane"), function (p) {
-          p.setAttribute("data-shown", String(p.dataset.pane === tab.dataset.tab));
-        });
+        Array.prototype.forEach.call(document.querySelectorAll(".fp-pane"), function (p) { p.setAttribute("data-shown", String(p.dataset.pane === tab.dataset.tab)); });
       });
     });
 
@@ -1826,9 +1328,6 @@
       state.age = isFinite(v) && v > 0 ? v : null;
       apply();
     }, 180));
-
-    // Stepper +/- de Edad: pilota el <input type=number> oculto (que sigue siendo el que
-    // de verdad dispara el filtrado, arriba) en vez de duplicar esa lógica aquí.
     function stepAge(delta) {
       var base = ageValue == null ? (delta > 0 ? 17 : 19) : ageValue;
       ageValue = Math.max(13, Math.min(99, base + delta));
@@ -1840,26 +1339,25 @@
     document.getElementById("ageMinus").addEventListener("click", function () { stepAge(-1); });
     document.getElementById("agePlus").addEventListener("click", function () { stepAge(1); });
 
-    // Ventana de información
-    var dlg = document.getElementById("infoDialog");
-    document.getElementById("infoBtn").addEventListener("click", function () { dlg.showModal(); });
-    document.getElementById("infoClose").addEventListener("click", function () { dlg.close(); });
-    // Clic en el fondo oscuro = cerrar (el <dialog> ocupa solo la caja blanca).
-    dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+    var infoDlg = document.getElementById("infoDialog");
+    document.getElementById("infoClose").addEventListener("click", function () { infoDlg.close(); });
+    infoDlg.addEventListener("click", function (e) { if (e.target === infoDlg) infoDlg.close(); });
 
-    document.getElementById("q").addEventListener("input", debounce(function () {
-      state.q = document.getElementById("q").value.trim().toLowerCase();
-      apply();
-    }, 180));
-    document.getElementById("reset").addEventListener("click", resetFilters);
+    document.getElementById("contribute").addEventListener("click", function () { window.open("https://t.me/corradi_erasmus_bot", "_blank", "noopener"); });
 
-    // Interruptor Meses / Fechas exactas dentro del filtro de Fechas.
+    var searchToggle = document.getElementById("commandBar");
+    var qInput = document.getElementById("q");
+    qInput.addEventListener("focus", function () { document.body.classList.add("searching"); });
+    document.getElementById("searchClose").addEventListener("click", function () {
+      document.body.classList.remove("searching");
+      qInput.value = ""; state.q = ""; apply(); qInput.blur();
+    });
+    qInput.addEventListener("input", debounce(function () { state.q = qInput.value.trim().toLowerCase(); apply(); }, 180));
+
     Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (btn) {
       btn.addEventListener("click", function () {
         dateMode = btn.dataset.mode;
-        Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (b) {
-          b.setAttribute("aria-pressed", String(b === btn));
-        });
+        Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (b) { b.setAttribute("aria-pressed", String(b === btn)); });
         document.getElementById("monthChips").hidden = dateMode !== "months";
         document.getElementById("rangeInputs").hidden = dateMode !== "range";
         apply();
@@ -1867,31 +1365,12 @@
     });
     ["dateFrom", "dateTo"].forEach(function (id) {
       var input = document.getElementById(id);
-      var key = id === "dateFrom" ? "dateFrom" : "dateTo";
-      input.addEventListener("change", function (e) { state[key] = e.target.value || null; apply(); });
-      // Abrir el calendario nativo al tocar CUALQUIER parte del campo (no solo el iconito),
-      // incluido el día/mes/año. showPicker no existe en algún navegador viejo: se ignora.
+      input.addEventListener("change", function (e) { state[id] = e.target.value || null; apply(); });
       function open() { try { input.showPicker(); } catch (e) {} }
-      input.addEventListener("focus", open);
-      input.addEventListener("click", open);
+      input.addEventListener("focus", open); input.addEventListener("click", open);
     });
-
-    // La barra de estadísticas solo aparece al llegar al fondo de la lista (así no come
-    // pantalla). Si la lista es corta y no hay scroll, se considera "al fondo" y se muestra.
-    document.getElementById("list").addEventListener("scroll", updateStatsBar, { passive: true });
   }
 
-  function updateStatsBar() {
-    var list = document.getElementById("list"), stats = document.getElementById("stats");
-    // En móvil, con el mapa a pantalla completa, la lista está oculta: nada que mostrar.
-    if (isMobileQuery && isMobileQuery.matches && document.body.classList.contains("view-map")) {
-      stats.classList.remove("show"); return;
-    }
-    var atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;
-    stats.classList.toggle("show", atBottom);
-  }
-
-  // ── Compartir una oportunidad ─────────────────────────────────────────────
   var toastTimer = null;
   function toast(msg) {
     var t = document.getElementById("toast");
@@ -1899,11 +1378,7 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2200);
   }
-
-  // Enlace profundo a una oportunidad concreta: mismo mapa + ?o=IDENTIFICADOR.
-  function shareUrl(id) {
-    return location.origin + location.pathname + "?o=" + encodeURIComponent(id);
-  }
+  function shareUrl(id) { return location.origin + location.pathname + "?o=" + encodeURIComponent(id); }
   window.shareOpp = function (id) {
     var opp = all.filter(function (o) { return o.identifier === id; })[0];
     var data = { title: opp ? opp.title : "Oportunidad Erasmus+", url: shareUrl(id) };
@@ -1912,94 +1387,54 @@
     else { toast(data.url); }
   };
 
-  // ── Arranque ─────────────────────────────────────────────────────
-  // Basemap SIEMPRE claro (light_all): no sigue el modo oscuro del sistema, a
-  // propósito — ver comentario junto a la paleta de colores en el <style>.
   function paintTiles() {
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: "abcd", maxZoom: 19
     }).addTo(map);
   }
-
   function initMap() {
-    map = L.map("map", { zoomControl: true, scrollWheelZoom: true, attributionControl: true })
-           .setView([50, 12], 4);
+    map = L.map("map", { zoomControl: false, scrollWheelZoom: true, attributionControl: true }).setView([50, 12], 4);
+    L.control.zoom({ position: "bottomleft" }).addTo(map);
     paintTiles();
-
-    // Clustering: al crecer evita la maraña de pines encimados. El radio es el 30% del
-    // que traía (45px → 14px): agrupa solo pines prácticamente pegados, no los que
-    // simplemente están en el mismo país. A partir de zoom 10 salen siempre sueltos.
     layer = L.markerClusterGroup({
-      maxClusterRadius: 14,
-      disableClusteringAtZoom: 10,
-      showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
+      maxClusterRadius: 14, spiderfyOnMaxZoom: true, showCoverageOnHover: false, disableClusteringAtZoom: 10,
       iconCreateFunction: function (cluster) {
         var n = cluster.getChildCount();
-        var size = n < 10 ? 34 : n < 50 ? 40 : 46;
-        return L.divIcon({
-          className: "",
-          iconSize: [size, size],
-          html: '<div class="cluster" style="width:' + size + "px;height:" + size + 'px">' + n + "</div>"
-        });
+        return L.divIcon({ html: '<div class="cluster" style="width:' + (34 + Math.min(n, 20)) + 'px;height:' + (34 + Math.min(n, 20)) + 'px">' + n + "</div>", className: "", iconSize: null });
       }
-    }).addTo(map);
-
-    // El mapa vive dentro de un layout flex: si el contenedor cambia de tamaño (rotar el
-    // móvil, redimensionar la ventana), Leaflet necesita que se lo digan.
-    if (window.ResizeObserver) {
-      var refit = debounce(function () {
-        map.invalidateSize({ animate: false });
-        fit();  // si no, al ensanchar la ventana el mapa conserva el zoom viejo y descuadra
-      }, 200);
-      new ResizeObserver(refit).observe(document.getElementById("map"));
-    }
+    });
+    map.addLayer(layer);
   }
 
-  // Cuenta ascendente de 0 al valor real (el efecto "que va subiendo" al cargar).
   function countUp(el, to) {
-    if (!el) return;
-    var dur = 800, t0 = null;
+    var from = 0, dur = 700, start = null;
     function step(ts) {
-      if (t0 === null) t0 = ts;
-      var k = Math.min(1, (ts - t0) / dur);
-      var val = Math.round(to * (1 - Math.pow(1 - k, 3)));   // easing suave al final
-      el.textContent = val.toLocaleString("es-ES");
-      if (k < 1) requestAnimationFrame(step);
+      if (!start) start = ts;
+      var p = Math.min(1, (ts - start) / dur);
+      el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
   }
-
-  // Suma la visita y pinta visitas + publicadas (histórico). Si algo falla, el pie se
-  // queda con "—": no es crítico, no debe romper el mapa.
   function loadStats() {
     fetch("/api/visit", { method: "POST", headers: { Accept: "application/json" } })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (s) {
         if (!s) {
-          ["statVisits", "statVisitsModal"].forEach(function (id) { document.getElementById(id).textContent = "—"; });
-          ["statPublished", "statPublishedModal"].forEach(function (id) { document.getElementById(id).textContent = "—"; });
+          ["statVisits", "statVisitsModal", "statPublished", "statPublishedModal"].forEach(function (id) { document.getElementById(id).textContent = "—"; });
           return;
         }
         countUp(document.getElementById("statVisits"), s.visits || 0);
         countUp(document.getElementById("statVisitsModal"), s.visits || 0);
         countUp(document.getElementById("statPublished"), s.published || 0);
         countUp(document.getElementById("statPublishedModal"), s.published || 0);
+        document.getElementById("bottomDock").classList.add("show");
       })
       .catch(function () {
-        ["statVisits", "statVisitsModal", "statPublished", "statPublishedModal"].forEach(function (id) {
-          document.getElementById(id).textContent = "—";
-        });
+        ["statVisits", "statVisitsModal", "statPublished", "statPublishedModal"].forEach(function (id) { document.getElementById(id).textContent = "—"; });
       });
   }
-
-  // Popup de Instagram para quien ya ha entrado 3 veces o más — contador propio en
-  // localStorage (no tiene nada que ver con `counters.visits` del servidor, que es
-  // agregado y no distingue navegador). Se enseña UNA sola vez en la vida del navegador,
-  // nunca más aunque se sigan sumando visitas — la marca "ya mostrado" se guarda en el
-  // mismo momento en que se decide mostrarlo, no al cerrarlo, para que un cierre accidental
-  // de pestaña no lo deje "pendiente de mostrar" para siempre.
   function bumpVisitCounterAndMaybeShowIg() {
     var n = parseInt(localStorage.getItem("corradiVisits") || "0", 10) + 1;
     localStorage.setItem("corradiVisits", String(n));
@@ -2009,17 +1444,40 @@
       var popup = document.getElementById("igPopup");
       popup.hidden = false;
       requestAnimationFrame(function () { popup.classList.add("show"); });
-    }, 2500);   // pequeño retraso: no competir con la carga inicial del mapa
+    }, 2500);
+  }
+
+  function fillIcons() {
+    document.getElementById("searchIconSlot").innerHTML = ICON.search;
+    document.getElementById("filtersIconSlot").innerHTML = ICON.sliders;
+    document.getElementById("askIconSlot").innerHTML = ICON.sparkle;
+    document.getElementById("searchClose").innerHTML = ICON.close;
+    document.getElementById("channelIconSlot").innerHTML = ICON.send;
+    document.getElementById("contribute").innerHTML = ICON.plus;
+    document.getElementById("infoBtn").innerHTML = ICON.info;
+    document.getElementById("dockCollapse").innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="m15 6-6 6 6 6"/></svg>';
+    document.getElementById("chatClose").innerHTML = ICON.close;
+    document.getElementById("filtersClose").innerHTML = ICON.close;
+    document.getElementById("infoClose").innerHTML = ICON.close;
+    document.getElementById("chatSend").innerHTML = ICON.send;
+    document.getElementById("igPopupClose").innerHTML = ICON.close;
+    document.getElementById("igIconSlot").innerHTML = ICON.ig;
+    document.querySelector(".ig-popup-icon").innerHTML = ICON.ig;
+    document.querySelector("#igPopup .ig-cta span").innerHTML = ICON.ig;
+    document.getElementById("countrySearchWrap").insertAdjacentHTML("afterbegin", ICON.search);
+    document.getElementById("lblSoon").querySelector("span").innerHTML = ICON.hourglass;
+    document.getElementById("lblNew").querySelector("span").innerHTML = ICON.sparkle;
   }
 
   function boot() {
+    fillIcons();
     initMap();
     buildChips();
+    buildQuickFilters();
     buildUrgencyChips();
     wireCountrySearch();
     bumpVisitCounterAndMaybeShowIg();
     wire();
-    setMobileView("map");
     loadStats();
     fetch("/api/map", { headers: { Accept: "application/json" } })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
@@ -2030,30 +1488,21 @@
         buildMonths();
         resetFilters();
         var params = new URLSearchParams(location.search);
-        // Enlace profundo (?o=IDENTIFICADOR): abre esa oportunidad directamente.
         var wanted = params.get("o");
         if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
-          if (isMobileQuery && isMobileQuery.matches) setMobileView("map");
+          setSheet("peek");
           focusOpportunity(wanted, true);
         }
-        // Enlace directo al chat (?preguntar o ?preguntar=texto) — para promocionarlo
-        // sin depender de que la gente encuentre el botón sola. NO se autoenvía la
-        // pregunta (evitaría gastar Gemini con crawlers/previas de enlaces): solo abre
-        // el diálogo y, si trae texto, lo deja escrito listo para enviar a mano.
         if (params.has("preguntar")) {
           openChat();
           var prefill = params.get("preguntar");
-          if (prefill && prefill !== "1" && prefill !== "true") {
-            document.getElementById("chatInput").value = prefill;
-          }
+          if (prefill && prefill !== "1" && prefill !== "true") document.getElementById("chatInput").value = prefill;
         }
       })
       .catch(function (err) {
         document.getElementById("statOpen").textContent = "—";
         document.getElementById("statOpenModal").textContent = "—";
-        document.getElementById("list").innerHTML =
-          '<div class="empty"><strong>No he podido cargar las oportunidades</strong>' +
-          "Vuelve a intentarlo en un momento.</div>";
+        document.getElementById("list").innerHTML = '<div class="empty"><strong>No he podido cargar las oportunidades</strong>Vuelve a intentarlo en un momento.</div>';
         console.error(err);
       });
   }

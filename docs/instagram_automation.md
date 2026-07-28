@@ -3,7 +3,7 @@
 Cada vez que una oportunidad se publica de verdad en el canal de Telegram
 (`pipeline.commit()`), se publica también en Instagram: un post de feed (1080×1350) y una
 story a juego (1080×1920), con el mismo sistema de color por categoría que ya usan el mapa
-y el canal (azul Youth Exchange, ámbar Training Course, verde ECS, rosa Workshop).
+y el canal (azul Youth Exchange, ámbar Training Course, verde ECS).
 
 Vacío (`INSTAGRAM_LONG_LIVED_TOKEN` sin poner) = desactivado sin más, el resto del pipeline
 sigue exactamente igual. No hace falta nada para probar el resto del sistema sin tener la

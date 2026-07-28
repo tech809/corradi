@@ -31,7 +31,6 @@ _HASHTAGS_BY_TYPE = {
     "YOUTH_EXCHANGE": ["#YouthExchange", "#IntercambioJuvenil"],
     "TRAINING_COURSE": ["#TrainingCourse", "#FormaciónJuvenil"],
     "VOLUNTEERING": ["#ECS", "#CuerpoEuropeoDeSolidaridad", "#Voluntariado"],
-    "WORKSHOP": ["#Workshop", "#TallerJuvenil"],
 }
 _HASHTAGS_BASE = ["#ErasmusPlus", "#CorradiErasmus", "#JuventudEuropea", "#OportunidadesErasmus"]
 

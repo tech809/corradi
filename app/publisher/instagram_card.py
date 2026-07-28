@@ -112,28 +112,10 @@ def _heart_draw(d: ImageDraw.ImageDraw, size: int, rgba) -> None:
     )
 
 
-def _gear_draw(d: ImageDraw.ImageDraw, size: int, rgba) -> None:
-    cx, cy, r = size / 2, size / 2, size * 0.34
-    tw, th = size * 0.1, size * 0.16
-    for i in range(8):
-        ang = math.radians(i * 45)
-        tx, ty = cx + r * math.sin(ang), cy - r * math.cos(ang)
-        pts = []
-        for dx, dy in [(-tw / 2, -th / 2), (tw / 2, -th / 2), (tw / 2, th / 2), (-tw / 2, th / 2)]:
-            rx = dx * math.cos(ang) - dy * math.sin(ang)
-            ry = dx * math.sin(ang) + dy * math.cos(ang)
-            pts.append((tx + rx, ty + ry))
-        d.polygon(pts, fill=rgba)
-    d.ellipse([cx - r * 0.75, cy - r * 0.75, cx + r * 0.75, cy + r * 0.75], fill=rgba)
-    hole = r * 0.32
-    d.ellipse([cx - hole, cy - hole, cx + hole, cy + hole], fill=(0, 0, 0, 0))
-
-
 _ICON_DRAW = {
     "YOUTH_EXCHANGE": _compass_draw,
     "TRAINING_COURSE": _cap_draw,
     "VOLUNTEERING": _heart_draw,
-    "WORKSHOP": _gear_draw,
 }
 
 

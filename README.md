@@ -173,7 +173,7 @@ corradi/
     ├── config.py                # toda la config vía variables de entorno (.env)
     ├── domain/
     │   ├── project.py           # parseo de campos del LLM, hash de dedup, red de seguridad de fechas
-    │   └── project_type.py      # enums (YOUTH_EXCHANGE, TRAINING_COURSE, VOLUNTEERING, WORKSHOP)
+    │   └── project_type.py      # enums (YOUTH_EXCHANGE, TRAINING_COURSE, VOLUNTEERING)
     ├── db/
     │   ├── pool.py               # pool async (psycopg3) + adaptador pgvector
     │   └── repository.py         # oportunidades + lista blanca + solicitudes + tracking de envíos
@@ -367,8 +367,8 @@ Mapa interactivo de las oportunidades **abiertas**, servido por la propia API en
 sin claves de API ni coste). El resumen diario lo enlaza al final si `MAP_PUBLIC_URL` está
 definida.
 
-**Qué hace:** pines por categoría (Youth Exchange azul · Training Course amarillo · ECS verde ·
-Workshop rosa), filtros agrupados en un solo panel — texto, categoría, edad, país, fechas
+**Qué hace:** pines por categoría (Youth Exchange azul · Training Course amarillo · ECS verde),
+filtros agrupados en un solo panel — texto, categoría, edad, país, fechas
 (meses o rango de deadline) y "cierran pronto" (≤7 días) —, lista lateral sincronizada con el
 mapa (clic en tarjeta → vuela al pin y abre su ficha), badge "🆕 Nuevo" en lo publicado en las
 últimas 24h, badge de urgencia

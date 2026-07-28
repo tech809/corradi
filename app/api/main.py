@@ -17,6 +17,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app import geo
@@ -84,6 +85,11 @@ if cfg.handoff_mode in ("whatsapp_twilio", "whatsapp_cloud"):
     from app.api.twilio_webhook import router as twilio_router
 
     app.include_router(twilio_router)
+
+# Tipografías autoalojadas del mapa (Sora/Manrope, rediseño 2026-07-28) — @font-face en
+# mapa.html las pide en /fonts/*.ttf. Cache larga: el nombre de fichero ya lleva el peso,
+# así que un cambio de fuente sería un fichero nuevo, no uno que mute bajo la misma URL.
+app.mount("/fonts", StaticFiles(directory=_STATIC / "fonts"), name="fonts")
 
 
 @app.get("/health")
