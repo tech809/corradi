@@ -65,7 +65,7 @@ async def run() -> None:
             try:
                 dup_identifier = await _already_published(item["fields"])
                 if dup_identifier:
-                    await repo.mark_salto_backlog_published(item["id"], dup_identifier)
+                    await repo.mark_salto_backlog_published(item["id"], dup_identifier, id_num=item.get("id_num"))
                     skipped_dup += 1
                     log.info("Backlog SALTO %s ya estaba publicada como %s (reenviada a mano "
                               "mientras esperaba en la cola) — saltada, no duplicada.",
@@ -79,7 +79,7 @@ async def run() -> None:
                 if result["status"] == "error":
                     raise RuntimeError(result.get("error"))
                 identifier = result["opp"]["identifier"]
-                await repo.mark_salto_backlog_published(item["id"], identifier)
+                await repo.mark_salto_backlog_published(item["id"], identifier, id_num=item.get("id_num"))
                 published += 1
                 log.info("Publicada del backlog SALTO: %s -> %s (%s)",
                           item["url"], identifier, result["status"])

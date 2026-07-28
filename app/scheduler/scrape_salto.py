@@ -8,6 +8,14 @@ Decisión 2026-07-26: publica DE VERDAD, sin aviso previo por DM — cada ficha 
 filtro barato (Training Course + España) y luego `pipeline.preview()` (dedup, plazo) se
 publica sola con `pipeline.commit()`, igual que si un coordinador la hubiera confirmado.
 
+Decisión 2026-07-28: como mucho `cfg.salto_scrape_daily_cap` (2 por defecto) se publican
+DIRECTO en esta pasada de mediodía — lo que siga pasando el filtro por encima de ese tope
+se encola en `salto_backlog` (misma tabla que el backlog inicial) con `scheduled_at` a las
+17:00 de hoy, y sale solo en la pasada de las 17:00 de `publish_salto_backlog` (mismo
+mecanismo, cero código nuevo de publicación). Motivo: un día con muchas fichas nuevas a la
+vez (visto el 2026-07-28: 3 Training Course de golpe) no debe notarse como una ráfaga en
+el canal — así como mucho se ven 2 a mediodía y el resto por la tarde.
+
 Cada corrida:
 1. Reintenta los IDs marcados "draft" (existían pero redirigían a login — puede que ya se
    hayan hecho públicos).
@@ -22,6 +30,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -39,7 +49,22 @@ _START_ID = 15121
 _MAX_CONSECUTIVE_MISSING = 8
 
 
-async def _process_id(client: httpx.AsyncClient, id_num: int, admin_id: int) -> str:
+def _today_at_17(now: datetime) -> datetime:
+    today_17 = now.replace(hour=17, minute=0, second=0, microsecond=0)
+    # Si por lo que sea la pasada de mediodía se ejecuta ya pasadas las 17:00, no
+    # programar en el pasado (se publicaría al instante en cuanto corriera el cron
+    # siguiente) — se deja para la primera pasada de mañana en su lugar.
+    return today_17 if today_17 > now else today_17 + timedelta(days=1)
+
+
+class _PublishBudget:
+    """Cuántas publicaciones DIRECTAS quedan en esta pasada — compartido entre llamadas a
+    `_process_id` según se van encontrando candidatas válidas, no por cada id escaneado."""
+    def __init__(self, cap: int) -> None:
+        self.remaining = cap
+
+
+async def _process_id(client: httpx.AsyncClient, id_num: int, admin_id: int, budget: _PublishBudget) -> str:
     """Sonda y procesa un ID. Devuelve el status final (para loggear/contar).
 
     Bug real encontrado y arreglado (2026-07-26): un fallo transitorio de red en la sonda
@@ -77,6 +102,18 @@ async def _process_id(client: httpx.AsyncClient, id_num: int, admin_id: int) -> 
         await repo.upsert_salto_id(id_num, result["status"])
         return result["status"]
 
+    if budget.remaining <= 0:
+        # Tope de publicaciones directas ya agotado en esta pasada — se encola para la
+        # de las 17:00 en vez de publicarse ya. "queued" (no "draft"/"error") para que
+        # `list_salto_retry_ids` no la vuelva a recoger mañana: ya está resuelta, solo
+        # pendiente de que le toque salir.
+        await repo.enqueue_salto_backlog(
+            url, result["fields"], _today_at_17(datetime.now(ZoneInfo(cfg.timezone))), id_num=id_num,
+        )
+        await repo.upsert_salto_id(id_num, "queued")
+        log.info("SALTO id %s lista pero tope de hoy alcanzado — encolada para las 17:00", id_num)
+        return "queued"
+
     try:
         commit_result = await pipeline.commit(
             result["fields"], source="salto",
@@ -86,6 +123,7 @@ async def _process_id(client: httpx.AsyncClient, id_num: int, admin_id: int) -> 
             raise RuntimeError(commit_result.get("error"))
         identifier = commit_result["opp"]["identifier"]
         await repo.upsert_salto_id(id_num, "published", identifier)
+        budget.remaining -= 1
         log.info("SALTO id %s publicada como %s (%s)", id_num, identifier, commit_result["status"])
         return "published"
     except Exception:  # noqa: BLE001
@@ -98,10 +136,11 @@ async def run() -> None:
     await open_pool()
     try:
         admin_id = cfg.admin_telegram_ids[0]
+        budget = _PublishBudget(cfg.salto_scrape_daily_cap)
         async with httpx.AsyncClient(timeout=20) as client:
             retry_ids = await repo.list_salto_retry_ids()
             for id_num in retry_ids:
-                status = await _process_id(client, id_num, admin_id)
+                status = await _process_id(client, id_num, admin_id, budget)
                 if status == "missing":
                     # Un borrador/error que desaparece (retirado, nunca llegó a
                     # publicarse) no debe quedar reintentándose para siempre.
@@ -111,9 +150,9 @@ async def run() -> None:
             cursor = await repo.get_salto_scan_cursor(default=_START_ID - 1)
             id_num = cursor + 1
             consecutive_missing = 0
-            scanned = published = 0
+            scanned = published = queued = 0
             while consecutive_missing < _MAX_CONSECUTIVE_MISSING:
-                status = await _process_id(client, id_num, admin_id)
+                status = await _process_id(client, id_num, admin_id, budget)
                 if status == "missing":
                     consecutive_missing += 1
                 else:
@@ -121,6 +160,8 @@ async def run() -> None:
                     scanned += 1
                     if status == "published":
                         published += 1
+                    elif status == "queued":
+                        queued += 1
                 id_num += 1
 
             # El cursor se deja justo antes de la racha de "missing" con la que se paró,
@@ -129,8 +170,8 @@ async def run() -> None:
             await repo.set_salto_scan_cursor(max(new_cursor, cursor))
 
             log.info("Escaneo SALTO: %s fichas nuevas evaluadas (%s reintentos de borrador/error), "
-                      "%s publicadas, techo alcanzado en id %s.",
-                      scanned, len(retry_ids), published, id_num - 1)
+                      "%s publicadas, %s encoladas para las 17:00 (tope de %s/pasada), techo alcanzado en id %s.",
+                      scanned, len(retry_ids), published, queued, cfg.salto_scrape_daily_cap, id_num - 1)
     except Exception as e:  # noqa: BLE001
         log.exception("Falló el escaneo de SALTO-YOUTH")
         await alerts.alert("El escaneo diario de SALTO-YOUTH ha fallado", f"{type(e).__name__}: {e}")

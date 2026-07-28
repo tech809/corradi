@@ -487,15 +487,17 @@ async def type_breakdown_since(since: datetime, limit: int = 5) -> list[dict[str
 
 
 
-async def enqueue_salto_backlog(url: str, fields: dict, scheduled_at: datetime) -> None:
+async def enqueue_salto_backlog(url: str, fields: dict, scheduled_at: datetime, id_num: int | None = None) -> None:
     """Cola temporal (`salto_backlog`, ver migración 0007) para publicar el backlog inicial
     de SALTO-YOUTH de forma escalonada. `fields` ya viene normalizado por
     `pipeline.preview()` — se serializa a mano (con `default=str`) porque trae objetos
-    `date` que el adaptador jsonb no sabe convertir solo."""
+    `date` que el adaptador jsonb no sabe convertir solo. `id_num` (migración 0011) solo
+    viene relleno para el sobrante del escaneo diario (tope por pasada, no el backlog
+    inicial) — permite, al publicarse, marcar también `salto_ids` como 'published'."""
     async with get_pool().connection() as conn:
         await conn.execute(
-            "INSERT INTO salto_backlog (url, fields, scheduled_at) VALUES (%s, %s::jsonb, %s)",
-            (url, json.dumps(fields, default=str), scheduled_at),
+            "INSERT INTO salto_backlog (url, fields, scheduled_at, id_num) VALUES (%s, %s::jsonb, %s, %s)",
+            (url, json.dumps(fields, default=str), scheduled_at, id_num),
         )
 
 
@@ -504,7 +506,7 @@ async def due_salto_backlog(now: datetime) -> list[dict[str, Any]]:
     async with get_pool().connection() as conn:
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
-                "SELECT id, url, fields FROM salto_backlog "
+                "SELECT id, url, fields, id_num FROM salto_backlog "
                 "WHERE scheduled_at <= %s AND published_identifier IS NULL "
                 "ORDER BY scheduled_at ASC",
                 (now,),
@@ -512,12 +514,19 @@ async def due_salto_backlog(now: datetime) -> list[dict[str, Any]]:
             return await cur.fetchall()
 
 
-async def mark_salto_backlog_published(backlog_id: int, identifier: str) -> None:
+async def mark_salto_backlog_published(backlog_id: int, identifier: str, id_num: int | None = None) -> None:
     async with get_pool().connection() as conn:
         await conn.execute(
             "UPDATE salto_backlog SET published_identifier = %s WHERE id = %s",
             (identifier, backlog_id),
         )
+        # Sobrante del escaneo diario (ver enqueue_salto_backlog): sin esto, su fila en
+        # `salto_ids` se quedaría en 'queued' para siempre en vez de reflejar que ya salió.
+        if id_num is not None:
+            await conn.execute(
+                "UPDATE salto_ids SET status = 'published', identifier = %s, checked_at = now() WHERE id_num = %s",
+                (identifier, id_num),
+            )
 
 
 async def list_salto_retry_ids() -> list[int]:
