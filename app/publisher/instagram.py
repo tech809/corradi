@@ -197,7 +197,13 @@ async def publish_reel(opp: dict[str, Any]) -> str:
     caption = build_caption(opp)
     create = await _post(
         f"{cfg.instagram_business_id}/media",
-        {"media_type": "REELS", "video_url": reel_url(opp["identifier"]), "caption": caption},
+        {
+            "media_type": "REELS", "video_url": reel_url(opp["identifier"]), "caption": caption,
+            # Sin esto, el Reel se cuela TAMBIÉN en el feed normal, duplicado con el post
+            # de imagen que ya sale ahí — a petición expresa: el feed es solo para el post,
+            # el Reel se queda en su propia pestaña.
+            "share_to_feed": "false",
+        },
     )
     creation_id = create["id"]
     log.info("Contenedor de Reel creado: %s (%s)", creation_id, opp["identifier"])
