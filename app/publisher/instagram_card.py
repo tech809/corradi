@@ -132,7 +132,7 @@ def _gear_draw(d: ImageDraw.ImageDraw, size: int, rgba) -> None:
 _ICON_DRAW = {
     "YOUTH_EXCHANGE": _compass_draw,
     "TRAINING_COURSE": _cap_draw,
-    "ECS": _heart_draw,
+    "VOLUNTEERING": _heart_draw,
     "WORKSHOP": _gear_draw,
 }
 
