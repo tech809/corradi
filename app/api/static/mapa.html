@@ -346,10 +346,12 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
 }
 .bottom-dock.show { transform: translateY(0); opacity: 1; }
 .stat-pill {
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center; gap: 14px; text-decoration: none; cursor: pointer;
   background: var(--glass-strong); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--line-soft); border-radius: 999px; padding: 10px 18px; box-shadow: var(--shadow-2);
+  transition: box-shadow .2s var(--ease), transform .2s var(--ease-out);
 }
+.stat-pill:hover { box-shadow: var(--shadow-3); transform: translateY(-1px); }
 .stat-pill .s { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
 .stat-pill .s b { font-family: var(--font-display); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
 .stat-pill .s small { font-size: 9px; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .05em; margin-top: 1px; }
@@ -605,13 +607,13 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     </div>
 
     <div class="bottom-dock" id="bottomDock">
-      <div class="stat-pill">
+      <a class="stat-pill" href="/estadisticas" title="Ver estadísticas completas">
         <div class="s"><b id="statOpen">…</b><small>abiertas</small></div>
         <div class="divider"></div>
         <div class="s"><b id="statPublished">…</b><small>publicadas</small></div>
         <div class="divider"></div>
         <div class="s"><b id="statVisits">…</b><small>visitas</small></div>
-      </div>
+      </a>
       <a class="ig-cta" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener">
         <span id="igIconSlot"></span>Entérate en Instagram
       </a>
@@ -1067,9 +1069,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
       '<div class="actions">' +
-        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">' + ICON.info + 'Más info</a>' : "") +
-        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">' + ICON.doc + 'Infopack</a>' : "") +
-        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">' + ICON.pencil + 'Form</a>' : "") +
+        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener" data-click="info">' + ICON.info + 'Más info</a>' : "") +
+        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener" data-click="infopack">' + ICON.doc + 'Infopack</a>' : "") +
+        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Form</a>' : "") +
       "</div>" +
     "</article>";
   }
@@ -1129,9 +1131,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
       '<div class="actions">' +
-        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener">' + ICON.info + 'Más info</a>' : "") +
-        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener">' + ICON.doc + 'Infopack</a>' : "") +
-        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener">' + ICON.pencil + 'Form</a>' : "") +
+        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener" data-click="info">' + ICON.info + 'Más info</a>' : "") +
+        (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener" data-click="infopack">' + ICON.doc + 'Infopack</a>' : "") +
+        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Form</a>' : "") +
       "</div>" +
       (o.approx_location ? '<div class="approx">' + ICON.pin + 'Ubicación aproximada (país)</div>' : "") +
       "</div>";
@@ -1405,6 +1407,20 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       })
       .catch(function () {});
   }
+
+  // Beacon agregado de clics en Más info/Infopack/Form (delegado en document: las
+  // tarjetas se regeneran constantemente con innerHTML, así que un listener por botón se
+  // perdería en cada render). sendBeacon no bloquea la navegación del propio enlace.
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-click]");
+    if (!el) return;
+    var body = JSON.stringify({ kind: el.dataset.click });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon("/api/click", new Blob([body], { type: "application/json" }));
+    } else {
+      fetch("/api/click", { method: "POST", headers: { "Content-Type": "application/json" }, body: body, keepalive: true });
+    }
+  });
 
   function wire() {
     document.getElementById("igPopupClose").addEventListener("click", function () { document.getElementById("igPopup").classList.remove("show"); });

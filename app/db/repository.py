@@ -319,6 +319,33 @@ async def bump_visit() -> dict[str, int]:
         return {"visits": visits, "published": row[0] if row else 0}
 
 
+_CLICK_KINDS = ("info", "form", "infopack")
+
+
+async def bump_click(kind: str) -> None:
+    """Contador agregado de clics en los enlaces salientes de cada tarjeta (Más info / Form
+    / Infopack) — mismo mecanismo que `bump_visit`, reutilizando `counters` en vez de una
+    tabla nueva. Agregado puro: no se guarda a qué oportunidad ni quién hizo clic."""
+    if kind not in _CLICK_KINDS:
+        return
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "INSERT INTO counters (key, value) VALUES (%s, 1) "
+            "ON CONFLICT (key) DO UPDATE SET value = counters.value + 1",
+            (f"click_{kind}",),
+        )
+
+
+async def get_click_counts() -> dict[str, int]:
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "SELECT key, value FROM counters WHERE key = ANY(%s)",
+            ([f"click_{k}" for k in _CLICK_KINDS],),
+        )
+        rows = dict(await cur.fetchall())
+        return {k: rows.get(f"click_{k}", 0) for k in _CLICK_KINDS}
+
+
 async def bump_chat_query_counter() -> None:
     """Contador agregado de preguntas hechas al chat del mapa (para el informe de impacto
     del KA210) — NO se guarda el texto de la pregunta, solo este total (docs/chatbot_mapa.md §6)."""
@@ -500,6 +527,16 @@ async def count_total_published() -> int:
         return (await cur.fetchone())[0]
 
 
+async def get_total_visits() -> int:
+    """El contador acumulado de siempre (`counters.visits`), el mismo que pie del mapa —
+    para la tarjeta KPI de /estadisticas: el histórico diario (`daily_visits`) es reciente,
+    así que este número cubre lo que el desglose por día todavía no puede reconstruir."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute("SELECT value FROM counters WHERE key = 'visits'")
+        row = await cur.fetchone()
+        return row[0] if row else 0
+
+
 async def country_breakdown_all(limit: int = 10) -> list[dict[str, Any]]:
     """Top países de todo el histórico (no solo "desde hace N días" como
     `country_breakdown_since`, que alimenta el resumen semanal) — para el ranking de la
@@ -537,12 +574,20 @@ async def monthly_counts(months: int = 12) -> list[dict[str, Any]]:
 
 async def organiser_breakdown(limit: int = 200) -> list[dict[str, Any]]:
     """Asociaciones/organizadores capturados (campo `organiser_name`, ~24% de cobertura
-    hoy) con su recuento total y de abiertas ahora mismo — para la pestaña Asociaciones."""
+    hoy) con su recuento total, abiertas ahora mismo, y el listado completo de sus
+    proyectos (histórico + abiertos) para el desplegable de la pestaña Asociaciones —
+    ordenado por nº de proyectos descendente."""
     async with get_pool().connection() as conn:
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
                 "SELECT organiser_name, count(*) AS total, "
-                "count(*) FILTER (WHERE status = 'open') AS open_n FROM projects "
+                "count(*) FILTER (WHERE status = 'open') AS open_n, "
+                "json_agg(json_build_object("
+                "  'identifier', identifier, 'title', title, 'type', type, "
+                "  'status', status, 'country_code', country_code, "
+                "  'application_deadline', application_deadline"
+                ") ORDER BY status = 'open' DESC, created DESC) AS projects "
+                "FROM projects "
                 "WHERE organiser_name IS NOT NULL AND organiser_name != '' "
                 "GROUP BY organiser_name ORDER BY total DESC LIMIT %s",
                 (limit,),

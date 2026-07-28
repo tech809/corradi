@@ -174,6 +174,19 @@ async def visit() -> dict[str, int]:
     return await repo.bump_visit()
 
 
+class ClickRequest(BaseModel):
+    kind: str
+
+
+@app.post("/api/click")
+async def click(payload: ClickRequest) -> dict[str, str]:
+    """Beacon de clic en un enlace saliente de una tarjeta (Más info / Form / Infopack).
+    Agregado puro, igual que /api/visit: no se guarda a qué oportunidad ni quién clicó,
+    solo suma al contador de ese tipo de enlace (repo.bump_click valida `kind`)."""
+    await repo.bump_click(payload.kind)
+    return {"ok": "1"}
+
+
 # ── Chat del mapa (docs/chatbot_mapa.md) ─────────────────────────────────────────────────
 # Rate-limit por IP, ventana deslizante EN MEMORIA: el proceso `api` corre como un único
 # uvicorn sin `--workers` (docker/api.Dockerfile), así que un dict basta — no hace falta
@@ -255,21 +268,31 @@ async def api_stats(response: Response) -> dict[str, Any]:
     response.headers["Cache-Control"] = "public, max-age=300"
     total = await repo.count_total_published()
     open_n = await repo.count_open()
-    countries = await repo.country_breakdown_all(limit=10)
+    countries = await repo.country_breakdown_all(limit=40)
     months = await repo.monthly_counts(months=12)
     organisers = await repo.organiser_breakdown(limit=200)
-    closed = await repo.list_closed(limit=60)
+    closed = await repo.list_closed(limit=200)
     visits = await repo.daily_visits_since(days=400)
+    total_visits = await repo.get_total_visits()
+    clicks = await repo.get_click_counts()
     return {
         "total_published": total,
         "total_open": open_n,
+        "total_visits": total_visits,
+        "total_clicks": sum(clicks.values()),
+        "clicks_by_kind": clicks,
         "top_countries": [
-            {"country_code": c["country_code"], "country_name": _PAISES_ES.get(c["country_code"], c["country_code"]), "n": c["n"]}
+            {
+                "country_code": c["country_code"],
+                "country_name": _PAISES_ES.get(c["country_code"], c["country_code"]),
+                "n": c["n"],
+                "centroid": geo.country_centroid(c["country_code"]),
+            }
             for c in countries
         ],
         "monthly": [{"month": m["month"], "n": m["n"]} for m in months],
         "organisers": [
-            {"name": o["organiser_name"], "total": o["total"], "open": o["open_n"]}
+            {"name": o["organiser_name"], "total": o["total"], "open": o["open_n"], "projects": o["projects"]}
             for o in organisers
         ],
         "closed": [_serialize(r) for r in closed],

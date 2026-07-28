@@ -8,6 +8,8 @@
 <meta name="robots" content="noindex">
 <link rel="canonical" href="https://mapa.proactivefuture.eu/estadisticas">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'><rect width='4' height='3' fill='%23AA151B'/><rect y='.75' width='4' height='1.5' fill='%23F1BF00'/></svg>">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
 @font-face { font-family:"Sora"; font-weight:400; src:url("/fonts/Sora-Regular.ttf") format("truetype"); font-display:swap; }
 @font-face { font-family:"Sora"; font-weight:600; src:url("/fonts/Sora-SemiBold.ttf") format("truetype"); font-display:swap; }
@@ -165,16 +167,46 @@ header.top {
 
 /* ── Asociaciones ─────────────────────────────────────────────────────── */
 .assoc-list { display: flex; flex-direction: column; gap: 2px; }
-.assoc-row { display: flex; align-items: center; gap: 14px; padding: 12px 4px; border-bottom: 1px solid var(--line-soft); }
-.assoc-row:last-child { border-bottom: 0; }
+.assoc-item { border-bottom: 1px solid var(--line-soft); }
+.assoc-item:last-child { border-bottom: 0; }
+.assoc-row {
+  display: flex; align-items: center; gap: 14px; padding: 12px 4px; cursor: pointer; border: 0; background: none;
+  width: 100%; text-align: left; font: inherit; color: inherit; border-radius: 10px;
+  transition: background .15s var(--ease);
+}
+.assoc-row:hover { background: var(--surface-sunk); }
 .assoc-avatar {
   width: 38px; height: 38px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
   background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand); font: 700 13px var(--font-display);
 }
 .assoc-name { flex: 1; min-width: 0; font-weight: 650; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.assoc-counts { display: flex; gap: 6px; flex: none; }
+.assoc-counts { display: flex; gap: 6px; flex: none; align-items: center; }
 .assoc-pill { font: 700 11px var(--font-body); padding: 4px 10px; border-radius: 999px; background: var(--surface-sunk); color: var(--ink-soft); white-space: nowrap; }
 .assoc-pill.open { background: color-mix(in srgb, var(--ecs) 15%, transparent); color: var(--ecs); }
+.assoc-chevron { flex: none; color: var(--ink-faint); transition: transform .2s var(--ease); font-size: 11px; }
+.assoc-item[data-open="true"] .assoc-chevron { transform: rotate(90deg); }
+.assoc-projects { display: none; flex-direction: column; gap: 6px; padding: 2px 4px 14px 52px; }
+.assoc-item[data-open="true"] .assoc-projects { display: flex; }
+.assoc-proj {
+  position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 12px 8px 14px;
+  background: var(--surface-sunk); border-radius: 10px; font-size: 12.5px;
+}
+.assoc-proj::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--c, var(--other)); }
+.assoc-proj[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
+.assoc-proj[data-type="TRAINING_COURSE"] { --c: var(--tc); }
+.assoc-proj[data-type="VOLUNTEERING"] { --c: var(--ecs); }
+.assoc-proj .p-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assoc-proj .p-status { flex: none; font: 700 10px var(--font-body); text-transform: uppercase; letter-spacing: .03em; padding: 3px 8px; border-radius: 999px; color: var(--ink-faint); background: var(--surface); }
+.assoc-proj .p-status.open { color: var(--ecs); }
+
+/* ── Ver más ──────────────────────────────────────────────────────────── */
+.more-btn {
+  display: block; margin: 16px auto 0; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink-soft);
+  font: 650 12.5px var(--font-body); padding: 9px 20px; border-radius: 999px; cursor: pointer; transition: border-color .15s var(--ease), color .15s var(--ease);
+}
+.more-btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); color: var(--brand); }
+.more-btn[hidden] { display: none; }
+[data-hidden-extra="true"] { display: none !important; }
 
 /* ── Archivo ──────────────────────────────────────────────────────────── */
 .archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
@@ -189,6 +221,13 @@ header.top {
 .arch-card .badge { display: inline-block; font: 700 10.5px var(--font-body); padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--c, var(--other)) 15%, transparent); color: var(--c, var(--other)); margin-bottom: 8px; }
 .arch-card .title { font-weight: 700; font-size: 13.5px; margin-bottom: 5px; line-height: 1.35; }
 .arch-card .meta { font-size: 12px; color: var(--ink-faint); }
+
+/* ── Mapa de calor ────────────────────────────────────────────────────── */
+#heatmap { height: 380px; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-sunk); }
+.heat-legend { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); }
+.heat-legend .bar { flex: 1; max-width: 220px; height: 8px; border-radius: 999px; background: linear-gradient(90deg, #f2c14e, #a83e37); }
+.leaflet-tile-pane { filter: saturate(.82) brightness(1.02) contrast(.97); }
+.heat-tip { font: 650 11.5px var(--font-body); }
 
 .empty { color: var(--ink-faint); font-size: 13.5px; padding: 8px 0; }
 footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; padding-top: 16px; }
@@ -272,6 +311,7 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
       </div>
     </div>
     <div class="assoc-list" id="associations"></div>
+    <button type="button" class="more-btn" id="assocMore" hidden></button>
   </section>
 
   <section class="card">
@@ -282,11 +322,25 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
       </div>
     </div>
     <div class="archive-grid" id="archive"></div>
+    <button type="button" class="more-btn" id="archiveMore" hidden></button>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>Mapa de calor por país</h2>
+        <p class="hint">Concentración de oportunidades publicadas, histórico completo.</p>
+      </div>
+    </div>
+    <div id="heatmap"></div>
+    <div class="heat-legend"><span>Menos</span><span class="bar"></span><span>Más</span></div>
   </section>
 
   <footer class="foot">Corradi Erasmus+ · <a href="/mapa">mapa.proactivefuture.eu</a></footer>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
 var DIAS = ["dom","lun","mar","mié","jue","vie","sáb"];
@@ -318,14 +372,17 @@ function tile(n, label, color) {
   return '<div class="tile" style="--c:' + color + '"><span class="n">' + n + '</span><span class="lbl">' + esc(label) + '</span></div>';
 }
 
+var PAGE_SIZE = 8;
+var STATUS_ES = { open: "Abierta", closed: "Cerrada", expired: "Expirada" };
+
 function render(data) {
   STATE.daily = data.daily_visits || [];
 
   document.getElementById("tiles").innerHTML =
     tile(data.total_published, "Proyectos publicados (histórico)", "var(--brand)") +
     tile(data.total_open, "Abiertas ahora mismo", "var(--ecs)") +
-    tile(data.organisers.length, "Asociaciones capturadas", "var(--brass)") +
-    tile(data.top_countries.length, "Países distintos", "var(--ye)");
+    tile(data.total_clicks, "Clics a enlaces (info/form/infopack)", "var(--brass)") +
+    tile(data.total_visits, "Visitas totales (histórico)", "var(--ye)");
 
   var maxMonth = Math.max.apply(null, data.monthly.map(function (m) { return m.n; }).concat([1]));
   document.getElementById("timeline").innerHTML = data.monthly.map(function (m) {
@@ -333,31 +390,123 @@ function render(data) {
     return '<div class="tl-bar"><div class="v">' + m.n + '</div><div class="bar" style="height:' + Math.max(h, 2) + '%"></div><div class="m">' + monthLabel(m.month) + '</div></div>';
   }).join("") || '<p class="empty">Sin datos todavía.</p>';
 
-  var maxCountry = Math.max.apply(null, data.top_countries.map(function (c) { return c.n; }).concat([1]));
-  document.getElementById("countries").innerHTML = data.top_countries.map(function (c, i) {
+  var top10 = data.top_countries.slice(0, 10);
+  var maxCountry = Math.max.apply(null, top10.map(function (c) { return c.n; }).concat([1]));
+  document.getElementById("countries").innerHTML = top10.map(function (c, i) {
     var pct = Math.round((c.n / maxCountry) * 100);
     return '<div class="rank-row"><span class="pos">' + (i + 1) + '</span><span class="name">' + esc(c.country_name) + '</span><span class="n">' + c.n + '</span>' +
       '<div class="bar-wrap"><div class="fill" style="width:' + pct + '%"></div></div></div>';
   }).join("") || '<p class="empty">Sin datos todavía.</p>';
 
-  if (data.organisers.length) {
-    document.getElementById("associations").innerHTML = data.organisers.map(function (o) {
-      return '<div class="assoc-row"><div class="assoc-avatar">' + esc(initials(o.name)) + '</div>' +
-        '<div class="assoc-name">' + esc(o.name) + '</div>' +
-        '<div class="assoc-counts"><span class="assoc-pill">' + o.total + ' total</span><span class="assoc-pill open">' + o.open + ' abiertas</span></div></div>';
-    }).join("");
-  } else {
-    document.getElementById("associations").innerHTML = '<p class="empty">Todavía no hay organizadores capturados.</p>';
-  }
-
-  document.getElementById("archive").innerHTML = data.closed.map(function (o) {
-    return '<div class="arch-card" data-type="' + esc(o.type || "") + '"><span class="badge">' + esc(TIPOS[o.type] || o.type || "") + '</span>' +
-      '<div class="title">' + esc(o.title) + '</div>' +
-      '<div class="meta">' + esc(o.location || o.country_code || "") + '</div></div>';
-  }).join("") || '<p class="empty">Todavía no hay oportunidades archivadas.</p>';
+  renderAssociations(data.organisers);
+  renderArchive(data.closed);
+  renderHeatmap(data.top_countries);
 
   wireRangeSeg();
   renderChart();
+}
+
+function projRowHtml(p) {
+  var isOpen = p.status === "open";
+  return '<div class="assoc-proj" data-type="' + esc(p.type || "") + '">' +
+    '<span class="p-title">' + esc(p.title) + '</span>' +
+    '<span class="p-status' + (isOpen ? " open" : "") + '">' + esc(STATUS_ES[p.status] || p.status || "") + '</span>' +
+    '</div>';
+}
+
+function renderAssociations(organisers) {
+  var box = document.getElementById("associations");
+  var moreBtn = document.getElementById("assocMore");
+  if (!organisers.length) {
+    box.innerHTML = '<p class="empty">Todavía no hay organizadores capturados.</p>';
+    moreBtn.hidden = true;
+    return;
+  }
+  // Ya vienen ordenados por nº de proyectos desc (repo.organiser_breakdown), de más a menos.
+  box.innerHTML = organisers.map(function (o, i) {
+    var hiddenAttr = i >= PAGE_SIZE ? ' data-hidden-extra="true"' : "";
+    return '<div class="assoc-item"' + hiddenAttr + ' data-idx="' + i + '">' +
+      '<button type="button" class="assoc-row">' +
+        '<div class="assoc-avatar">' + esc(initials(o.name)) + '</div>' +
+        '<div class="assoc-name">' + esc(o.name) + '</div>' +
+        '<div class="assoc-counts">' +
+          '<span class="assoc-pill">' + o.total + ' total</span>' +
+          '<span class="assoc-pill open">' + o.open + ' abiertas</span>' +
+          '<span class="assoc-chevron">▶</span>' +
+        '</div>' +
+      '</button>' +
+      '<div class="assoc-projects">' + (o.projects || []).map(projRowHtml).join("") + '</div>' +
+    '</div>';
+  }).join("");
+
+  Array.prototype.forEach.call(box.querySelectorAll(".assoc-row"), function (btn) {
+    btn.addEventListener("click", function () {
+      var item = btn.closest(".assoc-item");
+      item.setAttribute("data-open", item.getAttribute("data-open") === "true" ? "false" : "true");
+    });
+  });
+
+  setupMore(moreBtn, box.querySelectorAll(".assoc-item"), organisers.length, "asociación", "asociaciones");
+}
+
+function renderArchive(closed) {
+  var box = document.getElementById("archive");
+  var moreBtn = document.getElementById("archiveMore");
+  if (!closed.length) {
+    box.innerHTML = '<p class="empty">Todavía no hay oportunidades archivadas.</p>';
+    moreBtn.hidden = true;
+    return;
+  }
+  box.innerHTML = closed.map(function (o, i) {
+    var hiddenAttr = i >= PAGE_SIZE ? ' data-hidden-extra="true"' : "";
+    return '<div class="arch-card" data-type="' + esc(o.type || "") + '"' + hiddenAttr + '><span class="badge">' + esc(TIPOS[o.type] || o.type || "") + '</span>' +
+      '<div class="title">' + esc(o.title) + '</div>' +
+      '<div class="meta">' + esc(o.location || o.country_code || "") + '</div></div>';
+  }).join("");
+
+  setupMore(moreBtn, box.querySelectorAll(".arch-card"), closed.length, "oportunidad archivada", "oportunidades archivadas");
+}
+
+function setupMore(btn, items, total, singular, plural) {
+  if (total <= PAGE_SIZE) { btn.hidden = true; return; }
+  var remaining = total - PAGE_SIZE;
+  btn.hidden = false;
+  btn.textContent = "Ver " + remaining + " " + (remaining === 1 ? singular : plural) + " más";
+  btn.onclick = function () {
+    Array.prototype.forEach.call(items, function (el) { el.removeAttribute("data-hidden-extra"); });
+    btn.hidden = true;
+  };
+}
+
+function heatColor(t) {
+  // Interpola entre un ámbar suave (bajo) y un rojo profundo (alto) -- mismo lenguaje que
+  // la leyenda del propio degradado CSS (.heat-legend .bar).
+  var a = [242, 193, 78], b = [168, 62, 55];
+  var rgb = a.map(function (c, i) { return Math.round(c + (b[i] - c) * t); });
+  return "rgb(" + rgb.join(",") + ")";
+}
+
+function renderHeatmap(countries) {
+  var withCoords = countries.filter(function (c) { return c.centroid; });
+  var el = document.getElementById("heatmap");
+  if (!withCoords.length || typeof L === "undefined") {
+    el.innerHTML = '<p class="empty" style="padding:16px">Sin datos de ubicación todavía.</p>';
+    return;
+  }
+  var map = L.map(el, { scrollWheelZoom: false, attributionControl: false }).setView([50, 12], 3.6);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    subdomains: "abcd", maxZoom: 8,
+  }).addTo(map);
+
+  var maxN = Math.max.apply(null, withCoords.map(function (c) { return c.n; }));
+  withCoords.forEach(function (c) {
+    var t = maxN > 0 ? c.n / maxN : 0;
+    var radius = 8 + Math.sqrt(c.n) * 5.5;
+    L.circleMarker([c.centroid[0], c.centroid[1]], {
+      radius: radius, color: heatColor(t), weight: 1, fillColor: heatColor(t), fillOpacity: 0.55,
+    }).bindTooltip('<span class="heat-tip">' + esc(c.country_name) + " · " + c.n + "</span>", { direction: "top" })
+      .addTo(map);
+  });
 }
 
 function wireRangeSeg() {
