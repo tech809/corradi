@@ -150,7 +150,17 @@ header.top {
 .rank-row .pos { color: var(--ink-faint); font-weight: 700; font-size: 12px; }
 
 /* ── Asociaciones ─────────────────────────────────────────────────────── */
+.assoc-search {
+  display: flex; align-items: center; gap: 8px; background: var(--surface-sunk); border: 1px solid var(--line-soft);
+  border-radius: 999px; padding: 9px 16px; flex: none; width: 240px; max-width: 100%;
+}
+.assoc-search svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
+.assoc-search input {
+  border: 0; background: none; outline: none; font: 500 13px var(--font-body); color: var(--ink); width: 100%; min-width: 0;
+}
+.assoc-search input::placeholder { color: var(--ink-faint); }
 .assoc-list { display: flex; flex-direction: column; gap: 2px; }
+[data-search-hide="true"] { display: none !important; }
 .assoc-item { border-bottom: 1px solid var(--line-soft); }
 .assoc-item:last-child { border-bottom: 0; }
 .assoc-row {
@@ -182,6 +192,12 @@ header.top {
 .assoc-proj .p-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .assoc-proj .p-status { flex: none; font: 700 10px var(--font-body); text-transform: uppercase; letter-spacing: .03em; padding: 3px 8px; border-radius: 999px; color: var(--ink-faint); background: var(--surface); }
 .assoc-proj .p-status.open { color: var(--ecs); }
+.assoc-proj .p-map {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; font: 700 11px var(--font-body); color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface)); padding: 4px 10px; border-radius: 999px; text-decoration: none;
+  transition: background .15s var(--ease);
+}
+.assoc-proj .p-map:hover { background: color-mix(in srgb, var(--brand) 18%, var(--surface)); }
 
 /* ── Ver más ──────────────────────────────────────────────────────────── */
 .more-btn {
@@ -297,6 +313,10 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
         <h2>Asociaciones</h2>
         <p class="hint">Organizadores capturados en las fichas (dato parcial, se rellena con el tiempo).</p>
       </div>
+      <div class="assoc-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="search" id="assocSearch" placeholder="Buscar asociación…" autocomplete="off">
+      </div>
     </div>
     <div class="assoc-list" id="associations"></div>
     <button type="button" class="more-btn" id="assocMore" hidden></button>
@@ -397,20 +417,29 @@ function render(data) {
 
 function projRowHtml(p) {
   var isOpen = p.status === "open";
+  // "Ver en mapa" solo tiene sentido si la oportunidad sigue abierta: el mapa público
+  // (/api/map) solo carga las abiertas, así que un enlace a una cerrada no encontraría nada.
+  var mapLink = isOpen
+    ? '<a class="p-map" href="/mapa?o=' + esc(p.identifier) + '" target="_blank" rel="noopener">Ver en mapa →</a>'
+    : "";
   return '<div class="assoc-proj" data-type="' + esc(p.type || "") + '">' +
     '<span class="p-title">' + esc(p.title) + '</span>' +
     '<span class="p-status' + (isOpen ? " open" : "") + '">' + esc(STATUS_ES[p.status] || p.status || "") + '</span>' +
+    mapLink +
     '</div>';
 }
 
 function renderAssociations(organisers) {
   var box = document.getElementById("associations");
   var moreBtn = document.getElementById("assocMore");
+  var searchWrap = document.querySelector(".assoc-search");
   if (!organisers.length) {
     box.innerHTML = '<p class="empty">Todavía no hay organizadores capturados.</p>';
     moreBtn.hidden = true;
+    if (searchWrap) searchWrap.hidden = true;
     return;
   }
+  if (searchWrap) searchWrap.hidden = false;
   // Ya vienen ordenados por nº de proyectos desc (repo.organiser_breakdown), de más a menos.
   box.innerHTML = organisers.map(function (o, i) {
     var hiddenAttr = i >= PAGE_SIZE ? ' data-hidden-extra="true"' : "";
@@ -436,6 +465,7 @@ function renderAssociations(organisers) {
   });
 
   setupMore(moreBtn, box.querySelectorAll(".assoc-item"), organisers.length, "asociación", "asociaciones");
+  wireAssocSearch(box, moreBtn, organisers.length);
 }
 
 function renderArchive(closed) {
@@ -457,6 +487,7 @@ function renderArchive(closed) {
 }
 
 function setupMore(btn, items, total, singular, plural) {
+  btn.dataset.expanded = "false";
   if (total <= PAGE_SIZE) { btn.hidden = true; return; }
   var remaining = total - PAGE_SIZE;
   btn.hidden = false;
@@ -464,7 +495,34 @@ function setupMore(btn, items, total, singular, plural) {
   btn.onclick = function () {
     Array.prototype.forEach.call(items, function (el) { el.removeAttribute("data-hidden-extra"); });
     btn.hidden = true;
+    btn.dataset.expanded = "true";
   };
+}
+
+// Filtra las asociaciones por nombre según se escribe -- mientras se busca se ignora la
+// paginación de "ver más" (se enseñan todos los resultados que encajen, no solo la primera
+// página) y se restaura tal cual estaba al borrar la búsqueda.
+function wireAssocSearch(box, moreBtn, total) {
+  var input = document.getElementById("assocSearch");
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    var items = box.querySelectorAll(".assoc-item");
+    if (!q) {
+      Array.prototype.forEach.call(items, function (item) { item.removeAttribute("data-search-hide"); });
+      if (moreBtn.dataset.expanded !== "true" && total > PAGE_SIZE) {
+        Array.prototype.forEach.call(items, function (item, i) {
+          if (i >= PAGE_SIZE) item.setAttribute("data-hidden-extra", "true");
+        });
+        moreBtn.hidden = false;
+      }
+      return;
+    }
+    moreBtn.hidden = true;
+    Array.prototype.forEach.call(items, function (item) {
+      var name = item.querySelector(".assoc-name").textContent.toLowerCase();
+      item.setAttribute("data-search-hide", name.indexOf(q) === -1 ? "true" : "false");
+    });
+  });
 }
 
 // Mapa de calor "de verdad": una nube difusa por densidad de puntos reales (ciudad si se
