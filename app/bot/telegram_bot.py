@@ -5,6 +5,7 @@ import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
+from telegram.error import NetworkError
 from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters,
 )
@@ -348,6 +349,18 @@ async def on_error(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Red de seguridad: cualquier excepción no capturada en un handler llega aquí.
     Sin esto, un fallo dejaba al usuario sin respuesta y al admin sin enterarse."""
     log.exception("Excepción no capturada en un handler", exc_info=ctx.error)
+
+    # Un NetworkError SIN `update` asociado no viene de procesar un mensaje real: es el
+    # propio bucle interno de long-polling de Telegram (Updater._network_loop_retry)
+    # tropezando con un corte de conexión pasajero -- la librería ya reintenta sola y se
+    # recupera sin ayuda (se ve en los logs: la siguiente getUpdates, unos segundos después,
+    # vuelve a dar 200 OK). Avisar al admin de esto cada vez es ruido puro, no una incidencia
+    # real; si en cambio el NetworkError salta procesando un update sí es señal de que algo
+    # se ha caído a media faena y merece el aviso de siempre.
+    if update is None and isinstance(ctx.error, NetworkError):
+        log.info("NetworkError transitorio en el polling (sin update asociado) — no se avisa, la librería ya reintenta sola.")
+        return
+
     await alerts.alert(
         "Error no controlado en el bot",
         f"{type(ctx.error).__name__}: {ctx.error}",

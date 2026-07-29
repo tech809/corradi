@@ -208,7 +208,11 @@ header.top {
 
 /* ── Mapa de calor ────────────────────────────────────────────────────── */
 #heatmap { position: relative; height: 420px; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-sunk); }
-#heatmap canvas.heat-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+/* z-index explícito: los panes de Leaflet (tiles/overlay/marker/popup) van de 200 a 700 con
+   z-index EXPLÍCITO, así que un canvas con z-index:auto pinta por DEBAJO suyo aunque esté
+   detrás en el DOM -- por eso el calor no se veía. 750 lo deja por encima de todos los
+   panes y por debajo de los controles de zoom (leaflet-control-container, z-index 1000). */
+#heatmap canvas.heat-canvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 750; }
 .heat-legend { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); }
 .heat-legend .bar { flex: 1; max-width: 220px; height: 8px; border-radius: 999px; background: linear-gradient(90deg, rgba(53,88,143,.5), #f2c14e, #d97706, #a83e37); }
 .leaflet-tile-pane { filter: saturate(.75) brightness(1.04) contrast(.96); }
