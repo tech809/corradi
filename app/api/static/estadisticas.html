@@ -505,7 +505,7 @@ function renderHeatmap(points) {
     el.innerHTML = '<p class="empty" style="padding:16px">Sin datos de ubicación todavía.</p>';
     return;
   }
-  var map = L.map(el, { attributionControl: false }).setView([48, 15], 4);
+  var map = L.map(el, { attributionControl: false }).setView([48, 15], 5);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
     subdomains: "abcd", maxZoom: 9,
   }).addTo(map);
