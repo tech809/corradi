@@ -52,13 +52,16 @@ principal.
 t4g.small: **gratis hasta 31-dic-2026** (free trial AWS, 750 h/mes) y ~17-19 €/mes después.
 EBS gp3 30 GB ~2,5 €/mes. Sin NAT Gateway. La IP elástica es gratis mientras esté asociada.
 
-## Resumen diario y semanal (cron)
+## Trabajos programados (cron)
 
-Por SSM (ver acceso abajo), añade los dos crons en la instancia:
+La lista completa de crons en producción (resumen diario/semanal, scraping de SALTO-YOUTH,
+comprobación de formularios cerrados, reintento de Instagram, backup de BD) está documentada
+en el README principal, sección "Producción (AWS EC2)" — este fichero no la duplica para no
+irse desincronizando otra vez. Todos siguen el mismo patrón, por SSM (ver acceso abajo):
 ```bash
 (crontab -l 2>/dev/null; \
- echo "0 20 * * * docker exec corradi-bot python -m app.scheduler.daily_summary"; \
- echo "30 20 * * 0 docker exec corradi-bot python -m app.scheduler.weekly_summary" \
+ echo "0 20 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.daily_summary"; \
+ echo "30 20 * * 0 cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.weekly_summary" \
 ) | crontab -
 ```
 (o usa EventBridge Scheduler + una tarea, como evolución).
