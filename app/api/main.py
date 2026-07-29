@@ -275,6 +275,7 @@ async def api_stats(response: Response) -> dict[str, Any]:
     visits = await repo.daily_visits_since(days=400)
     total_visits = await repo.get_total_visits()
     clicks = await repo.get_click_counts()
+    points = await repo.heatmap_points()
     return {
         "total_published": total,
         "total_open": open_n,
@@ -297,6 +298,7 @@ async def api_stats(response: Response) -> dict[str, Any]:
         ],
         "closed": [_serialize(r) for r in closed],
         "daily_visits": [{"day": v["day"], "n": v["n"]} for v in visits],
+        "heatmap_points": [[float(p["latitude"]), float(p["longitude"])] for p in points],
     }
 
 

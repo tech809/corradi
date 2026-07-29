@@ -626,6 +626,20 @@ async def list_closed(limit: int = 60) -> list[dict[str, Any]]:
 
 
 
+async def heatmap_points() -> list[dict[str, Any]]:
+    """Coordenadas reales (ciudad si se conoce, centro del país si no) de TODAS las
+    oportunidades publicadas con lat/lon, cualquier estado — para el mapa de calor de
+    /estadisticas. A diferencia del ranking por país, esto da densidad real por ciudad/
+    región en vez de un único punto agregado por país."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT latitude, longitude FROM projects "
+                "WHERE published_telegram = TRUE AND latitude IS NOT NULL AND longitude IS NOT NULL"
+            )
+            return await cur.fetchall()
+
+
 async def enqueue_salto_backlog(url: str, fields: dict, scheduled_at: datetime, id_num: int | None = None) -> None:
     """Cola temporal (`salto_backlog`, ver migración 0007) para publicar el backlog inicial
     de SALTO-YOUTH de forma escalonada. `fields` ya viene normalizado por
