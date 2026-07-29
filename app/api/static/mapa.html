@@ -1054,7 +1054,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var located = hasCoords(o);
     return '<article class="card' + (located ? "" : " unlocated") + '" data-id="' + esc(o.identifier) + '" data-type="' + esc(o.type || "") + '" tabindex="0">' +
       '<div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
-        (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") + "</div>" +
+        (isNew(o) ? '<span class="new-tag">Nuevo hoy</span>' : "") + "</div>" +
         '<div class="corner-actions">' +
           (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
           '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
@@ -1117,7 +1117,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var t = typeOf(o), dl = deadlineText(o);
     var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
     return '<div class="popup"><div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
-      (isNew(o) ? '<span class="new-tag">Nuevo</span>' : "") + "</div>" +
+      (isNew(o) ? '<span class="new-tag">Nuevo hoy</span>' : "") + "</div>" +
       '<div class="corner-actions">' +
         (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
         '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
