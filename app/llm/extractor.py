@@ -75,7 +75,12 @@ def extract(raw_text: str, ref_day: date | None = None, corrections: list[str] |
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1),
     ))
-    fields = json.loads(_strip_fences(resp.text))
+    # strict=False: Gemini a veces copia texto del mensaje original con saltos de línea o
+    # tabs sin escapar dentro de un valor de cadena (p.ej. un `summary` largo) -- eso es JSON
+    # inválido en modo estricto ("Invalid control character...") aunque el contenido en sí
+    # sea perfectamente válido. Permitir caracteres de control dentro de las cadenas evita
+    # tirar la extracción entera por un salto de línea de más.
+    fields = json.loads(_strip_fences(resp.text), strict=False)
 
     if isinstance(fields, list):
         # El mensaje traía varias oportunidades a la vez (no soportado: se procesan de una

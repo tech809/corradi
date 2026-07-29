@@ -6,6 +6,7 @@ Devuelve un dict de estado, agnóstico del canal; cada canal formatea su propia 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import date, datetime
 from typing import Any
@@ -85,6 +86,13 @@ async def preview(
         fields = await asyncio.to_thread(extractor.extract, raw_text, ref_day, corrections)
     except extractor.LLMNotConfigured:
         return {"status": "error", "error": "LLM no configurado (falta GEMINI_API_KEY)."}
+    except json.JSONDecodeError:
+        # El texto crudo del parser ("Invalid control character at: line 14 column...") no
+        # significa nada para quien envía la oportunidad -- se registra completo para
+        # depurar, pero al usuario se le pide simplemente reintentarlo.
+        log.exception("Gemini devolvió JSON inválido (usuario %s)", submitted_by_id)
+        await repo.log_submission(submitted_by_id, "error")
+        return {"status": "error", "error": "No he podido interpretar la respuesta del extractor. Reenvía el mensaje, prueba a reintentarlo."}
     except Exception as e:  # noqa: BLE001
         log.exception("Error en extracción (usuario %s)", submitted_by_id)
         await repo.log_submission(submitted_by_id, "error")
@@ -161,6 +169,39 @@ async def _publish_reel_background(opp: dict[str, Any]) -> None:
         )
 
 
+async def _publish_instagram_background(opp: dict[str, Any]) -> None:
+    """Encola y publica en Instagram (feed+story, y en cadena el Reel) en segundo plano.
+
+    Antes esto se hacía dentro de `commit()` justo antes de devolver el resultado al bot,
+    así que el coordinador se quedaba esperando la respuesta de la Graph API de Instagram
+    (varios segundos) para recibir una confirmación de algo que, para entonces, ya estaba
+    publicado en el canal de Telegram desde hacía rato. Al moverlo a una tarea de fondo,
+    `commit()` devuelve en cuanto Telegram (el canal principal) está publicado, y esta
+    función sigue su curso sola — exactamente el mismo patrón que ya usa el Reel, y con la
+    misma red de seguridad: `repo.enqueue_instagram` deja la fila en la cola de reintento del
+    barrido de cada 2h pase lo que pase aquí, así que un fallo aquí nunca pierde el intento.
+    """
+    try:
+        await repo.enqueue_instagram(opp["id"])
+        if instagram.is_configured() and await instagram.gap_ok():
+            queue_id = await repo.get_instagram_queue_id(opp["id"])
+            if queue_id:
+                try:
+                    ig_media_id, ig_story_id = await instagram.publish_opportunity(opp)
+                    await repo.mark_instagram_published(queue_id, ig_media_id, ig_story_id)
+                    await _publish_reel_background(opp)
+                except Exception as e:  # noqa: BLE001
+                    log.warning(
+                        "Instagram: fallo publicando %s al instante, queda para el barrido: %s",
+                        opp["identifier"], e,
+                    )
+                    await repo.mark_instagram_failed(queue_id, f"{type(e).__name__}: {e}")
+        # Si no ha pasado el espaciado mínimo, se queda 'pending' tal cual — el barrido de
+        # cada 2h (o el siguiente commit(), si el hueco ya se abrió) la publicará después.
+    except Exception:  # noqa: BLE001
+        log.exception("Error encolando/publicando en Instagram (%s)", opp["identifier"])
+
+
 async def commit(
     fields: dict[str, Any], source: str, submitted_by: str, submitted_by_id: int,
 ) -> dict[str, Any]:
@@ -211,34 +252,11 @@ async def commit(
             log.exception("No pude cerrar %s tras el fallo de publicación", opp["identifier"])
         return {"status": "created_no_publish", "opp": opp, "error": str(e)}
 
-    # Instagram: se encola SIEMPRE (red de seguridad — el barrido de cada 2h la reintenta
-    # si algo falla) y se intenta publicar ya mismo si está configurado, para que salga
-    # "casi al instante" en vez de esperar al siguiente barrido. Un fallo aquí NUNCA debe
-    # afectar al resultado de esta función: Telegram (el canal principal) ya se publicó.
-    try:
-        await repo.enqueue_instagram(opp["id"])
-        if instagram.is_configured() and await instagram.gap_ok():
-            queue_id = await repo.get_instagram_queue_id(opp["id"])
-            if queue_id:
-                try:
-                    ig_media_id, ig_story_id = await instagram.publish_opportunity(opp)
-                    await repo.mark_instagram_published(queue_id, ig_media_id, ig_story_id)
-                    # El Reel se genera (fotogramas + ffmpeg, varios segundos) y publica en
-                    # segundo plano: no tiene sentido retrasar la respuesta de commit() por
-                    # él — feed y story, lo importante, ya están publicados. Sin cola de
-                    # reintentos propia (a diferencia de feed/story): si falla, se registra
-                    # y ya, no hay barrido de las 2h para el Reel.
-                    asyncio.create_task(_publish_reel_background(opp))
-                except Exception as e:  # noqa: BLE001
-                    log.warning(
-                        "Instagram: fallo publicando %s al instante, queda para el barrido: %s",
-                        opp["identifier"], e,
-                    )
-                    await repo.mark_instagram_failed(queue_id, f"{type(e).__name__}: {e}")
-        # Si no ha pasado el espaciado mínimo, se queda 'pending' tal cual — el barrido de
-        # cada 2h (o el siguiente commit(), si el hueco ya se abrió) la publicará después.
-    except Exception:  # noqa: BLE001
-        log.exception("Error encolando en Instagram (%s)", opp["identifier"])
+    # Instagram (feed+story+Reel) se publica en segundo plano — ver _publish_instagram_background.
+    # El coordinador ya tiene su confirmación en cuanto Telegram está publicado; no tiene
+    # sentido hacerle esperar la Graph API de Instagram para un "ya está" que, para el canal
+    # que de verdad importa, ya era cierto varios segundos antes.
+    asyncio.create_task(_publish_instagram_background(opp))
 
     log.info("Usuario %s: creada y publicada %s", submitted_by_id, opp["identifier"])
     return {"status": "created", "opp": opp, "published": message_id is not None}
