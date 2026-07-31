@@ -1,20 +1,22 @@
-"""Publica de forma escalonada el backlog inicial de oportunidades de SALTO-YOUTH ya
-vetadas por el usuario (cola en la tabla `salto_backlog`, ver migración 0006 y
-`app/db/repository.enqueue_salto_backlog`) — 3 veces al día, ritmo acordado con el usuario
-(2026-07-25: 3-3-4 por día durante 4 días). Publica DE VERDAD (canal + mapa), no es una
-vista previa: las fichas de la cola ya pasaron por `pipeline.preview()` y su reparto por
-días fue aprobado explícitamente antes de programarse.
+"""Publica lo que haya en la cola de SALTO-YOUTH (tabla `salto_backlog`, ver migración 0006
+y `app/db/repository.enqueue_salto_backlog`) que ya le toque salir. Publica DE VERDAD (canal
++ mapa), no es una vista previa: las fichas de la cola ya pasaron por `pipeline.preview()`.
+
+Desde 2026-07-31, `scrape_salto.py` encola CADA ficha con una hora aleatoria dentro de su
+franja (12:00-13:00 o 17:00-18:00, según el tope diario de mediodía) en vez de publicar
+alguna al instante — así que este script tiene que correr con frecuencia DURANTE esas dos
+franjas para que la hora aleatoria se note de verdad (si solo corriera una vez por franja, a
+la hora en punto, daría exactamente igual que no hubiera aleatoriedad). Cron real: cada ~10
+min durante las horas 12 y 17, más una pasada de repesca 5 min después de cerrar cada franja
+por si algo se quedó pendiente de una ejecución fallida.
 
 Idempotente y a prueba de ejecuciones perdidas: cada corrida publica TODO lo que esté
-programado para <= ahora y siga sin publicar, así que si el cron falla un día, se pone al
-día en la siguiente ejecución en vez de perder esas fichas (nunca las duplica: se marcan
+programado para <= ahora y siga sin publicar, así que si el cron falla, se pone al día en
+la siguiente ejecución en vez de perder esas fichas (nunca las duplica: se marcan
 publicadas nada más crearse, antes de intentar el paso de publicación en el canal).
 
-Ejecutar por cron en la EC2, 3 veces al día:
+Ejecutar por cron en la EC2 (ver README para la lista completa de horarios):
     python -m app.scheduler.publish_salto_backlog
-
-Cuando la cola quede vacía, sigue ejecutándose sin hacer nada (no-op seguro) — quitar el
-cron y `DROP TABLE salto_backlog` cuando ya no haga falta (era solo para esta tanda).
 """
 from __future__ import annotations
 

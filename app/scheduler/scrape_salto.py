@@ -6,15 +6,20 @@ vez de con semanas de retraso).
 
 Decisión 2026-07-26: publica DE VERDAD, sin aviso previo por DM — cada ficha que pasa el
 filtro barato (Training Course + España) y luego `pipeline.preview()` (dedup, plazo) se
-publica sola con `pipeline.commit()`, igual que si un coordinador la hubiera confirmado.
+publica sola, igual que si un coordinador la hubiera confirmado.
 
-Decisión 2026-07-28: como mucho `cfg.salto_scrape_daily_cap` (2 por defecto) se publican
-DIRECTO en esta pasada de mediodía — lo que siga pasando el filtro por encima de ese tope
-se encola en `salto_backlog` (misma tabla que el backlog inicial) con `scheduled_at` a las
-17:00 de hoy, y sale solo en la pasada de las 17:00 de `publish_salto_backlog` (mismo
-mecanismo, cero código nuevo de publicación). Motivo: un día con muchas fichas nuevas a la
-vez (visto el 2026-07-28: 3 Training Course de golpe) no debe notarse como una ráfaga en
-el canal — así como mucho se ven 2 a mediodía y el resto por la tarde.
+Decisión 2026-07-28: como mucho `cfg.salto_scrape_daily_cap` (2 por defecto) salen en la
+franja de mediodía — lo que siga pasando el filtro por encima de ese tope se reserva para
+la franja de la tarde. Motivo: un día con muchas fichas nuevas a la vez (visto el
+2026-07-28: 3 Training Course de golpe) no debe notarse como una ráfaga en el canal — así
+como mucho se ven 2 a mediodía y el resto por la tarde.
+
+Decisión 2026-07-31: nada se publica ya en el instante exacto en que corre este script —
+TODO se encola en `salto_backlog` con una hora aleatoria dentro de su franja (12:00-13:00
+para el tope de mediodía, 17:00-18:00 para el resto), y sale de verdad cuando le toca vía
+`publish_salto_backlog` (que ahora corre cada ~10 min durante esas dos franjas). Antes las
+2 "directas" salían clavadas a las 12:00:00 en punto cada día — bastaba con mirar el canal
+un par de días para notar el patrón. Con hora aleatoria dentro de la franja ya no se nota.
 
 Cada corrida:
 1. Reintenta los IDs marcados "draft" (existían pero redirigían a login — puede que ya se
@@ -30,6 +35,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -49,17 +55,28 @@ _START_ID = 15121
 _MAX_CONSECUTIVE_MISSING = 8
 
 
-def _today_at_17(now: datetime) -> datetime:
-    today_17 = now.replace(hour=17, minute=0, second=0, microsecond=0)
-    # Si por lo que sea la pasada de mediodía se ejecuta ya pasadas las 17:00, no
-    # programar en el pasado (se publicaría al instante en cuanto corriera el cron
-    # siguiente) — se deja para la primera pasada de mañana en su lugar.
-    return today_17 if today_17 > now else today_17 + timedelta(days=1)
+def _random_time_in_window(now: datetime, start_hour: int, end_hour: int) -> datetime:
+    """Instante aleatorio dentro de la franja [start_hour, end_hour) de HOY -- para que la
+    publicación no caiga siempre clavada a la misma hora en punto (antes: 12:00:00 exacto
+    cada día, un patrón que se nota mirando el canal un par de días). Si la franja de hoy ya
+    ha pasado, se programa para la misma franja de mañana; si ya estamos dentro de ella
+    ahora mismo, el aleatorio arranca desde el instante actual, no desde el inicio (no tiene
+    sentido programarlo "en el pasado" de la propia franja)."""
+    window_start = now.replace(hour=start_hour, minute=0, second=0, microsecond=0)
+    window_end = now.replace(hour=end_hour, minute=0, second=0, microsecond=0)
+    if window_end <= now:
+        window_start += timedelta(days=1)
+        window_end += timedelta(days=1)
+    elif window_start < now:
+        window_start = now
+    span = (window_end - window_start).total_seconds()
+    return window_start + timedelta(seconds=random.uniform(0, max(span, 0)))
 
 
 class _PublishBudget:
-    """Cuántas publicaciones DIRECTAS quedan en esta pasada — compartido entre llamadas a
-    `_process_id` según se van encontrando candidatas válidas, no por cada id escaneado."""
+    """Cuántas van a la franja de mediodía (12-13h) antes de que el resto pase a la de la
+    tarde (17-18h) — compartido entre llamadas a `_process_id` según se van encontrando
+    candidatas válidas, no por cada id escaneado."""
     def __init__(self, cap: int) -> None:
         self.remaining = cap
 
@@ -102,34 +119,21 @@ async def _process_id(client: httpx.AsyncClient, id_num: int, admin_id: int, bud
         await repo.upsert_salto_id(id_num, result["status"])
         return result["status"]
 
-    if budget.remaining <= 0:
-        # Tope de publicaciones directas ya agotado en esta pasada — se encola para la
-        # de las 17:00 en vez de publicarse ya. "queued" (no "draft"/"error") para que
-        # `list_salto_retry_ids` no la vuelva a recoger mañana: ya está resuelta, solo
-        # pendiente de que le toque salir.
-        await repo.enqueue_salto_backlog(
-            url, result["fields"], _today_at_17(datetime.now(ZoneInfo(cfg.timezone))), id_num=id_num,
-        )
-        await repo.upsert_salto_id(id_num, "queued")
-        log.info("SALTO id %s lista pero tope de hoy alcanzado — encolada para las 17:00", id_num)
-        return "queued"
-
-    try:
-        commit_result = await pipeline.commit(
-            result["fields"], source="salto",
-            submitted_by="SALTO-YOUTH (auto)", submitted_by_id=admin_id,
-        )
-        if commit_result["status"] == "error":
-            raise RuntimeError(commit_result.get("error"))
-        identifier = commit_result["opp"]["identifier"]
-        await repo.upsert_salto_id(id_num, "published", identifier)
+    # Nada se publica ya en el instante en que corre este script (ver docstring del módulo,
+    # decisión 2026-07-31): SIEMPRE se encola, con hora aleatoria dentro de su franja —
+    # mediodía mientras quede presupuesto, tarde para el resto. "queued" (no "draft"/"error")
+    # para que `list_salto_retry_ids` no la vuelva a recoger mañana: ya está resuelta, solo
+    # pendiente de que le toque salir.
+    now = datetime.now(ZoneInfo(cfg.timezone))
+    if budget.remaining > 0:
+        scheduled_at = _random_time_in_window(now, 12, 13)
         budget.remaining -= 1
-        log.info("SALTO id %s publicada como %s (%s)", id_num, identifier, commit_result["status"])
-        return "published"
-    except Exception:  # noqa: BLE001
-        log.exception("Fallo publicando SALTO id %s", id_num)
-        await repo.upsert_salto_id(id_num, "error")
-        return "error"
+    else:
+        scheduled_at = _random_time_in_window(now, 17, 18)
+    await repo.enqueue_salto_backlog(url, result["fields"], scheduled_at, id_num=id_num)
+    await repo.upsert_salto_id(id_num, "queued")
+    log.info("SALTO id %s lista, encolada para %s", id_num, scheduled_at.strftime("%H:%M:%S"))
+    return "queued"
 
 
 async def run() -> None:
@@ -150,7 +154,7 @@ async def run() -> None:
             cursor = await repo.get_salto_scan_cursor(default=_START_ID - 1)
             id_num = cursor + 1
             consecutive_missing = 0
-            scanned = published = queued = 0
+            scanned = queued = 0
             while consecutive_missing < _MAX_CONSECUTIVE_MISSING:
                 status = await _process_id(client, id_num, admin_id, budget)
                 if status == "missing":
@@ -158,9 +162,7 @@ async def run() -> None:
                 else:
                     consecutive_missing = 0
                     scanned += 1
-                    if status == "published":
-                        published += 1
-                    elif status == "queued":
+                    if status == "queued":
                         queued += 1
                 id_num += 1
 
@@ -170,8 +172,9 @@ async def run() -> None:
             await repo.set_salto_scan_cursor(max(new_cursor, cursor))
 
             log.info("Escaneo SALTO: %s fichas nuevas evaluadas (%s reintentos de borrador/error), "
-                      "%s publicadas, %s encoladas para las 17:00 (tope de %s/pasada), techo alcanzado en id %s.",
-                      scanned, len(retry_ids), published, queued, cfg.salto_scrape_daily_cap, id_num - 1)
+                      "%s encoladas (tope de %s a la franja de mediodía, resto a la de la tarde), "
+                      "techo alcanzado en id %s.",
+                      scanned, len(retry_ids), queued, cfg.salto_scrape_daily_cap, id_num - 1)
     except Exception as e:  # noqa: BLE001
         log.exception("Falló el escaneo de SALTO-YOUTH")
         await alerts.alert("El escaneo diario de SALTO-YOUTH ha fallado", f"{type(e).__name__}: {e}")

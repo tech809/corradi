@@ -119,9 +119,9 @@ class Config:
     # sirve tal cual por GET /ig/{id}/reel.mp4) — volumen `media_data` en docker-compose.
     media_dir: str = os.getenv("MEDIA_DIR", "/data/media")
 
-    # Tope de publicaciones DIRECTAS por pasada del escaneo diario de SALTO (mediodía) — a
-    # partir de aquí, lo que siga pasando el filtro se encola en `salto_backlog` para salir
-    # en la pasada de las 17:00 (misma tabla/mecanismo que el backlog inicial, ver
+    # Tope de fichas que van a la franja de mediodía (12-13h, hora aleatoria dentro de ella)
+    # por pasada del escaneo diario de SALTO — a partir de aquí, lo que siga pasando el
+    # filtro se reserva para la franja de la tarde (17-18h) en vez de la de mediodía (ver
     # `app/scheduler/scrape_salto.py` y `publish_salto_backlog.py`). Pedido explícito tras
     # ver 3 Training Course publicarse de golpe el mismo día (2026-07-28).
     salto_scrape_daily_cap: int = int(os.getenv("SALTO_SCRAPE_DAILY_CAP", "2"))
