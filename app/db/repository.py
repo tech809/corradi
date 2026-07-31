@@ -633,6 +633,24 @@ async def list_closed(limit: int = 60) -> list[dict[str, Any]]:
 
 
 
+async def contributors_breakdown(limit: int = 100) -> list[dict[str, Any]]:
+    """Personas que han mandado oportunidades A MANO (source='gestor'), con cuántas ha
+    publicado cada una — para el agradecimiento al final de /estadisticas. Deja fuera lo
+    automático de SALTO a propósito: esto es sobre quién colabora de verdad, no sobre el
+    scraper. Agrupa por `submitted_by` (el texto "Nombre (@usuario)" guardado en el momento
+    del envío) en vez de por `submitted_by_id`: una persona puede tener filas con y sin ID
+    de versiones antiguas del pipeline, pero el texto identifica bien a la misma persona."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT submitted_by, count(*) AS total FROM projects "
+                "WHERE source = 'gestor' AND submitted_by IS NOT NULL AND submitted_by != '' "
+                "GROUP BY submitted_by ORDER BY total DESC LIMIT %s",
+                (limit,),
+            )
+            return await cur.fetchall()
+
+
 async def heatmap_points() -> list[dict[str, Any]]:
     """Coordenadas reales (ciudad si se conoce, centro del país si no) de TODAS las
     oportunidades publicadas con lat/lon, cualquier estado — para el mapa de calor de

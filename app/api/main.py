@@ -42,6 +42,20 @@ _PUBLIC_FIELDS = (
 )
 
 
+_SUBMITTED_BY_RE = re.compile(r"^(.*?)\s*\(@([^)]+)\)\s*$")
+
+
+def _parse_contributor(submitted_by: str) -> dict[str, str | None]:
+    """"Nombre (@usuario)" -> {name, username} para el agradecimiento de /estadisticas.
+    "@None" pasa cuando el remitente no tenía username público de Telegram en su momento —
+    se enseña el nombre igualmente, solo sin enlace a t.me (no hay a dónde enlazar)."""
+    m = _SUBMITTED_BY_RE.match(submitted_by)
+    if not m:
+        return {"name": submitted_by, "username": None}
+    name, username = m.group(1).strip(), m.group(2).strip()
+    return {"name": name or username, "username": None if username == "None" else username}
+
+
 def _clean(value: Any) -> Any:
     if isinstance(value, (date, datetime)):
         return value.isoformat()
@@ -276,6 +290,7 @@ async def api_stats(response: Response) -> dict[str, Any]:
     total_visits = await repo.get_total_visits()
     clicks = await repo.get_click_counts()
     points = await repo.heatmap_points()
+    contributors = await repo.contributors_breakdown()
     return {
         "total_published": total,
         "total_open": open_n,
@@ -299,6 +314,9 @@ async def api_stats(response: Response) -> dict[str, Any]:
         "closed": [_serialize(r) for r in closed],
         "daily_visits": [{"day": v["day"], "n": v["n"]} for v in visits],
         "heatmap_points": [[float(p["latitude"]), float(p["longitude"])] for p in points],
+        "contributors": [
+            {**_parse_contributor(c["submitted_by"]), "total": c["total"]} for c in contributors
+        ],
     }
 
 
