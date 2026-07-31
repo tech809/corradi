@@ -34,7 +34,7 @@ def today() -> date:
     return datetime.now(ZoneInfo(cfg.timezone)).date()
 
 
-async def _spam_check(user_id: int) -> dict[str, bool]:
+async def _spam_check(user_id: int, username: str | None = None) -> dict[str, bool]:
     """Sistema de 2 avisos: al 1er mensaje seguido que no es oportunidad, aviso; al 2º
     consecutivo, bloqueo automático (indefinido, hasta que un admin lo desbloquee a mano)."""
     recent = await repo.recent_statuses(user_id, cfg.spam_block_threshold)
@@ -43,14 +43,19 @@ async def _spam_check(user_id: int) -> dict[str, bool]:
         return {"warn": len(recent) >= 1, "blocked": False}
 
     await repo.block_user(user_id, reason="spam_auto")
-    log.warning("Usuario %s bloqueado automáticamente: %s mensajes seguidos que no eran oportunidades",
-                user_id, cfg.spam_block_threshold)
+    log.warning("Usuario %s (@%s) bloqueado automáticamente: %s mensajes seguidos que no eran oportunidades",
+                user_id, username, cfg.spam_block_threshold)
+    # @username si lo tiene (no todo el mundo lo tiene público) + un enlace tg://user que
+    # SIEMPRE funciona (abre el chat directo desde el ID, con o sin @) -- para no depender
+    # de que el admin tenga que ir a buscar al usuario a mano por el ID numérico solo.
+    quien = f"@{username} (<code>{user_id}</code>)" if username else f"<code>{user_id}</code>"
     for admin_id in cfg.admin_telegram_ids:
         try:
             await pub.notify_admin(
                 admin_id,
-                f"🚫 Usuario <code>{user_id}</code> bloqueado automáticamente: "
-                f"{cfg.spam_block_threshold} mensajes seguidos que no eran oportunidades (spam).",
+                f"🚫 Usuario {quien} bloqueado automáticamente: "
+                f"{cfg.spam_block_threshold} mensajes seguidos que no eran oportunidades (spam).\n"
+                f'<a href="tg://user?id={user_id}">Hablar con él/ella →</a>',
             )
         except Exception:  # noqa: BLE001
             log.warning("No pude avisar al admin %s del bloqueo automático", admin_id)
@@ -58,7 +63,8 @@ async def _spam_check(user_id: int) -> dict[str, bool]:
 
 
 async def preview(
-    raw_text: str, submitted_by_id: int, *, corrections: list[str] | None = None,
+    raw_text: str, submitted_by_id: int, *,
+    corrections: list[str] | None = None, submitted_by_username: str | None = None,
 ) -> dict[str, Any]:
     """Fase A: clasifica, extrae (con correcciones opcionales), comprueba plazo y
     duplicados — pero NO guarda ni publica. Para el flujo de confirmación del coordinador.
@@ -101,7 +107,7 @@ async def preview(
     if not fields.get("is_opportunity"):
         log.info("Usuario %s: no es una oportunidad (%s)", submitted_by_id, fields.get("reason"))
         await repo.log_submission(submitted_by_id, "not_opportunity", raw_text=raw_text, reason=fields.get("reason"))
-        spam = {"warn": False, "blocked": False} if is_admin else await _spam_check(submitted_by_id)
+        spam = {"warn": False, "blocked": False} if is_admin else await _spam_check(submitted_by_id, submitted_by_username)
         return {"status": "not_opportunity", "reason": fields.get("reason"), **spam}
 
     # 1bis) Fuera de plazo: la fecha límite que trae el mensaje ya pasó.

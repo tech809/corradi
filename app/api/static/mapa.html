@@ -779,6 +779,24 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     — si quieres colaborar o ayudarnos a difundir esta herramienta, escríbenos por ahí:
     encantados de echarte una mano.</p>
 
+    <h3>¿Cómo funciona por detrás?</h3>
+    <p>Además de lo que llega a mano por el bot, varios procesos automáticos mantienen esto
+    al día sin que nadie tenga que estar pendiente todo el rato:</p>
+    <ul>
+      <li><strong>Rastreo de SALTO-YOUTH</strong> — cada día revisamos ese catálogo europeo
+      en busca de oportunidades nuevas que encajen (presenciales, con plazas abiertas a
+      residentes en España) y las publicamos solas, repartidas a lo largo del día para no
+      saturar el canal de golpe.</li>
+      <li><strong>Revisión de formularios</strong> — una vez al día comprobamos si el
+      formulario de inscripción de cada oportunidad abierta sigue aceptando respuestas. Si
+      ya se cerró, la quitamos del mapa aunque a la fecha límite le quedaran días todavía.</li>
+      <li><strong>Filtro anti-spam</strong> — si alguien manda al bot dos mensajes seguidos
+      que no son oportunidades reales, se le bloquea el acceso automáticamente (revisable a
+      mano si ha sido un error, sin mala intención).</li>
+      <li><strong>Resúmenes automáticos</strong> — cada tarde se publica en el canal un
+      repaso de todo lo que sigue abierto, y cada domingo un resumen de la semana.</li>
+    </ul>
+
     <div class="info-stats">
       <span><b id="statOpenModal">…</b> abiertas</span>
       <span><b id="statPublishedModal">…</b> publicadas</span>

@@ -181,7 +181,7 @@ async def on_submission(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if awaiting == "modify" and ctx.user_data.get("pending"):
         pend = ctx.user_data["pending"]
         pend.setdefault("corrections", []).append(raw)
-        result = await pipeline.preview(pend["raw_text"], user.id, corrections=pend["corrections"])
+        result = await pipeline.preview(pend["raw_text"], user.id, corrections=pend["corrections"], submitted_by_username=user.username)
         if result["status"] == "ready":
             await _show_preview(update.message, ctx, result)
         else:
@@ -215,7 +215,7 @@ async def on_submission(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     # c) Envío nuevo → preview con confirmación.
     log.info("Procesando mensaje de %s (@%s)", user.id, user.username)
-    result = await pipeline.preview(raw, user.id)
+    result = await pipeline.preview(raw, user.id, submitted_by_username=user.username)
     status = result["status"]
 
     if status == "ready":
