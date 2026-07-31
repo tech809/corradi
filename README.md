@@ -262,8 +262,8 @@ ejecución, no un proceso de larga duración, así que un cron colgado no afecta
 | Hora (Madrid) | Job | Qué hace |
 |---|---|---|
 | 09:00 diario | `check_forms` | Comprueba si el Google Form de cada oportunidad abierta sigue aceptando respuestas (sin LLM: sigue la redirección a `/closedform`) y cierra las que ya no |
-| 10:00, 14:00, 17:00, 18:00 diario | `publish_salto_backlog` | Publica lo que llegó de SALTO-YOUTH y quedó en cola (repartido en varias franjas para no saturar el canal de golpe) |
-| 12:00 diario | `scrape_salto` | Rastrea SALTO-YOUTH en busca de oportunidades nuevas que encajen |
+| cada ~10 min durante las 12h y las 17h, + repesca a las 13:05 y 18:05 | `publish_salto_backlog` | Publica lo que `scrape_salto` encoló para su franja (ver abajo) en cuanto le toca — con esta frecuencia, la hora aleatoria de cada ficha se nota de verdad |
+| 12:00 diario | `scrape_salto` | Rastrea SALTO-YOUTH en busca de oportunidades nuevas que encajen y las encola con una hora aleatoria dentro de su franja: hasta `SALTO_SCRAPE_DAILY_CAP` (2 por defecto) en la franja 12:00-13:00, el resto en la 17:00-18:00 — nada se publica ya clavado en punto |
 | 20:00 diario | `daily_summary` | Resumen de todo lo abierto ahora mismo (ver sección "Resumen diario" más abajo) |
 | 20:30 domingos | `weekly_summary` | Cierre de la semana: nuevas publicadas, top países/temáticas (ver "Resumen semanal") |
 | cada 2h | `publish_instagram` | Barrido de reintento del feed/story de Instagram — red de seguridad de lo que `pipeline.commit()` ya intenta publicar al instante en segundo plano |
