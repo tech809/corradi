@@ -434,11 +434,18 @@ async def unblock_user(user_id: int) -> None:
 
 
 # ─── Tracking de envíos (límite diario + detección de spam) ────────────────
-async def log_submission(user_id: int, status: str, project_id=None) -> None:
+async def log_submission(
+    user_id: int, status: str, project_id=None, raw_text: str | None = None, reason: str | None = None,
+) -> None:
+    """`raw_text`/`reason` solo tienen sentido en los estados que NO crean un `projects` (ahí
+    ya vive el texto en `raw_message`) -- p.ej. `not_opportunity`, `error`, `rate_limited`. Se
+    recortan a 4000 caracteres: esto es para depurar un rechazo puntual, no para archivar el
+    mensaje entero de nadie."""
     async with get_pool().connection() as conn:
         await conn.execute(
-            "INSERT INTO submissions (telegram_user_id, status, project_id) VALUES (%s, %s, %s)",
-            (user_id, status, project_id),
+            "INSERT INTO submissions (telegram_user_id, status, project_id, raw_text, reason) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (user_id, status, project_id, raw_text[:4000] if raw_text else None, reason[:2000] if reason else None),
         )
 
 

@@ -77,7 +77,7 @@ async def preview(
             return {"status": "error", "error": str(e)}
         if created_today >= cfg.max_daily_opportunities:
             log.info("%s alcanzó el límite diario (%s/%s)", submitted_by_id, created_today, cfg.max_daily_opportunities)
-            await repo.log_submission(submitted_by_id, "rate_limited")
+            await repo.log_submission(submitted_by_id, "rate_limited", raw_text=raw_text)
             return {"status": "rate_limited", "limit": cfg.max_daily_opportunities}
 
     # 1) Clasificación + extracción
@@ -91,16 +91,16 @@ async def preview(
         # significa nada para quien envía la oportunidad -- se registra completo para
         # depurar, pero al usuario se le pide simplemente reintentarlo.
         log.exception("Gemini devolvió JSON inválido (usuario %s)", submitted_by_id)
-        await repo.log_submission(submitted_by_id, "error")
+        await repo.log_submission(submitted_by_id, "error", raw_text=raw_text, reason="JSON inválido de Gemini")
         return {"status": "error", "error": "No he podido interpretar la respuesta del extractor. Reenvía el mensaje, prueba a reintentarlo."}
     except Exception as e:  # noqa: BLE001
         log.exception("Error en extracción (usuario %s)", submitted_by_id)
-        await repo.log_submission(submitted_by_id, "error")
+        await repo.log_submission(submitted_by_id, "error", raw_text=raw_text, reason=str(e))
         return {"status": "error", "error": str(e)}
 
     if not fields.get("is_opportunity"):
         log.info("Usuario %s: no es una oportunidad (%s)", submitted_by_id, fields.get("reason"))
-        await repo.log_submission(submitted_by_id, "not_opportunity")
+        await repo.log_submission(submitted_by_id, "not_opportunity", raw_text=raw_text, reason=fields.get("reason"))
         spam = {"warn": False, "blocked": False} if is_admin else await _spam_check(submitted_by_id)
         return {"status": "not_opportunity", "reason": fields.get("reason"), **spam}
 
@@ -109,14 +109,14 @@ async def preview(
         deadline = fields.get("stated_deadline")
         log.info("Usuario %s: oportunidad fuera de plazo (deadline %s < %s)",
                  submitted_by_id, deadline, ref_day)
-        await repo.log_submission(submitted_by_id, "expired")
+        await repo.log_submission(submitted_by_id, "expired", raw_text=raw_text)
         return {"status": "expired", "deadline": deadline, "title": fields.get("title"), "today": ref_day}
 
     # 1ter) Fecha límite demasiado lejana: probable error de año/fecha.
     if fields.get("deadline_too_far"):
         log.info("Usuario %s: deadline demasiado lejana (%s, tope %s meses)",
                  submitted_by_id, fields.get("application_deadline"), cfg.max_deadline_months)
-        await repo.log_submission(submitted_by_id, "deadline_too_far")
+        await repo.log_submission(submitted_by_id, "deadline_too_far", raw_text=raw_text)
         return {
             "status": "deadline_too_far", "deadline": fields.get("application_deadline"),
             "title": fields.get("title"), "max_months": cfg.max_deadline_months,
@@ -127,7 +127,7 @@ async def preview(
     if fields.get("is_online"):
         log.info("Usuario %s: '%s' es online (ubicación: %s), no se publica",
                  submitted_by_id, fields.get("title"), fields.get("location"))
-        await repo.log_submission(submitted_by_id, "online_not_allowed")
+        await repo.log_submission(submitted_by_id, "online_not_allowed", raw_text=raw_text)
         return {"status": "online_not_allowed", "title": fields.get("title"), "location": fields.get("location")}
 
     # 2) Deduplicación (hash exacto + embedding semántico)
@@ -145,7 +145,7 @@ async def preview(
             dup = await repo.find_cross_lang_dup(vec, fields.get("country_code"), fields.get("start_date"))
     except Exception as e:  # noqa: BLE001
         log.exception("Error en deduplicación (usuario %s)", submitted_by_id)
-        await repo.log_submission(submitted_by_id, "error")
+        await repo.log_submission(submitted_by_id, "error", raw_text=raw_text, reason=str(e))
         return {"status": "error", "error": str(e)}
 
     if dup:
