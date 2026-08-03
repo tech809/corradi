@@ -131,12 +131,20 @@ async def build_opportunity_text(client: httpx.AsyncClient, raw_html: str, detai
 
     lines = [body]
 
+    # Casi siempre hay un PDF/dossier adjunto de verdad (_INFOPACK_RE / _INFOPACK_DOWNLOAD_RE)
+    # -- pero cuando la ficha no trae ninguno, la propia página de SALTO YA es en la práctica
+    # el infopack (trae programa, requisitos, fechas, todo lo que traería un PDF aparte).
+    # Antes esas fichas se quedaban sin infopack_url del todo; pedido explícito del usuario
+    # (2026-08-02) tras ver que "no tener infopack viniendo de SALTO no debería pasar": mejor
+    # un enlace a la propia ficha que ningún enlace.
     infopack_m = _INFOPACK_RE.search(raw_html) or _INFOPACK_DOWNLOAD_RE.search(raw_html)
     if infopack_m:
         infopack_url = html_lib.unescape(infopack_m.group(1))
         if not infopack_url.startswith("http"):
             infopack_url = _BASE + infopack_url
-        lines.append(f"\nInfopack: {infopack_url}")
+    else:
+        infopack_url = detail_url
+    lines.append(f"\nInfopack: {infopack_url}")
 
     apply_m = _APPLY_HREF_RE.search(raw_html)
     if apply_m:

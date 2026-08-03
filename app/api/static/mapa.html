@@ -210,6 +210,10 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
   transition: box-shadow .2s var(--ease), transform .2s var(--ease-out);
 }
 .icon-btn:hover { box-shadow: var(--shadow-2); transform: translateY(-1px); }
+/* Botón de Instagram del top-actions: colores de marca (navy), no el degradado rosa/naranja
+   habitual de Instagram — para que se sienta parte de Corradi, no un widget ajeno pegado. */
+.icon-btn.ig-btn { background: var(--brand); border-color: transparent; color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 40%, transparent); text-decoration: none; }
+.icon-btn.ig-btn:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--brand) 45%, transparent); }
 
 /* ── Dock de resultados (escritorio: panel flotante a la izquierda) ──────── */
 .dock {
@@ -469,8 +473,30 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 .info-body ul { margin: 0; padding-left: 18px; }
 .info-body a { color: var(--brand); font-weight: 600; text-decoration: none; }
 .info-body a:hover { text-decoration: underline; }
-.info-stats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-soft); color: var(--ink-soft); font-size: 12.5px; }
-.info-stats b { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+/* Bloque de estadísticas: de 3 spans de texto plano a tiles visuales, todo el bloque
+   enlazado a /estadisticas -- antes era información muerta, ahora es una puerta de entrada. */
+.info-stats-link { display: block; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-soft); text-decoration: none; color: inherit; }
+.info-stats-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.info-stats-tiles .tile { background: var(--surface-sunk); border-radius: 14px; padding: 12px 6px; text-align: center; transition: background .15s var(--ease); }
+.info-stats-tiles .tile b { display: block; font: 800 21px var(--font-display); color: var(--brand); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.info-stats-tiles .tile span { display: block; margin-top: 2px; font-size: 10px; font-weight: 650; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .03em; }
+.info-stats-cta { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px; font: 650 12.5px var(--font-body); color: var(--brand); }
+.info-stats-cta svg { width: 14px; height: 14px; }
+.info-stats-link:hover .tile { background: color-mix(in srgb, var(--brand) 8%, var(--surface-sunk)); }
+.info-stats-link:hover .info-stats-cta { text-decoration: underline; }
+
+/* CTA de Instagram al final del diálogo de info: aparte del párrafo de "quién está
+   detrás", con más presencia visual, para que sea lo último y más llamativo que se ve. */
+.info-ig-cta {
+  display: flex; align-items: center; gap: 14px; margin-top: 16px; padding: 16px 18px; border-radius: 18px;
+  background: linear-gradient(135deg, #405DE6, #C13584 45%, #F77737 75%, #FCAF45);
+  color: #fff; text-decoration: none; transition: transform .18s var(--ease-out), box-shadow .18s var(--ease);
+}
+.info-ig-cta:hover { transform: translateY(-1px); box-shadow: var(--shadow-2); }
+.info-ig-icon { flex: none; width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,.22); display: flex; align-items: center; justify-content: center; }
+.info-ig-icon svg { width: 18px; height: 18px; }
+.info-ig-cta strong { display: block; font-size: 14px; color: #fff; }
+.info-ig-cta small { display: block; font-size: 12px; color: rgba(255,255,255,.88); margin-top: 2px; line-height: 1.4; }
 
 /* Toast */
 .toast { position: fixed; left: 50%; bottom: 28px; z-index: 900; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; font-size: 13px; font-weight: 550; padding: 12px 20px; border-radius: 999px; box-shadow: var(--shadow-3); opacity: 0; pointer-events: none; transition: opacity .25s var(--ease), transform .25s var(--ease-out); }
@@ -495,11 +521,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
      hueco para las dos y la barra de búsqueda es lo que de verdad se usa aquí. */
   .brand-mark { display: none; }
   /* `right` (no un width calculado a mano) para que SIEMPRE deje sitio de sobra
-     a `.top-actions` sea cual sea su ancho real (3 iconos de 40px + huecos) —
+     a `.top-actions` sea cual sea su ancho real (2 columnas de 40px + hueco) —
      un width fijo aquí es justo el bug que se coló la primera vez: la barra
      invadía los botones de la derecha porque el cálculo no coincidía con su
      ancho real. */
-  .command { top: 14px; left: 14px; right: 166px; width: auto; transform: none; }
+  .command { top: 14px; left: 14px; right: 136px; width: auto; transform: none; }
   body.searching .command { right: 14px; }
   body.searching .top-actions { display: none; }
   /* Sin esto la "×" para cerrar la búsqueda existía en el DOM pero nunca se veía
@@ -512,9 +538,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
      botón "Filtros" (edad/fechas/país/urgencia — no solo categoría) tiene que seguir
      accesible: sin esto no había NINGUNA forma de abrir ese panel en móvil. */
   #qfCategories { display: none; }
-  .quick-filters { position: absolute; top: 92px; left: 14px; right: auto; transform: none; max-width: none; }
+  .quick-filters { position: absolute; top: 106px; left: 14px; right: auto; transform: none; max-width: none; }
   body.searching .quick-filters { display: none; }
-  .top-actions { top: 14px; right: 14px; }
+  /* 4 botones no caben en una fila sin invadir la barra de mando -- 2 columnas x 2 filas,
+     mismo hueco de 8px que ya usaba la fila única. */
+  .top-actions { top: 14px; right: 14px; display: grid; grid-template-columns: repeat(2, 40px); grid-auto-rows: 40px; gap: 8px; }
   .top-actions .pill-btn .label { display: none; }
   .top-actions .pill-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
 
@@ -565,11 +593,12 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     </div>
 
     <div class="top-actions">
+      <button type="button" class="icon-btn" id="contribute" aria-label="¿Quieres contribuir?" title="¿Quieres contribuir?"></button>
       <a class="pill-btn solid" id="channel" href="https://t.me/erasmuscorradi" target="_blank" rel="noopener">
         <span id="channelIconSlot"></span><span class="label">Ver canal</span>
       </a>
-      <button type="button" class="icon-btn" id="contribute" aria-label="¿Quieres contribuir?" title="¿Quieres contribuir?"></button>
       <button type="button" class="icon-btn" id="infoBtn" aria-label="Más información" title="Más información"></button>
+      <a class="icon-btn ig-btn" id="igTopBtn" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener" aria-label="Síguenos en Instagram" title="Síguenos en Instagram"></a>
     </div>
 
     <!-- Escritorio: panel de resultados flotante, colapsable a riel de icono -->
@@ -773,11 +802,13 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     <p>Si organizas o conoces una, puedes mandárnosla por el bot con el botón
     <strong>«¿Quieres contribuir?»</strong>. Pégala tal cual te llegue, sin limpiar nada.</p>
 
-    <h3>Quién está detrás</h3>
-    <p>Este mapa lo desarrolla <strong>Proactive Future</strong>. Síguenos en Instagram
-    <a href="https://www.instagram.com/proactivefuture_eu/" target="_blank" rel="noopener">@proactivefuture_eu</a>
-    — si quieres colaborar o ayudarnos a difundir esta herramienta, escríbenos por ahí:
-    encantados de echarte una mano.</p>
+    <h3>Quién está detrás y quién lo paga</h3>
+    <p>Este mapa lo desarrolla <strong>Proactive Future</strong> por interés en difundir de
+    verdad las oportunidades Erasmus+ entre jóvenes — no es un negocio aparte. El gasto de
+    la web y de todas sus funcionalidades (el bot, el mapa, esta misma sección de
+    estadísticas) <strong>se costea con las cuotas del propio programa Erasmus+</strong>: eso
+    es lo que nos permite que esta herramienta sea gratuita para quien la usa, ahora y
+    siempre.</p>
 
     <h3>¿Cómo funciona por detrás?</h3>
     <p>Además de lo que llega a mano por el bot, varios procesos automáticos mantienen esto
@@ -797,11 +828,19 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       repaso de todo lo que sigue abierto, y cada domingo un resumen de la semana.</li>
     </ul>
 
-    <div class="info-stats">
-      <span><b id="statOpenModal">…</b> abiertas</span>
-      <span><b id="statPublishedModal">…</b> publicadas</span>
-      <span><b id="statVisitsModal">…</b> visitas</span>
-    </div>
+    <a class="info-stats-link" href="/estadisticas">
+      <div class="info-stats-tiles">
+        <div class="tile"><b id="statOpenModal">…</b><span>abiertas</span></div>
+        <div class="tile"><b id="statPublishedModal">…</b><span>publicadas</span></div>
+        <div class="tile"><b id="statVisitsModal">…</b><span>visitas</span></div>
+      </div>
+      <div class="info-stats-cta"><span id="statsArrowSlot"></span>Ver todas las estadísticas</div>
+    </a>
+
+    <a class="info-ig-cta" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener">
+      <span class="info-ig-icon" id="infoIgIconSlot"></span>
+      <span><strong>Síguenos en Instagram</strong><small>Ahí subimos absolutamente todo lo que se publica aquí — no te pierdas ninguna.</small></span>
+    </a>
   </div>
 </dialog>
 
@@ -810,7 +849,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 <div class="ig-popup" id="igPopup" hidden role="complementary" aria-label="Síguenos en Instagram">
   <button type="button" class="ig-popup-close" id="igPopupClose" aria-label="Cerrar"></button>
   <div class="ig-popup-icon" aria-hidden="true"></div>
-  <p><strong>¿Ya nos sigues en Instagram?</strong>Entérate también ahí de las oportunidades nuevas, en cuanto se publican.</p>
+  <p><strong>¿Ya nos sigues en Instagram?</strong>Ahí subimos absolutamente todas las oportunidades, todas — no solo una selección: el mismo catálogo completo de este mapa, en cuanto se publica.</p>
   <a class="ig-cta" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener"><span></span>Entérate en Instagram</a>
 </div>
 
@@ -1652,6 +1691,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     document.getElementById("channelIconSlot").innerHTML = ICON.send;
     document.getElementById("contribute").innerHTML = ICON.plus;
     document.getElementById("infoBtn").innerHTML = ICON.info;
+    document.getElementById("igTopBtn").innerHTML = ICON.ig;
+    document.getElementById("infoIgIconSlot").innerHTML = ICON.ig;
+    document.getElementById("statsArrowSlot").innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M9 18l6-6-6-6"/></svg>';
     document.getElementById("dockCollapse").innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="m15 6-6 6 6 6"/></svg>';
     document.getElementById("chatClose").innerHTML = ICON.close;
     document.getElementById("filtersClose").innerHTML = ICON.close;
