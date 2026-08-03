@@ -391,6 +391,30 @@ async def mark_chat_alerted(month: str) -> None:
         )
 
 
+async def get_extraction_usage(month: str) -> dict[str, Any] | None:
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute("SELECT * FROM extraction_usage WHERE month = %s", (month,))
+            return await cur.fetchone()
+
+
+async def add_extraction_usage(month: str, cost_usd: float, count: int = 1) -> dict[str, Any]:
+    """Suma el coste REAL (usage_metadata) de N llamadas de extracción (un mensaje del bot o
+    una ficha de SALTO = 1 llamada), y N al nº de llamadas del mes. Mismo patrón que
+    add_chat_usage, sin `alerted`: aquí no hay presupuesto que cortar."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "INSERT INTO extraction_usage (month, spent_usd, queries) VALUES (%s, %s, %s) "
+            "ON CONFLICT (month) DO UPDATE SET "
+            "spent_usd = extraction_usage.spent_usd + EXCLUDED.spent_usd, "
+            "queries = extraction_usage.queries + EXCLUDED.queries "
+            "RETURNING spent_usd, queries",
+            (month, cost_usd, count),
+        )
+        row = await cur.fetchone()
+        return {"spent_usd": float(row[0]), "queries": row[1]}
+
+
 async def expire_past_deadline(today: date) -> int:
     """Expira las oportunidades cuya fecha límite ya llegó (incluido el propio día: si la
     deadline es hoy, se considera cerrada y no sale en el resumen de esta noche)."""

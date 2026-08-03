@@ -103,6 +103,10 @@ async def preview(
         log.exception("Error en extracción (usuario %s)", submitted_by_id)
         await repo.log_submission(submitted_by_id, "error", raw_text=raw_text, reason=str(e))
         return {"status": "error", "error": str(e)}
+    finally:
+        # Se vacía pase lo que pase (incluso si luego se lanzó una excepción): la llamada a
+        # Gemini ya se pagó, así que el gasto se registra siempre, no solo cuando todo sale bien.
+        await extractor.flush_usage()
 
     if not fields.get("is_opportunity"):
         log.info("Usuario %s: no es una oportunidad (%s)", submitted_by_id, fields.get("reason"))
@@ -292,6 +296,8 @@ async def edit_published(
     except Exception as e:  # noqa: BLE001
         log.exception("Error reeditando %s", identifier)
         return {"status": "error", "error": str(e)}
+    finally:
+        await extractor.flush_usage()
 
     if not fields.get("is_opportunity"):
         # Raro: el texto original ya era válido. Se avisa en vez de romper la ficha.

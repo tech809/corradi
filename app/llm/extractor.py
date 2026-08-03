@@ -2,13 +2,59 @@
 from __future__ import annotations
 
 import json
+import logging
+import queue
 from datetime import date
 
 from app.config import cfg
 from app.domain.project import normalize
 from app.llm.prompts import CORRECTIONS_TEMPLATE, EXTRACTION_PROMPT
 
+log = logging.getLogger("corradi.extractor")
+
 _client = None
+
+# Mismos precios que app/llm/chat.py (duplicado a propósito: son dos módulos independientes,
+# y esto es solo un par de líneas -- ver docs/chatbot_mapa.md §3 para la fuente de precios).
+_PRICES_USD_PER_1M = {
+    "gemini-2.5-flash-lite": (0.10, 0.40),
+    "gemini-2.5-flash": (0.30, 2.50),
+}
+_DEFAULT_PRICE = _PRICES_USD_PER_1M["gemini-2.5-flash-lite"]
+
+# extract() corre en un hilo aparte (pipeline.py lo llama vía asyncio.to_thread, porque el
+# SDK de Gemini es síncrono) -- no puede hacer `await` a un repo async directamente. En vez
+# de eso, deja el coste de cada llamada en esta cola thread-safe; quien llamó a extract()
+# desde el lado async (pipeline.py) drena la cola con `flush_usage()` justo después.
+_usage_queue: "queue.Queue[float]" = queue.Queue()
+
+
+def _cost_usd(usage) -> float:
+    if usage is None:
+        return 0.0
+    in_price, out_price = _PRICES_USD_PER_1M.get(cfg.llm_model, _DEFAULT_PRICE)
+    prompt_tok = getattr(usage, "prompt_token_count", None) or 0
+    out_tok = getattr(usage, "candidates_token_count", None) or 0
+    return (prompt_tok * in_price + out_tok * out_price) / 1_000_000
+
+
+async def flush_usage() -> None:
+    """Vacía lo que `extract()` haya ido dejando en la cola desde la última vez y lo suma al
+    gasto del mes en curso (`extraction_usage`). Llamar justo después de cada
+    `await asyncio.to_thread(extractor.extract, ...)` -- barato si la cola está vacía."""
+    total = 0.0
+    count = 0
+    while True:
+        try:
+            total += _usage_queue.get_nowait()
+            count += 1
+        except queue.Empty:
+            break
+    if count == 0:
+        return
+    from app.db import repository as repo
+    month = date.today().strftime("%Y-%m")
+    await repo.add_extraction_usage(month, total, count)
 
 
 class LLMNotConfigured(RuntimeError):
@@ -75,6 +121,10 @@ def extract(raw_text: str, ref_day: date | None = None, corrections: list[str] |
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1),
     ))
+    try:
+        _usage_queue.put_nowait(_cost_usd(getattr(resp, "usage_metadata", None)))
+    except Exception:  # noqa: BLE001
+        log.warning("No pude registrar el coste de esta llamada de extracción", exc_info=True)
     # strict=False: Gemini a veces copia texto del mensaje original con saltos de línea o
     # tabs sin escapar dentro de un valor de cadena (p.ej. un `summary` largo) -- eso es JSON
     # inválido en modo estricto ("Invalid control character...") aunque el contenido en sí
