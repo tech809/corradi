@@ -159,6 +159,7 @@ async def _show_preview(message, ctx: ContextTypes.DEFAULT_TYPE, result: dict) -
     await message.reply_text(
         "👀 <b>Así quedaría publicada.</b> Revisa que esté todo bien:\n\n"
         + pub.format_opportunity(result["fields"])
+        + pub.format_hidden_fields(result["fields"])
         + "\n\n¿La <b>envío</b> al canal, quieres <b>modificar</b> algo o la <b>cancelas</b>?",
         parse_mode=ParseMode.HTML, disable_web_page_preview=True, reply_markup=_PREVIEW_KEYBOARD,
     )
