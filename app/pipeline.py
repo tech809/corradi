@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from app import geo
 from app.config import cfg
 from app.db import repository as repo
-from app.domain.project import make_hash
+from app.domain.project import canonicalize_organiser, make_hash
 from app.llm import embeddings, extractor
 from app.publisher import handoff
 from app.publisher import instagram
@@ -139,6 +139,13 @@ async def preview(
                  submitted_by_id, fields.get("title"), fields.get("location"))
         await repo.log_submission(submitted_by_id, "online_not_allowed", raw_text=raw_text)
         return {"status": "online_not_allowed", "title": fields.get("title"), "location": fields.get("location")}
+
+    # 1quinquies) Unificar el nombre de la asociación con uno ya existente en la BD si es
+    # (esencialmente) el mismo, para que variantes de acentos/mayúsculas/orden no cuenten
+    # como asociaciones distintas en /estadisticas (p.ej. "Tierra Nómada" vs "tierra nomada").
+    if fields.get("organiser_name"):
+        existing_organisers = await repo.distinct_organiser_names()
+        fields["organiser_name"] = canonicalize_organiser(fields["organiser_name"], existing_organisers)
 
     # 2) Deduplicación (hash exacto + embedding semántico)
     try:
@@ -302,6 +309,10 @@ async def edit_published(
     if not fields.get("is_opportunity"):
         # Raro: el texto original ya era válido. Se avisa en vez de romper la ficha.
         return {"status": "error", "error": "No pude aplicar el cambio manteniendo una oportunidad válida."}
+
+    if fields.get("organiser_name"):
+        existing_organisers = await repo.distinct_organiser_names()
+        fields["organiser_name"] = canonicalize_organiser(fields["organiser_name"], existing_organisers)
 
     try:
         updated = await repo.update_project(identifier, fields)

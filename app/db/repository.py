@@ -626,6 +626,19 @@ async def organiser_breakdown(limit: int = 200) -> list[dict[str, Any]]:
             return await cur.fetchall()
 
 
+async def distinct_organiser_names() -> list[str]:
+    """Nombres de asociación ya guardados (para canonicalizar variantes tipo 'Tierra Nómada'
+    vs 'tierra nomada' antes de guardar uno nuevo -- ver `project.canonicalize_organiser`)."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT DISTINCT organiser_name FROM projects "
+                "WHERE organiser_name IS NOT NULL AND organiser_name != ''"
+            )
+            rows = await cur.fetchall()
+            return [r[0] for r in rows]
+
+
 async def daily_visits_since(days: int = 400) -> list[dict[str, Any]]:
     """Visitas por día de los últimos `days` días (huecos rellenados a 0 -- un día sin
     visitas también es dato). Solo hay datos reales desde que existe `daily_visits`

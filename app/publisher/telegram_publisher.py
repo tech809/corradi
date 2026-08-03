@@ -268,16 +268,13 @@ def format_opportunity(
 
 
 def format_hidden_fields(o: dict[str, Any]) -> str:
-    """Campos que la IA extrae y el mapa usa de verdad (edad mín/máx para el filtro de edad,
-    plazas, coste, organizador) pero que NUNCA aparecen en el texto publicado en el canal —
-    `format_opportunity()` no los imprime porque ahí solo interesa lo esencial. El coordinador
+    """Campos que la IA extrae y el mapa usa de verdad como filtros (edad, organizador) pero
+    que `format_opportunity()` no imprime porque ahí solo interesa lo esencial. El coordinador
     nunca los veía en la vista previa, así que no tenía forma de darse cuenta si la IA se
     equivocaba en uno de ellos (p.ej. una edad mínima mal leída) hasta que ya estaba publicado.
-    Se muestran SOLO en la vista previa (nunca en el mensaje real del canal) y solo los que
-    tengan dato — si no hay ninguno, no se añade nada."""
+    Se muestran SOLO en la vista previa y solo los que tengan dato — si no hay ninguno, no se
+    añade nada."""
     rows = []
-    if o.get("organiser_name"):
-        rows.append(f"👤 Organiza: {o['organiser_name']}")
     if o.get("participant_min_age") is not None or o.get("participant_max_age") is not None:
         min_age, max_age = o.get("participant_min_age"), o.get("participant_max_age")
         if min_age is not None and max_age is not None:
@@ -286,16 +283,13 @@ def format_hidden_fields(o: dict[str, Any]) -> str:
             edad = f"desde {min_age} años"
         else:
             edad = f"hasta {max_age} años"
-        rows.append(f"🔞 Edad: {edad}")
-    if o.get("max_participants") is not None:
-        rows.append(f"👥 Plazas: {o['max_participants']}")
-    if o.get("cost") is not None:
-        coste = "Gratis" if float(o["cost"]) == 0 else f"{o['cost']}€"
-        rows.append(f"💶 Coste: {coste}")
+        rows.append(f"👤 Edad: {edad}")
+    if o.get("organiser_name"):
+        rows.append(f"🏢 Organiza: {o['organiser_name']}")
     if not rows:
         return ""
     return (
-        "\n\n🔧 <b>Otros datos detectados</b> (no salen en el canal; se usan como filtros del mapa):\n"
+        "\n\n🔧 <b>Otros datos detectados</b> (se usan como filtros en el mapa):\n"
         + "\n".join(rows)
     )
 

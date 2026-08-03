@@ -1,6 +1,7 @@
 """Utilidades de dominio: parseo de campos extraídos por el LLM y hash de deduplicación."""
 from __future__ import annotations
 
+import difflib
 import hashlib
 import re
 import unicodedata
@@ -196,3 +197,28 @@ def normalize(
     out["infopack_url"] = _clean_url(fields.get("infopack_url"))
     out["application_url"] = _clean_url(fields.get("application_url"))
     return out
+
+
+def _organiser_key(name: str) -> str:
+    """Clave de comparación para asociaciones: sin acentos, minúsculas, espacios colapsados
+    ('Tierra Nómada' y 'tierra  nomada' dan la misma clave)."""
+    stripped = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"\s+", " ", stripped).strip().lower()
+
+
+def canonicalize_organiser(name: str | None, existing: list[str]) -> str | None:
+    """Si `name` es (esencialmente) una asociación ya existente en la BD, devuelve el nombre
+    tal cual está guardado allí en vez del que acaba de extraer la IA -- para que 'Tierra
+    Nómada' y 'tierra nomada' no cuenten como dos asociaciones distintas en /estadisticas.
+    Coincidencia exacta (normalizada) primero; si no, una muy similar (typo/orden de
+    palabras) via difflib. Por debajo del umbral, se deja el nombre nuevo tal cual."""
+    if not name or not existing:
+        return name
+    key = _organiser_key(name)
+    by_key = {_organiser_key(e): e for e in existing if e}
+    if key in by_key:
+        return by_key[key]
+    match = difflib.get_close_matches(key, list(by_key.keys()), n=1, cutoff=0.88)
+    if match:
+        return by_key[match[0]]
+    return name
