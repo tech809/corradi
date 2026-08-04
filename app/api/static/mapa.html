@@ -268,9 +268,13 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
 .card[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
 .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 9px; padding-left: 9px; }
 .card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* Siempre en el azul de marca, no en el color del tipo: en el popup del mapa `--c` ni
+   siquiera está definido (`.popup` no lleva data-type como sí lleva `.card`), así que la
+   categoría salía gris apagado ahí y de color en la lista — incoherente. El tipo se sigue
+   distinguiendo por el icono, el texto, la barra lateral de la tarjeta y el color del pin. */
 .badge {
   display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .01em;
-  color: var(--c, var(--other)); background: color-mix(in srgb, var(--c, var(--other)) 13%, transparent);
+  color: var(--brand); background: color-mix(in srgb, var(--brand) 11%, transparent);
   padding: 4px 9px 4px 7px; border-radius: 7px;
 }
 .badge svg { width: 12px; height: 12px; }
