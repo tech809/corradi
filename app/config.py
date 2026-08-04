@@ -36,6 +36,8 @@ class Config:
     telegram_channel_id: str = os.getenv("TELEGRAM_CHANNEL_ID", "")
     # Username público del canal (sin @), para enlazar directamente a cada post del resumen diario.
     telegram_channel_username: str = os.getenv("TELEGRAM_CHANNEL_USERNAME", "")
+    # Username del BOT (sin @): lo necesita el widget de login de Telegram en /publicar.
+    telegram_bot_username: str = os.getenv("TELEGRAM_BOT_USERNAME", "corradi_erasmus_bot")
     admin_telegram_ids: list[int] = field(default_factory=lambda: _ids(os.getenv("ADMIN_TELEGRAM_IDS")))
     whatsapp_handoff_group_id: str = os.getenv("WHATSAPP_HANDOFF_TELEGRAM_GROUP_ID", "")
 

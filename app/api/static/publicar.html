@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Publicar una oportunidad · Corradi</title>
+<meta name="description" content="Comparte una oportunidad Erasmus+ con la comunidad: pega el texto y nosotros nos encargamos del resto.">
+<meta name="color-scheme" content="light">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'><rect width='4' height='3' fill='%23AA151B'/><rect y='.75' width='4' height='1.5' fill='%23F1BF00'/></svg>">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   CORRADI — panel de publicación. Mismo sistema visual que mapa.html (Sora +
+   Manrope, azul de marca, radios grandes, sombras suaves), pero en formato
+   documento: columna centrada y con aire, no interfaz flotante sobre un mapa.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@font-face { font-family:"Sora"; font-weight:400; src:url("/fonts/Sora-Regular.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Sora"; font-weight:600; src:url("/fonts/Sora-SemiBold.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Sora"; font-weight:700; src:url("/fonts/Sora-Bold.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Sora"; font-weight:800; src:url("/fonts/Sora-ExtraBold.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Manrope"; font-weight:400; src:url("/fonts/Manrope-Regular.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Manrope"; font-weight:500; src:url("/fonts/Manrope-Medium.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Manrope"; font-weight:600; src:url("/fonts/Manrope-SemiBold.ttf") format("truetype"); font-display:swap; }
+@font-face { font-family:"Manrope"; font-weight:700; src:url("/fonts/Manrope-Bold.ttf") format("truetype"); font-display:swap; }
+
+:root {
+  --ink: #111113; --ink-soft: #4a4b50; --ink-faint: #86878d;
+  --paper: #f6f5f3; --surface: #ffffff; --surface-sunk: #f1efec;
+  --line: rgba(17,17,19,.09); --line-soft: rgba(17,17,19,.055);
+  --brand: #14265e; --brand-ink: #0c1a45; --brass: #a9803f;
+  --ok: #3e6b4c; --critical: #a83e37;
+  --radius-sm: 14px; --radius: 22px; --radius-lg: 30px;
+  --shadow-1: 0 1px 2px rgba(17,17,19,.05), 0 2px 6px rgba(17,17,19,.05);
+  --shadow-2: 0 4px 16px rgba(17,17,19,.09), 0 1px 3px rgba(17,17,19,.06);
+  --ease: cubic-bezier(.4,0,.2,1); --ease-out: cubic-bezier(.16,1,.3,1);
+  --font-display: "Sora", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 15px/1.55 var(--font-body);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+h1, h2, h3 { font-family: var(--font-display); margin: 0; }
+a { color: var(--brand); }
+::selection { background: color-mix(in srgb, var(--brand) 22%, transparent); }
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 3px; border-radius: 6px; }
+
+/* ── Cabecera ─────────────────────────────────────────────────────────────── */
+.top {
+  position: sticky; top: 0; z-index: 20; background: rgba(246,245,243,.86);
+  backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid var(--line-soft);
+}
+.top-in {
+  max-width: 760px; margin: 0 auto; padding: 13px 22px;
+  display: flex; align-items: center; gap: 14px;
+}
+.mark {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  border-radius: 9px; background: var(--brand); color: #fff;
+  font: 800 13px var(--font-display); flex: none; letter-spacing: -.02em;
+}
+.back { font: 600 13.5px var(--font-body); color: var(--ink-soft); text-decoration: none; display: flex; align-items: center; gap: 5px; }
+.back:hover { color: var(--brand); }
+.spacer { flex: 1; }
+.who { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-soft); }
+.who b { font-weight: 650; color: var(--ink); }
+.avatar {
+  width: 27px; height: 27px; border-radius: 50%; background: var(--brand); color: #fff;
+  display: flex; align-items: center; justify-content: center; font: 700 11px var(--font-body); flex: none;
+}
+.linkbtn { background: none; border: 0; padding: 0; font: 600 12.5px var(--font-body); color: var(--ink-faint); cursor: pointer; }
+.linkbtn:hover { color: var(--critical); }
+
+/* ── Estructura ───────────────────────────────────────────────────────────── */
+main { max-width: 760px; margin: 0 auto; padding: 34px 22px 90px; }
+.hero h1 { font-size: 30px; font-weight: 800; letter-spacing: -.025em; line-height: 1.15; }
+.hero p { color: var(--ink-soft); font-size: 15.5px; margin: 11px 0 0; max-width: 56ch; }
+.card {
+  background: var(--surface); border: 1px solid var(--line-soft);
+  border-radius: var(--radius); box-shadow: var(--shadow-1); padding: 22px; margin-top: 22px;
+}
+.card > h2 {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--brand-ink); font-family: var(--font-body); margin-bottom: 14px;
+}
+.hidden { display: none !important; }
+
+/* ── Login ────────────────────────────────────────────────────────────────── */
+.login-card { text-align: center; padding: 34px 24px; }
+.login-card h2 { text-transform: none; letter-spacing: -.02em; font-size: 19px; font-family: var(--font-display); font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.login-card p { color: var(--ink-soft); font-size: 14.5px; margin: 0 auto 20px; max-width: 46ch; }
+#tgWidget { display: flex; justify-content: center; min-height: 44px; }
+.login-note { margin-top: 18px; font-size: 12.5px; color: var(--ink-faint); }
+.or-divider {
+  display: flex; align-items: center; gap: 12px; margin: 24px 0 16px;
+  font-size: 12px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em;
+}
+.or-divider::before, .or-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.login-card .btn { text-decoration: none; }
+
+/* ── Formulario ───────────────────────────────────────────────────────────── */
+textarea {
+  width: 100%; min-height: 190px; resize: vertical; padding: 15px 16px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-sunk);
+  font: 400 14.5px/1.6 var(--font-body); color: var(--ink); transition: border-color .15s var(--ease), background .15s var(--ease);
+}
+textarea:focus { outline: none; border-color: color-mix(in srgb, var(--brand) 55%, var(--line)); background: var(--surface); }
+textarea::placeholder { color: var(--ink-faint); }
+.row { display: flex; align-items: center; gap: 11px; margin-top: 14px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 19px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: 650 14px var(--font-body);
+  cursor: pointer; text-decoration: none; transition: all .16s var(--ease);
+}
+.btn:hover:not(:disabled) { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 28%, transparent); }
+.btn.primary:hover:not(:disabled) { box-shadow: 0 6px 20px color-mix(in srgb, var(--brand) 40%, transparent); transform: translateY(-1px); }
+.btn.danger { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 26%, var(--line)); }
+.btn.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--critical) 7%, var(--surface)); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.small { padding: 8px 14px; font-size: 13px; }
+.hint { font-size: 12.5px; color: var(--ink-faint); }
+
+/* ── Aviso / estado ───────────────────────────────────────────────────────── */
+.note {
+  padding: 13px 16px; border-radius: var(--radius-sm); font-size: 14px; line-height: 1.5;
+  border: 1px solid; margin-top: 16px;
+}
+.note.warn { background: color-mix(in srgb, var(--brass) 9%, var(--surface)); border-color: color-mix(in srgb, var(--brass) 32%, transparent); color: #6b4f22; }
+.note.bad  { background: color-mix(in srgb, var(--critical) 7%, var(--surface)); border-color: color-mix(in srgb, var(--critical) 28%, transparent); color: #7d2f29; }
+.note.good { background: color-mix(in srgb, var(--ok) 8%, var(--surface)); border-color: color-mix(in srgb, var(--ok) 30%, transparent); color: #2c5138; }
+.note b { font-weight: 700; }
+
+.spin {
+  width: 15px; height: 15px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35);
+  border-top-color: #fff; animation: rot .7s linear infinite; flex: none;
+}
+@keyframes rot { to { transform: rotate(360deg); } }
+
+/* ── Ficha de vista previa ────────────────────────────────────────────────── */
+.opp { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--surface-sunk); padding: 17px 18px; position: relative; overflow: hidden; }
+.opp::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 3px; background: var(--brand); }
+.opp-badges { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 9px; }
+.badge {
+  display: inline-flex; align-items: center; font-size: 11px; font-weight: 700;
+  color: var(--brand); background: color-mix(in srgb, var(--brand) 11%, transparent);
+  padding: 4px 9px; border-radius: 7px;
+}
+.badge.state-closed { color: var(--ink-faint); background: rgba(17,17,19,.07); }
+.opp h3 { font-size: 16.5px; font-weight: 650; line-height: 1.35; letter-spacing: -.012em; margin-bottom: 9px; }
+.opp .sum { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 11px; line-height: 1.55; }
+.facts { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--ink-soft); }
+.facts span { display: flex; gap: 8px; }
+.facts em { font-style: normal; color: var(--ink-faint); min-width: 96px; flex: none; }
+.facts a { word-break: break-all; }
+.meta-block { margin-top: 13px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.meta-block .lbl { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 7px; }
+
+/* ── Mis oportunidades ────────────────────────────────────────────────────── */
+.mine-item { border-top: 1px solid var(--line-soft); padding: 15px 0; }
+.mine-item:first-of-type { border-top: 0; padding-top: 0; }
+.mine-head { display: flex; align-items: flex-start; gap: 12px; }
+.mine-head h3 { font-size: 15px; font-weight: 650; line-height: 1.4; flex: 1; }
+.mine-sub { font-size: 12.5px; color: var(--ink-faint); margin-top: 4px; display: flex; gap: 9px; flex-wrap: wrap; }
+.empty { color: var(--ink-faint); font-size: 14px; text-align: center; padding: 22px 0; }
+
+@media (max-width: 620px) {
+  main { padding: 26px 16px 70px; }
+  .top-in { padding: 11px 16px; }
+  .hero h1 { font-size: 25px; }
+  .card { padding: 18px 16px; border-radius: var(--radius-sm); }
+  .facts em { min-width: 0; display: block; }
+  .facts span { flex-direction: column; gap: 1px; }
+  .who .nm { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <span class="mark">C</span>
+    <a class="back" href="/corradi-erasmus">← Volver al mapa</a>
+    <span class="spacer"></span>
+    <div class="who hidden" id="who">
+      <span class="avatar" id="avatar"></span>
+      <span class="nm"><b id="whoName"></b></span>
+      <button type="button" class="linkbtn" id="logout">Salir</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>Comparte una oportunidad</h1>
+    <p>Pega el texto de la convocatoria tal cual te llegó — sin ordenar nada. Lo leemos, sacamos
+       las fechas, el sitio y los requisitos, y te lo enseñamos antes de publicar nada.</p>
+  </div>
+
+  <!-- Estado 1 · sin sesión -->
+  <section class="card login-card hidden" id="loginCard">
+    <h2>Identifícate con Telegram</h2>
+    <p>Usamos tu cuenta de Telegram para saber qué oportunidades son tuyas y que puedas
+       editarlas o retirarlas después. No creamos ninguna cuenta nueva ni pedimos contraseñas.</p>
+    <div id="tgWidget"></div>
+    <div class="login-note">Solo guardamos tu nombre y tu @usuario. Nada más.</div>
+    <div class="or-divider"><span>o, si lo prefieres</span></div>
+    <a class="btn" id="botLink" href="https://t.me/corradi_erasmus_bot" target="_blank" rel="noopener">
+      Mándanosla directamente por el bot de Telegram
+    </a>
+    <p class="login-note" style="margin-top:11px">Mismo resultado, sin iniciar sesión aquí: le pegas el
+       texto al bot y confirmas igual que harías en esta página.</p>
+  </section>
+
+  <!-- Estado 2 · redactar -->
+  <section class="card hidden" id="composeCard">
+    <h2>El texto de la oportunidad</h2>
+    <textarea id="raw" placeholder="Pega aquí el mensaje completo: título, fechas, país, requisitos, enlaces al formulario y al infopack…"></textarea>
+    <div class="row">
+      <button type="button" class="btn primary" id="analyze">Analizar</button>
+      <span class="hint" id="composeHint">Puedes publicar hasta 3 al día.</span>
+    </div>
+    <div id="composeMsg"></div>
+  </section>
+
+  <!-- Estado 3 · vista previa -->
+  <section class="card hidden" id="previewCard">
+    <h2>Así quedaría publicada</h2>
+    <div id="previewBody"></div>
+    <div class="row">
+      <button type="button" class="btn primary" id="publish">Publicar</button>
+      <button type="button" class="btn" id="modify">Modificar algo</button>
+      <button type="button" class="btn" id="discard">Descartar</button>
+    </div>
+    <div class="hidden" id="modifyBox">
+      <div class="note warn" style="margin-bottom:12px">
+        Dime en una frase qué está mal y lo corrijo. Por ejemplo: <b>«la fecha de fin es el 20 de
+        septiembre»</b> o <b>«la edad mínima es 16, no 18»</b>.
+      </div>
+      <textarea id="correction" style="min-height:88px" placeholder="¿Qué habría que cambiar?"></textarea>
+      <div class="row">
+        <button type="button" class="btn primary" id="applyFix">Aplicar cambio</button>
+        <button type="button" class="btn" id="cancelFix">Cancelar</button>
+      </div>
+    </div>
+    <div id="previewMsg"></div>
+  </section>
+
+  <!-- Estado 4 · publicada -->
+  <section class="card hidden" id="doneCard">
+    <div class="note good" style="margin-top:0" id="doneMsg"></div>
+    <div class="row">
+      <a class="btn primary" id="doneMap" href="/corradi-erasmus">Verla en el mapa</a>
+      <button type="button" class="btn" id="another">Compartir otra</button>
+    </div>
+  </section>
+
+  <!-- Mis oportunidades -->
+  <section class="card hidden" id="mineCard">
+    <h2>Lo que has compartido</h2>
+    <div id="mineBody"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var TYPES = { YOUTH_EXCHANGE: "Youth Exchange", TRAINING_COURSE: "Training Course", VOLUNTEERING: "ECS" };
+  var COUNTRIES = {
+    ES:"España", IT:"Italia", PT:"Portugal", FR:"Francia", DE:"Alemania", GR:"Grecia", PL:"Polonia",
+    RO:"Rumanía", BG:"Bulgaria", HR:"Croacia", SI:"Eslovenia", SK:"Eslovaquia", CZ:"Chequia",
+    HU:"Hungría", AT:"Austria", BE:"Bélgica", NL:"Países Bajos", DK:"Dinamarca", SE:"Suecia",
+    FI:"Finlandia", EE:"Estonia", LV:"Letonia", LT:"Lituania", IE:"Irlanda", CY:"Chipre",
+    MT:"Malta", LU:"Luxemburgo", TR:"Turquía", NO:"Noruega", IS:"Islandia", RS:"Serbia",
+    MK:"Macedonia del Norte", AL:"Albania", GE:"Georgia", AM:"Armenia", UA:"Ucrania", MD:"Moldavia"
+  };
+  var MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+  function show(el, on) { el.classList.toggle("hidden", !on); }
+  function fmtDate(iso) {
+    if (!iso) return null;
+    var p = String(iso).split("-");
+    if (p.length < 3) return iso;
+    return parseInt(p[2], 10) + " " + MONTHS[parseInt(p[1], 10) - 1] + " " + p[0];
+  }
+  function flag(cc) {
+    if (!cc || cc.length !== 2) return "";
+    return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) {
+      return 0x1f1a5 + c.charCodeAt(0);
+    }));
+  }
+
+  // ── Red ────────────────────────────────────────────────────────────────
+  function api(path, body) {
+    return fetch(path, {
+      method: body ? "POST" : "GET",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: "same-origin"
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) throw new Error(data.detail || "Algo ha fallado. Inténtalo otra vez.");
+        return data;
+      });
+    });
+  }
+  function msg(el, kind, html) { el.innerHTML = '<div class="note ' + kind + '">' + html + "</div>"; }
+  function clearMsg(el) { el.innerHTML = ""; }
+
+  // Motivos por los que el pipeline puede rechazar una ficha. Mismos casos que el bot de
+  // Telegram, contados igual de claro: quien la manda tiene que saber qué hacer después.
+  function rejection(r) {
+    switch (r.status) {
+      case "rate_limited":
+        return ["warn", "Has llegado al máximo de <b>" + esc(r.limit) + " al día</b>. Vuelve mañana y seguimos."];
+      case "not_opportunity":
+        return ["warn", "Esto no parece una oportunidad Erasmus+." +
+          (r.reason ? " <br><br>" + esc(r.reason) : "") +
+          "<br><br>Si crees que sí lo es, pega el texto completo con fechas, país y cómo apuntarse."];
+      case "expired":
+        return ["warn", "El plazo ya se cerró" + (r.deadline ? " el <b>" + esc(fmtDate(r.deadline)) + "</b>" : "") +
+          ", así que no la publico."];
+      case "deadline_too_far":
+        return ["warn", "La fecha límite sale demasiado lejos (" + esc(fmtDate(r.deadline)) +
+          "). Solo publicamos plazos dentro de los próximos " + esc(r.max_months) + " meses — revisa el año."];
+      case "online_not_allowed":
+        return ["warn", "Esta actividad es 100% online y aquí solo publicamos movilidad presencial."];
+      case "duplicate":
+        return ["warn", "Esta oportunidad <b>ya está publicada</b>. ¡Gracias de todas formas!"];
+      case "duplicate_similar":
+        return ["warn", "Ya hay una <b>muy parecida</b> publicada" +
+          (r.dup && r.dup.title ? ": «" + esc(r.dup.title) + "»" : "") + ". Si de verdad es otra distinta, avísanos."];
+      default:
+        return ["bad", esc(r.error || "No he podido procesarla. Prueba a reenviarla.")];
+    }
+  }
+
+  // ── Ficha ──────────────────────────────────────────────────────────────
+  function fact(label, value) {
+    return value ? "<span><em>" + label + "</em>" + value + "</span>" : "";
+  }
+  function link(url) {
+    return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + "</a>";
+  }
+  function dates(f) {
+    var a = fmtDate(f.start_date), b = fmtDate(f.end_date);
+    if (a && b) return a + " → " + b;
+    return a || b || null;
+  }
+  function ageText(f) {
+    var lo = f.participant_min_age, hi = f.participant_max_age;
+    if (lo != null && hi != null) return lo + "-" + hi + " años";
+    if (lo != null) return "desde " + lo + " años";
+    if (hi != null) return "hasta " + hi + " años";
+    return null;
+  }
+  function place(f) {
+    var parts = [f.location, COUNTRIES[f.country_code] || f.country_code].filter(Boolean);
+    if (!parts.length) return null;
+    return (flag(f.country_code) ? flag(f.country_code) + " " : "") + esc(parts.join(", "));
+  }
+
+  function oppHTML(f, badges) {
+    var deadline = fmtDate(f.application_deadline);
+    if (deadline && f.deadline_estimated) deadline += " (estimada)";
+    var cost = f.cost == null ? null : (Number(f.cost) === 0 ? "Gratis" : f.cost + "€");
+    // Edad y organizador se usan como filtros del mapa pero no salen en el texto del
+    // canal — se enseñan aparte para que se pueda corregir si la IA los ha leído mal.
+    var meta = fact("Edad", ageText(f)) + fact("Organiza", esc(f.organiser_name || "")) +
+               fact("Plazas", f.max_participants) + fact("Coste", cost);
+
+    return '<div class="opp">' +
+      '<div class="opp-badges">' + (badges || '<span class="badge">' + esc(TYPES[f.type] || "Otra") + "</span>") + "</div>" +
+      "<h3>" + esc(f.title || "Sin título") + "</h3>" +
+      (f.summary ? '<p class="sum">' + esc(f.summary) + "</p>" : "") +
+      '<div class="facts">' +
+        fact("Dónde", place(f)) +
+        fact("Cuándo", esc(dates(f) || "")) +
+        fact("Inscripción", esc(deadline || "")) +
+        fact("Temática", esc(f.topic || "")) +
+        fact("Formulario", f.application_url ? link(f.application_url) : "") +
+        fact("Infopack", f.infopack_url ? link(f.infopack_url) : "") +
+        fact("Contacto", esc(f.contact_information || "")) +
+      "</div>" +
+      (meta ? '<div class="meta-block"><div class="lbl">Se usan como filtros en el mapa</div><div class="facts">' + meta + "</div></div>" : "") +
+    "</div>";
+  }
+
+  // ── Estado ─────────────────────────────────────────────────────────────
+  var user = null, token = null, lastText = "", corrections = [];
+
+  function setStep(step) {
+    show($("loginCard"), step === "login");
+    show($("composeCard"), step === "compose");
+    show($("previewCard"), step === "preview");
+    show($("doneCard"), step === "done");
+    show($("mineCard"), !!user && step !== "login");
+  }
+
+  function busy(btn, on, label) {
+    btn.disabled = on;
+    btn.innerHTML = on ? '<span class="spin"></span>' + (label || "Un momento…") : btn.dataset.label;
+  }
+
+  // ── Sesión ─────────────────────────────────────────────────────────────
+  window.onTelegramAuth = function (tgUser) {
+    api("/api/auth/telegram", tgUser).then(function (data) {
+      user = data.user;
+      paintUser();
+      setStep("compose");
+      loadMine();
+    }).catch(function (e) { msg($("composeMsg"), "bad", esc(e.message)); });
+  };
+
+  function paintUser() {
+    show($("who"), !!user);
+    if (!user) return;
+    $("whoName").textContent = user.name;
+    $("avatar").textContent = (user.name || "?").trim().charAt(0).toUpperCase();
+  }
+
+  function mountWidget(bot) {
+    var s = document.createElement("script");
+    s.async = true;
+    s.src = "https://telegram.org/js/telegram-widget.js?22";
+    s.setAttribute("data-telegram-login", bot);
+    s.setAttribute("data-size", "large");
+    s.setAttribute("data-radius", "20");
+    s.setAttribute("data-onauth", "onTelegramAuth(user)");
+    s.setAttribute("data-request-access", "write");
+    $("tgWidget").appendChild(s);
+  }
+
+  // ── Mis oportunidades ──────────────────────────────────────────────────
+  function loadMine() {
+    if (!user) return;
+    api("/api/mine").then(function (data) {
+      var items = data.items || [];
+      if (!items.length) {
+        $("mineBody").innerHTML = '<div class="empty">Todavía no has compartido ninguna.</div>';
+        return;
+      }
+      $("mineBody").innerHTML = items.map(function (it) {
+        var open = it.status === "open";
+        return '<div class="mine-item" data-id="' + esc(it.identifier) + '">' +
+          '<div class="mine-head"><div style="flex:1">' +
+            "<h3>" + esc(it.title || "Sin título") + "</h3>" +
+            '<div class="mine-sub">' +
+              '<span class="badge' + (open ? "" : " state-closed") + '">' + (open ? "Abierta" : "Cerrada") + "</span>" +
+              (place(it) ? "<span>" + place(it) + "</span>" : "") +
+              (fmtDate(it.application_deadline) ? "<span>Hasta el " + esc(fmtDate(it.application_deadline)) + "</span>" : "") +
+            "</div>" +
+          "</div></div>" +
+          (open ? '<div class="row">' +
+            '<button type="button" class="btn small" data-act="edit">Editar</button>' +
+            '<button type="button" class="btn small danger" data-act="del">Retirar</button>' +
+          "</div>" : "") +
+          '<div class="mine-slot"></div>' +
+        "</div>";
+      }).join("");
+    }).catch(function () {
+      $("mineBody").innerHTML = '<div class="empty">No he podido cargarlas ahora mismo.</div>';
+    });
+  }
+
+  $("mineBody").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    var item = btn.closest(".mine-item"), id = item.dataset.id, slot = item.querySelector(".mine-slot");
+
+    if (btn.dataset.act === "del") {
+      if (slot.dataset.confirm !== id) {
+        slot.dataset.confirm = id;
+        msg(slot, "warn", "¿Seguro? Desaparecerá del mapa. El mensaje que ya salió en el canal se " +
+          "queda como estaba. <br><br><b>Pulsa Retirar otra vez para confirmar.</b>");
+        return;
+      }
+      btn.disabled = true;
+      api("/api/mine/delete", { identifier: id }).then(function () { loadMine(); })
+        .catch(function (err) { msg(slot, "bad", esc(err.message)); btn.disabled = false; });
+      return;
+    }
+
+    if (slot.querySelector("textarea")) { slot.innerHTML = ""; return; }
+    slot.innerHTML = '<div style="margin-top:12px">' +
+      '<textarea style="min-height:74px" placeholder="¿Qué cambio? Por ejemplo: «el plazo se amplía al 30 de agosto»"></textarea>' +
+      '<div class="row"><button type="button" class="btn primary small" data-go="1">Guardar cambio</button></div></div>';
+    slot.querySelector("[data-go]").addEventListener("click", function () {
+      var text = slot.querySelector("textarea").value.trim();
+      if (!text) return;
+      var go = slot.querySelector("[data-go]");
+      go.disabled = true; go.textContent = "Aplicando…";
+      api("/api/mine/edit", { identifier: id, instruction: text })
+        .then(function () { slot.innerHTML = ""; loadMine(); })
+        .catch(function (err) {
+          go.disabled = false; go.textContent = "Guardar cambio";
+          msg(slot, "bad", esc(err.message));
+        });
+    });
+  });
+
+  // ── Analizar / publicar ────────────────────────────────────────────────
+  function runPreview(target) {
+    clearMsg($("composeMsg")); clearMsg($("previewMsg"));
+    busy(target, true, "Leyendo la oportunidad…");
+    api("/api/submit/preview", { text: lastText, corrections: corrections.length ? corrections : null })
+      .then(function (r) {
+        busy(target, false);
+        if (r.status !== "ready") {
+          var out = rejection(r);
+          msg($(corrections.length ? "previewMsg" : "composeMsg"), out[0], out[1]);
+          if (!corrections.length) setStep("compose");
+          return;
+        }
+        token = r.token;
+        $("previewBody").innerHTML = oppHTML(r.fields);
+        show($("modifyBox"), false);
+        $("correction").value = "";
+        setStep("preview");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      })
+      .catch(function (e) {
+        busy(target, false);
+        msg($(corrections.length ? "previewMsg" : "composeMsg"), "bad", esc(e.message));
+      });
+  }
+
+  $("analyze").addEventListener("click", function () {
+    lastText = $("raw").value.trim();
+    corrections = [];
+    if (lastText.length < 40) {
+      msg($("composeMsg"), "warn", "Necesito el texto completo de la convocatoria para poder leerla bien.");
+      return;
+    }
+    runPreview(this);
+  });
+
+  $("modify").addEventListener("click", function () {
+    show($("modifyBox"), true);
+    $("correction").focus();
+  });
+  $("cancelFix").addEventListener("click", function () { show($("modifyBox"), false); });
+  $("applyFix").addEventListener("click", function () {
+    var fix = $("correction").value.trim();
+    if (!fix) return;
+    corrections.push(fix);
+    runPreview(this);
+  });
+
+  $("discard").addEventListener("click", function () {
+    token = null; corrections = []; clearMsg($("previewMsg"));
+    setStep("compose");
+  });
+
+  $("publish").addEventListener("click", function () {
+    if (!token) return;
+    var btn = this;
+    busy(btn, true, "Publicando…");
+    api("/api/submit/commit", { token: token }).then(function (r) {
+      busy(btn, false);
+      token = null; corrections = []; lastText = ""; $("raw").value = "";
+      $("doneMsg").innerHTML = r.published
+        ? "<b>¡Publicada!</b> Ya está en el canal de Telegram y en el mapa. Gracias por compartirla. 🙌"
+        : "<b>Guardada.</b> Ya está en el mapa.";
+      if (r.identifier) $("doneMap").href = "/corradi-erasmus?o=" + encodeURIComponent(r.identifier);
+      setStep("done");
+      loadMine();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }).catch(function (e) {
+      busy(btn, false);
+      msg($("previewMsg"), "bad", esc(e.message));
+    });
+  });
+
+  $("another").addEventListener("click", function () { setStep("compose"); $("raw").focus(); });
+
+  $("logout").addEventListener("click", function () {
+    api("/api/auth/logout", {}).then(function () { location.reload(); });
+  });
+
+  // ── Arranque ───────────────────────────────────────────────────────────
+  ["analyze", "publish", "applyFix"].forEach(function (id) { $(id).dataset.label = $(id).textContent; });
+
+  api("/api/auth/me").then(function (data) {
+    user = data.user;
+    paintUser();
+    if (user) { setStep("compose"); loadMine(); }
+    else { setStep("login"); mountWidget(data.bot); }
+  }).catch(function () { setStep("login"); });
+})();
+</script>
+</body>
+</html>

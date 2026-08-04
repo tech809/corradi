@@ -268,13 +268,13 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
 .card[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
 .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 9px; padding-left: 9px; }
 .card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-/* Siempre en el azul de marca, no en el color del tipo: en el popup del mapa `--c` ni
-   siquiera está definido (`.popup` no lleva data-type como sí lleva `.card`), así que la
-   categoría salía gris apagado ahí y de color en la lista — incoherente. El tipo se sigue
-   distinguiendo por el icono, el texto, la barra lateral de la tarjeta y el color del pin. */
+/* Color del tipo (--c) cuando está disponible -- la tarjeta lo define vía
+   .card[data-type=...], así que la etiqueta hace juego con la barra lateral en vez de
+   quedarse en texto suelto sin fondo. En el popup del mapa (`.popup` no lleva data-type)
+   no hay --c definido, así que cae al azul de marca en vez de a un gris apagado. */
 .badge {
   display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .01em;
-  color: var(--brand); background: color-mix(in srgb, var(--brand) 11%, transparent);
+  color: var(--c, var(--brand)); background: color-mix(in srgb, var(--c, var(--brand)) 14%, transparent);
   padding: 4px 9px 4px 7px; border-radius: 7px;
 }
 .badge svg { width: 12px; height: 12px; }
@@ -1558,7 +1558,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     document.getElementById("infoClose").addEventListener("click", function () { infoDlg.close(); });
     infoDlg.addEventListener("click", function (e) { if (e.target === infoDlg) infoDlg.close(); });
 
-    document.getElementById("contribute").addEventListener("click", function () { window.open("https://t.me/corradi_erasmus_bot", "_blank", "noopener"); });
+    // Al panel web, no al bot: se puede publicar sin salir del navegador (el bot sigue
+    // funcionando igual para quien prefiera Telegram, y de hecho el login es el mismo).
+    document.getElementById("contribute").addEventListener("click", function () { window.location.href = "/publicar"; });
 
     var commandBar = document.getElementById("commandBar");
     var qInput = document.getElementById("q");

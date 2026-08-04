@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html
 import re
+import secrets
 import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -23,6 +24,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app import geo
+from app import pipeline
+from app.api import auth
 from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
@@ -259,6 +262,193 @@ async def chat(payload: ChatRequest, request: Request) -> dict[str, Any]:
     if not pregunta:
         raise HTTPException(status_code=400, detail="Falta 'pregunta'")
     return await chat_llm.ask(pregunta)
+
+
+# ── Panel de publicación (/publicar) ─────────────────────────────────────────────────────
+# Mismo pipeline que el bot de Telegram (preview -> confirmar -> commit), solo que la
+# "boca" es una página web en vez de un chat. La identidad es la MISMA (ID numérico de
+# Telegram vía el widget de login), así que el límite diario, el antispam, los bloqueos y
+# los permisos de editar/borrar funcionan sin tocar nada — ver app/api/auth.py.
+
+# Ficha extraída a la espera de que la persona confirme "Publicar". En memoria y con
+# caducidad: el proceso `api` es un único uvicorn sin `--workers`, igual que el rate-limit
+# del chat de más arriba. Si la api se reinicia se pierden las pendientes y hay que volver
+# a darle a Analizar — molesto pero inofensivo, y evita una tabla para algo efímero.
+# NO se manda la ficha al cliente para que la devuelva: si no, alguien podría cambiar el
+# `application_url` por un enlace suyo DESPUÉS de ver la vista previa.
+_pending_previews: dict[str, tuple[float, int, dict[str, Any]]] = {}
+_PENDING_TTL_S = 1800
+
+# Campos de la ficha que se le enseñan a quien la está publicando. Misma disciplina de
+# lista blanca que _PUBLIC_FIELDS: nunca `raw_message`, `embedding` ni `hash`.
+_PREVIEW_FIELDS = (
+    "title", "type", "topic", "organiser_name", "summary",
+    "country_code", "location", "start_date", "end_date",
+    "application_deadline", "deadline_estimated",
+    "infopack_url", "application_url", "max_participants",
+    "participant_min_age", "participant_max_age", "cost", "contact_information",
+)
+
+
+def _sweep_pending() -> None:
+    now = time.monotonic()
+    for token in [t for t, (exp, _, _) in _pending_previews.items() if exp < now]:
+        _pending_previews.pop(token, None)
+
+
+def _current_user(request: Request) -> dict[str, Any] | None:
+    return auth.read_session(request.cookies.get(auth.SESSION_COOKIE))
+
+
+def _require_user(request: Request) -> dict[str, Any]:
+    user = _current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión.")
+    return user
+
+
+@app.get("/publicar", include_in_schema=False)
+async def publicar_page(request: Request) -> Response:
+    path = _STATIC / "publicar.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
+
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request, response: Response) -> dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
+    return {"user": _current_user(request), "bot": cfg.telegram_bot_username}
+
+
+@app.post("/api/auth/telegram")
+async def auth_telegram(payload: dict[str, Any], response: Response) -> dict[str, Any]:
+    """Recibe tal cual el objeto que entrega el widget de Telegram y comprueba su firma."""
+    user = auth.verify_telegram_login({k: str(v) for k, v in payload.items()})
+    if not user:
+        raise HTTPException(status_code=401, detail="No he podido verificar tu identidad de Telegram.")
+    response.set_cookie(
+        auth.SESSION_COOKIE, auth.make_session(user),
+        max_age=auth.session_max_age(), httponly=True, samesite="lax",
+        # Solo `secure` si el sitio va por HTTPS: en local (http://localhost) una cookie
+        # marcada como segura el navegador la descarta sin decir nada.
+        secure=(_public_origin() or "").startswith("https"),
+    )
+    return {"user": {"id": user["id"], "name": user["name"], "username": user["username"]}}
+
+
+@app.post("/api/auth/logout")
+async def auth_logout(response: Response) -> dict[str, str]:
+    response.delete_cookie(auth.SESSION_COOKIE)
+    return {"ok": "1"}
+
+
+class SubmitPreview(BaseModel):
+    text: str
+    corrections: list[str] | None = None
+
+
+@app.post("/api/submit/preview")
+async def submit_preview(payload: SubmitPreview, request: Request) -> dict[str, Any]:
+    user = _require_user(request)
+    text = (payload.text or "").strip()
+    if len(text) < 40:
+        raise HTTPException(status_code=400, detail="Pega el texto completo de la oportunidad.")
+    if await repo.is_blocked(user["id"]):
+        raise HTTPException(status_code=403, detail="Tu cuenta está bloqueada para publicar.")
+
+    result = await pipeline.preview(
+        text, user["id"], corrections=payload.corrections or None,
+        submitted_by_username=user.get("username"),
+    )
+    if result["status"] != "ready":
+        return _clean(result)
+
+    _sweep_pending()
+    token = secrets.token_urlsafe(18)
+    _pending_previews[token] = (time.monotonic() + _PENDING_TTL_S, user["id"], result["fields"])
+    fields = {k: _clean(result["fields"].get(k)) for k in _PREVIEW_FIELDS}
+    return {"status": "ready", "token": token, "fields": fields}
+
+
+class SubmitCommit(BaseModel):
+    token: str
+
+
+@app.post("/api/submit/commit")
+async def submit_commit(payload: SubmitCommit, request: Request) -> dict[str, Any]:
+    user = _require_user(request)
+    _sweep_pending()
+    pending = _pending_previews.get(payload.token)
+    # El ID de quien confirma tiene que ser el mismo que el de quien pidió la vista previa:
+    # un token robado no sirve para publicar desde otra cuenta.
+    if not pending or pending[1] != user["id"]:
+        raise HTTPException(status_code=404, detail="Esa ficha ya no está disponible. Analízala otra vez.")
+    _pending_previews.pop(payload.token, None)
+
+    username = user.get("username")
+    result = await pipeline.commit(
+        pending[2], source="web",
+        submitted_by=f"{user['name']} (@{username})", submitted_by_id=user["id"],
+    )
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result.get("error") or "No se pudo guardar.")
+    opp = result.get("opp") or {}
+    return {
+        "status": result["status"], "published": bool(result.get("published")),
+        "identifier": opp.get("identifier"), "title": opp.get("title"),
+    }
+
+
+@app.get("/api/mine")
+async def api_mine(request: Request, response: Response) -> dict[str, Any]:
+    user = _require_user(request)
+    response.headers["Cache-Control"] = "no-store"
+    rows = await repo.list_all_by_user(user["id"], limit=60)
+    out = []
+    for row in rows:
+        item = {k: _clean(row.get(k)) for k in _PREVIEW_FIELDS}
+        item["identifier"] = row.get("identifier")
+        item["status"] = row.get("status")
+        item["created"] = _clean(row.get("created"))
+        out.append(item)
+    return {"items": out}
+
+
+class MineEdit(BaseModel):
+    identifier: str
+    instruction: str
+
+
+@app.post("/api/mine/edit")
+async def api_mine_edit(payload: MineEdit, request: Request) -> dict[str, Any]:
+    user = _require_user(request)
+    instruction = (payload.instruction or "").strip()
+    if not instruction:
+        raise HTTPException(status_code=400, detail="Dime qué quieres cambiar.")
+    result = await pipeline.edit_published(payload.identifier, instruction, user["id"])
+    if result["status"] in ("not_found", "forbidden"):
+        raise HTTPException(status_code=404, detail="No puedo editar esa oportunidad.")
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result.get("error") or "No pude aplicar el cambio.")
+    return {"status": "edited"}
+
+
+class MineDelete(BaseModel):
+    identifier: str
+
+
+@app.post("/api/mine/delete")
+async def api_mine_delete(payload: MineDelete, request: Request) -> dict[str, Any]:
+    user = _require_user(request)
+    result = await pipeline.delete_published(payload.identifier, user["id"])
+    if result["status"] in ("not_found", "forbidden"):
+        raise HTTPException(status_code=404, detail="No puedo eliminar esa oportunidad.")
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result.get("error") or "No pude eliminarla.")
+    return {"status": result["status"]}
 
 
 @app.get("/estadisticas", include_in_schema=False)

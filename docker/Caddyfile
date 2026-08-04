@@ -17,6 +17,15 @@
 		reverse_proxy api:8000
 	}
 
+	# Panel para publicar desde la web (/publicar). Va aparte del bloque de arriba solo por
+	# claridad: esto es la única superficie de ESCRITURA pública. Todas estas rutas exigen
+	# sesión válida en la app (cookie firmada, ver app/api/auth.py) menos /api/auth/*, que
+	# es justo por donde se consigue esa sesión.
+	@panel path /publicar /api/auth/me /api/auth/telegram /api/auth/logout /api/submit/preview /api/submit/commit /api/mine /api/mine/edit /api/mine/delete
+	handle @panel {
+		reverse_proxy api:8000
+	}
+
 	# Enlace corto para compartir (p.ej. WhatsApp): /2026-0040 redirige a la ficha en el
 	# mapa. Patrón exacto AAAA-NNNN, nada más pasa por aquí.
 	@enlace_corto path_regexp ^/\d{4}-\d{4}$
