@@ -254,9 +254,27 @@ al exterior (Caddy filtra las rutas permitidas).
 | Coste | **0 € hasta 31-dic-2026** (free trial), luego ~17-19 €/mes |
 
 **Resiliencia**: los contenedores usan `restart: unless-stopped` y Docker arranca al bootear,
-así que todo vuelve solo tras un reinicio o si un contenedor se cae. Los cron (resumen diario
-20:00, semanal domingos 20:30, backup de BD) están en el `crontab` de la instancia, en hora de
-Madrid.
+así que todo vuelve solo tras un reinicio o si un contenedor se cae. Todos los trabajos
+programados viven en el `crontab` de la instancia (hora de Madrid), cada uno como
+`docker compose run --rm bot python -m app.scheduler.<job>` — un contenedor efímero por
+ejecución, no un proceso de larga duración, así que un cron colgado no afecta al bot en vivo.
+
+| Hora (Madrid) | Job | Qué hace |
+|---|---|---|
+| 09:00 diario | `check_forms` | Comprueba si el Google Form de cada oportunidad abierta sigue aceptando respuestas (sin LLM: sigue la redirección a `/closedform`) y cierra las que ya no |
+| cada ~10 min durante las 12h y las 17h, + repesca a las 13:05 y 18:05 | `publish_salto_backlog` | Publica lo que `scrape_salto` encoló para su franja (ver abajo) en cuanto le toca — con esta frecuencia, la hora aleatoria de cada ficha se nota de verdad |
+| 12:00 diario | `scrape_salto` | Rastrea SALTO-YOUTH en busca de oportunidades nuevas que encajen y las encola con una hora aleatoria dentro de su franja: hasta `SALTO_SCRAPE_DAILY_CAP` (2 por defecto) en la franja 12:00-13:00, el resto en la 17:00-18:00 — nada se publica ya clavado en punto |
+| 20:00 diario | `daily_summary` | Resumen de todo lo abierto ahora mismo (ver sección "Resumen diario" más abajo) |
+| 20:30 domingos | `weekly_summary` | Cierre de la semana: nuevas publicadas, top países/temáticas (ver "Resumen semanal") |
+| cada 2h | `publish_instagram` | Barrido de reintento del feed/story de Instagram — red de seguridad de lo que `pipeline.commit()` ya intenta publicar al instante en segundo plano |
+| 03:00 diario | `backup_db.sh` | Backup de la base de datos (script en `scripts/`, no un módulo de `app.scheduler`) |
+
+```bash
+crontab -l   # ver la lista completa tal cual corre en producción
+```
+
+> Los logs de cada job se acumulan en `/tmp/corradi_<job>.log` en la instancia — el sitio para
+> mirar primero si un cron "no ha hecho nada" (p.ej. `/tmp/corradi_check_forms.log`).
 
 > ⚠️ **No arranques el bot en local mientras el de AWS esté vivo**: los dos competirían por
 > el mismo token de Telegram (solo un proceso puede hacer *polling*) y fallarían de forma
@@ -353,12 +371,11 @@ título en negrita, sin más). Formato por oportunidad (3 líneas):
 ```
 
 Programado con cron en el host (no dentro del contenedor, para que sobreviva a reinicios de
-`docker compose`):
+`docker compose`) — ver la tabla completa de crons en la sección "Producción (AWS EC2)":
 ```bash
-crontab -l   # ver/editar: 0 20 * * * docker exec corradi-bot python -m app.scheduler.daily_summary
+crontab -l   # 0 20 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.daily_summary
 ```
-> En local esto depende de que el Mac esté encendido a las 20h. En EC2, el mismo cron (o
-> EventBridge Scheduler) corre 24/7 — mover el cron ahí es parte de la migración a producción.
+> En local esto depende de que el Mac esté encendido a las 20h. En EC2 el mismo cron corre 24/7.
 
 ## Mapa público
 
@@ -428,7 +445,7 @@ mismo, y el top de países y temáticas de lo publicado esa semana:
 ```
 
 ```bash
-crontab -l   # 30 20 * * 0 docker exec corradi-bot python -m app.scheduler.weekly_summary
+crontab -l   # 30 20 * * 0 cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.weekly_summary
 make weekly-summary   # probarlo a mano
 ```
 
