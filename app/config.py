@@ -39,13 +39,18 @@ class Config:
     # Username del BOT (sin @): lo necesita el widget de login de Telegram en /publicar.
     telegram_bot_username: str = os.getenv("TELEGRAM_BOT_USERNAME", "corradi_erasmus_bot")
     admin_telegram_ids: list[int] = field(default_factory=lambda: _ids(os.getenv("ADMIN_TELEGRAM_IDS")))
-    # Bot DEDICADO (token propio, @corradi_erasmus_whatsapp_bot) que le manda por DM a cada
-    # admin, oportunidad a oportunidad, el texto listo para copiar y pegar en el canal de
-    # difusión de WhatsApp — ver app/publisher/whatsapp_relay.py. Bot aparte del principal
-    # para no mezclar tráfico de moderación con el bot público; cada admin tiene que haberle
-    # mandado /start al menos una vez (Telegram no deja que un bot escriba primero a nadie).
+    # Bot DEDICADO (token propio, @corradi_erasmus_whatsapp_bot) que manda, oportunidad a
+    # oportunidad, el texto listo para copiar y pegar en el canal de difusión de WhatsApp —
+    # ver app/publisher/whatsapp_relay.py. Bot aparte del principal para no mezclar tráfico
+    # de moderación con el bot público.
     whatsapp_relay_bot_token: str = os.getenv("WHATSAPP_RELAY_BOT_TOKEN", "")
     whatsapp_relay_bot_username: str = os.getenv("WHATSAPP_RELAY_BOT_USERNAME", "corradi_erasmus_whatsapp_bot")
+    # A quién se le manda: uno o varios chat_id (personas o UN grupo -- los de grupo son
+    # negativos), separados por coma. Vacío = cae en ADMIN_TELEGRAM_IDS (comportamiento por
+    # defecto, para no dejar de mandar nada mientras se monta un destino propio). El chat_id
+    # de un grupo se saca añadiendo el bot al grupo, mandando cualquier mensaje ahí y
+    # mirando el `chat.id` en getUpdates.
+    whatsapp_relay_chat_ids: list[int] = field(default_factory=lambda: _ids(os.getenv("WHATSAPP_RELAY_CHAT_IDS")))
 
     # LLM
     llm_provider: str = os.getenv("LLM_PROVIDER", "gemini")  # 'gemini' | 'fake' (dry-run sin claves)

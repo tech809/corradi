@@ -310,7 +310,8 @@ Variables imprescindibles para el lanzamiento actual (ver `.env.example` para el
 | `ADMIN_TELEGRAM_IDS` | IDs numéricos de Telegram con permisos de admin, separados por coma |
 | `GEMINI_API_KEY` | Clave de Google Gemini |
 | `HANDOFF_MODE` | `telegram` (por defecto): reenvía cada oportunidad al bot de difusión — ver `WHATSAPP_RELAY_BOT_TOKEN` |
-| `WHATSAPP_RELAY_BOT_TOKEN` | Token del bot dedicado @corradi_erasmus_whatsapp_bot (DM a `ADMIN_TELEGRAM_IDS` con el texto listo para copiar y pegar en el canal de difusión de WhatsApp) |
+| `WHATSAPP_RELAY_BOT_TOKEN` | Token del bot dedicado @corradi_erasmus_whatsapp_bot (manda el texto listo para copiar y pegar en el canal de difusión de WhatsApp) |
+| `WHATSAPP_RELAY_CHAT_IDS` | A quién se lo manda: persona(s) o un grupo, separados por coma (vacío = cae en `ADMIN_TELEGRAM_IDS`) |
 | `DEFAULT_DEADLINE_DAYS` | Días de margen si no hay deadline explícita en el texto (5 por defecto) |
 | `LAST_MINUTE_DEADLINE_DAYS` | Igual, pero si el mensaje dice "última hora"/"últimas plazas" (2 por defecto) |
 | `MAX_DEADLINE_MONTHS` | Solo se aceptan oportunidades cuya deadline caiga dentro de estos meses (3 por defecto; red de seguridad ante años mal inferidos) |
@@ -336,8 +337,8 @@ WhatsApp no tiene API accesible para el canal de difusión real (no es negocio, 
 normal) — así que el flujo es manual a propósito: en cuanto se publica una oportunidad
 (venga de donde venga: bot de Telegram, panel web `/publicar`, backlog de SALTO-YOUTH — las
 tres pasan por `pipeline.commit()`), el bot dedicado **@corradi_erasmus_whatsapp_bot**
-(token propio en `WHATSAPP_RELAY_BOT_TOKEN`, separado del bot principal) le manda por DM a
-cada `ADMIN_TELEGRAM_IDS` el texto ya formateado, listo para copiar y pegar. Sin foto — el
+(token propio en `WHATSAPP_RELAY_BOT_TOKEN`, separado del bot principal) manda a
+`WHATSAPP_RELAY_CHAT_IDS` el texto ya formateado, listo para copiar y pegar. Sin foto — el
 canal de difusión de WhatsApp es solo texto — así que bandera y categoría (que en el canal
 de Telegram van en la imagen del post, ver `opportunity_card.py`) se escriben aquí en vez de
 omitirse. Formato:
@@ -363,8 +364,16 @@ aparecen si hay dato real (nunca "Infopack: -" para rellenar a mano). El resumen
 a ~3 líneas (`_cap_summary`, corta en frase completa) aunque el original sea más largo —
 tope real en código, no solo en el prompt del extractor.
 
-Cada admin tiene que haberle mandado `/start` al bot al menos una vez: la API de Telegram no
-deja que un bot escriba primero a nadie que no lo haya hecho. Si `WHATSAPP_RELAY_BOT_TOKEN`
+El destino puede ser una persona, varias, o **un grupo** (un chat_id negativo sirve para
+todos sus miembros a la vez — más cómodo que mantener una lista si quien modera va
+cambiando). Para sacar el chat_id de un grupo: crea el grupo, añade al bot, manda cualquier
+mensaje ahí y consulta
+`https://api.telegram.org/bot<WHATSAPP_RELAY_BOT_TOKEN>/getUpdates` — el `chat.id` de ese
+mensaje es el que va en `WHATSAPP_RELAY_CHAT_IDS`. Si `WHATSAPP_RELAY_CHAT_IDS` está vacío,
+cae en `ADMIN_TELEGRAM_IDS` (para no dejar de mandar nada mientras se monta un destino
+propio). Cada persona (o el grupo) tiene que haberle "hablado" al bot al menos una vez —
+`/start` en DM, o que alguien escriba en el grupo tras añadirlo — es un requisito de la
+propia API de Telegram, no deja que un bot escriba primero. Si `WHATSAPP_RELAY_BOT_TOKEN`
 está vacío, `whatsapp_relay.py` no hace nada (no revienta el resto del pipeline).
 
 > Hasta el 4-ago-2026 este reenvío iba a un grupo de Telegram y, además, un cron aparte
