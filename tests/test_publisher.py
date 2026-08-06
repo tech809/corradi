@@ -32,32 +32,33 @@ def test_format_opportunity_whatsapp_bold():
     t = pub.format_opportunity_whatsapp(OPP)
     assert "*Green Roots*" in t
     assert "<b>" not in t  # WhatsApp no usa HTML
-    assert "👉 Formulario en: " in t  # enlace limpio al mapa, no la URL externa cruda
-    assert "forms.gle" not in t
 
 
 def test_format_opportunity_whatsapp_incluye_bandera_y_categoria():
     """Sin foto (el canal de difusión de WhatsApp es solo texto), así que la bandera y la
     categoría -- que en Telegram van en la imagen del post, no en el pie -- tienen que
-    escribirse aquí o se pierden por completo en la copia."""
+    escribirse aquí o se pierden por completo en la copia. Categoría y tema van en líneas
+    separadas (no como antes, pegados con ' · ')."""
     t = pub.format_opportunity_whatsapp(OPP)
-    assert "🇪🇸 *Green Roots*" in t  # bandera de España, no el 🌍 genérico de antes
-    assert "🎒 Youth Exchange · sostenibilidad" in t  # categoría siempre, tema pegado si lo hay
+    lineas = t.split("\n")
+    assert "🇪🇸 *Green Roots*" in lineas  # bandera de España, no el 🌍 genérico
+    assert "🎒 Youth Exchange" in lineas  # categoría en su propia línea
+    assert "🏷️ Temática: sostenibilidad" in lineas
 
 
 def test_format_opportunity_whatsapp_categoria_sin_tema():
-    """La categoría no puede depender de que haya `topic` -- antes, sin tema, la categoría
-    no aparecía en ningún sitio del texto de WhatsApp."""
+    """La categoría no puede depender de que haya `topic` -- sin tema, sigue apareciendo,
+    y sin más, sin línea de Temática colgando."""
     sin_tema = {**OPP, "topic": None}
     t = pub.format_opportunity_whatsapp(sin_tema)
-    assert "🎒 Youth Exchange" in t
-    assert "·" not in t.split("\n")[1]  # sin tema no hay " · algo" colgando
+    assert "🎒 Youth Exchange" in t.split("\n")
+    assert "Temática" not in t
 
 
 def test_format_opportunity_whatsapp_bandera_generica_sin_pais():
     sin_pais = {**OPP, "country_code": None}
     t = pub.format_opportunity_whatsapp(sin_pais)
-    assert "🌍 *Green Roots*" in t
+    assert "🌍 *Green Roots*" in t.split("\n")
 
 
 def test_format_opportunity_whatsapp_cuenta_dias_para_el_limite():
@@ -65,8 +66,49 @@ def test_format_opportunity_whatsapp_cuenta_dias_para_el_limite():
     explícito aquí), así que solo se comprueba la forma, no el número exacto de días."""
     t = pub.format_opportunity_whatsapp(OPP)
     linea = next(l for l in t.split("\n") if l.startswith("⏳"))
-    assert linea.startswith("⏳ Límite *2026-08-25*")
+    assert linea.startswith("⏳ Fecha límite: 2026-08-25")
+    assert "*" not in linea  # sin negrita en el pie, a diferencia del título
     assert linea.strip().endswith(")") and "(" in linea  # "(quedan N días)" / "(cierra ...)"
+
+
+def test_format_opportunity_whatsapp_incluye_resumen():
+    t = pub.format_opportunity_whatsapp(OPP)
+    assert "Intercambio sobre sostenibilidad." in t
+
+
+def test_format_opportunity_whatsapp_sin_resumen_no_dejar_bloque_vacio():
+    sin_resumen = {**OPP, "summary": None}
+    t = pub.format_opportunity_whatsapp(sin_resumen)
+    assert "\n\n\n" not in t
+
+
+def test_format_opportunity_whatsapp_campos_de_contacto_solo_si_existen():
+    """Cada campo (Infopack/Form/Contacto/Mapa) es una línea aparte y SOLO sale si hay
+    dato -- nunca una línea vacía o "Infopack: -" para rellenar a mano."""
+    completa = {
+        **OPP,
+        "infopack_url": "https://salto-youth.net/tools/toy/infopack.pdf",
+        "application_url": "https://forms.gle/x",
+        "contact_information": "info@ejemplo.eu",
+    }
+    t = pub.format_opportunity_whatsapp(completa)
+    assert "Infopack: https://salto-youth.net/tools/toy/infopack.pdf" in t
+    assert "Form: https://forms.gle/x" in t
+    assert "Contacto: info@ejemplo.eu" in t
+    assert "Mapa: https://mapa.proactivefuture.eu/2026-0001" in t
+
+    solo_form = {**OPP, "infopack_url": None, "contact_information": None}
+    t2 = pub.format_opportunity_whatsapp(solo_form)
+    assert "Infopack:" not in t2
+    assert "Form: https://forms.gle/x" in t2
+    assert "Contacto:" not in t2
+    assert "Mapa: https://mapa.proactivefuture.eu/2026-0001" in t2  # el mapa sale siempre que hay identifier
+
+
+def test_format_opportunity_whatsapp_sin_ningun_contacto_ni_mapa():
+    sin_nada = {k: v for k, v in OPP.items() if k not in ("identifier", "application_url")}
+    t = pub.format_opportunity_whatsapp(sin_nada)
+    assert "Infopack:" not in t and "Form:" not in t and "Contacto:" not in t and "Mapa:" not in t
 
 
 def test_daily_summary_empty():
@@ -118,43 +160,10 @@ def test_daily_summary_groups_by_type():
     assert t.index("Youth Exchange") < t.index("Training Course") < t.index("ECS")
 
 
-def test_opportunity_whatsapp_links_to_map_not_raw_urls():
-    """En vez de volcar los enlaces externos (a veces larguísimos/feos), manda un único
-    enlace corto a la ficha en el mapa público (redirige vía `/{short_id}`), que ya trae
-    los botones reales de Infopack/Form en su popup."""
-    both = {**OPP, "infopack_url": "https://drive.example/info.pdf"}
-    t = pub.format_opportunity_whatsapp(both)
-    assert "👉 Infopack y form. en: https://mapa.proactivefuture.eu/2026-0001" in t  # enlace corto, sin ?o=
-    assert "forms.gle" not in t and "drive.example" not in t
-
-
 def test_short_map_link():
     assert pub._short_map_link("CORRADI-2026-0040") == "https://mapa.proactivefuture.eu/2026-0040"
     assert pub._short_map_link(None) is None
     assert pub._short_map_link("algo-sin-prefijo") is None
-
-
-def test_opportunity_whatsapp_map_link_falls_back_without_identifier():
-    no_id = {k: v for k, v in OPP.items() if k != "identifier"}
-    t = pub.format_opportunity_whatsapp(no_id)
-    assert "👉 Formulario: https://forms.gle/x" in t  # sin identifier, no se puede enlazar al mapa
-
-
-def test_opportunity_whatsapp_no_form_or_infopack_still_links_to_map():
-    """Bug real reportado por el usuario: 'Youth Without Borders' (inscripción solo por
-    Instagram bio, sin application_url/infopack_url reales) se quedaba sin ningún enlace.
-    El mapa sigue siendo útil (ubicación, fechas, contacto) aunque no haya form/infopack."""
-    plain = {**OPP, "application_url": None}
-    t = pub.format_opportunity_whatsapp(plain)
-    assert "👉" not in t  # no hay botón de formulario/infopack, no hay nada que fingir
-    assert "🗺️ Más información en: https://mapa.proactivefuture.eu/2026-0001" in t
-
-
-def test_opportunity_whatsapp_no_map_and_no_links_shows_nothing():
-    no_id = {k: v for k, v in OPP.items() if k != "identifier"}
-    no_id["application_url"] = None
-    t = pub.format_opportunity_whatsapp(no_id)
-    assert "👉" not in t and "🗺️" not in t
 
 
 def test_weekly_topics_summary_groups_similar_themes_not_type():

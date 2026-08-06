@@ -300,52 +300,50 @@ def format_hidden_fields(o: dict[str, Any]) -> str:
 
 
 def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
-    """Texto compacto en formato WhatsApp (*negrita*, URLs en plano) para copiar y pegar en
-    el canal de difusión. WhatsApp NO soporta texto-ancla (un link con una etiqueta propia
-    como en HTML) en mensajes de texto normales — solo detecta URLs "en crudo" y las hace
-    tocables tal cual. En vez de volcar los enlaces externos crudos (a veces larguísimos y
-    feos, tipo Microsoft/Google Forms o descargas de SALTO con la URL escapada), se manda
-    UN enlace limpio a la ficha en el mapa público (`?o=identifier`, deep link ya soportado
-    por `mapa.html`: centra el pin y abre su popup con los botones reales de Infopack/Form).
+    """Texto en formato WhatsApp (*negrita*, URLs en plano -- WhatsApp no soporta
+    texto-ancla en mensajes normales, solo detecta URLs "en crudo" y las hace tocables tal
+    cual) para copiar y pegar a mano en el canal de difusión.
 
     Sin foto (el canal de difusión de WhatsApp es solo texto): bandera y categoría, que en
     Telegram van en la imagen del post (ver `opportunity_card.py`) y no se repiten en el
-    pie, aquí SÍ hay que escribirlas -- si no, se pierden por completo en la copia."""
+    pie, aquí SÍ hay que escribirlas -- si no, se pierden por completo en la copia.
+
+    Cada campo de contacto (Infopack/Form/Contacto/Mapa) es una línea aparte y SOLO
+    aparece si hay dato -- si una oportunidad no tiene infopack, por ejemplo, esa línea
+    no sale (nunca "Infopack: -" ni nada a rellenar a mano)."""
     flag = _flag(o.get("country_code")) or "🌍"
-    lines = [f"{flag} *{o['title']}*"]
+    cabecera = [f"{flag} *{o['title']}*", _CATEGORIA_WHATSAPP.get(o.get("type"), _OTRAS_CATEGORIA)]
+    if o.get("topic"):
+        cabecera.append(f"🏷️ Temática: {o['topic']}")
+    if _place(o):
+        cabecera.append(f"📍 {_place(o)}")
+    cabecera.append(f"🗓️ {_compact_dates(o)}")
 
-    categoria = _CATEGORIA_WHATSAPP.get(o.get("type"), _OTRAS_CATEGORIA)
-    lines.append(f"{categoria} · {o['topic']}" if o.get("topic") else categoria)
+    bloques = ["\n".join(cabecera)]
 
-    segs = [s for s in [f"📍 {_place(o)}" if _place(o) else "", f"🗓️ {_compact_dates(o)}"] if s]
-    if segs:
-        lines.append(" ".join(segs))
+    if o.get("summary"):
+        bloques.append(o["summary"])
+
+    contacto = []
+    if o.get("infopack_url"):
+        contacto.append(f"Infopack: {o['infopack_url']}")
+    if o.get("application_url"):
+        contacto.append(f"Form: {o['application_url']}")
+    if o.get("contact_information"):
+        contacto.append(f"Contacto: {o['contact_information']}")
+    short_link = _short_map_link(o.get("identifier"))
+    if short_link:
+        contacto.append(f"Mapa: {short_link}")
+    if contacto:
+        bloques.append("\n".join(contacto))
 
     if o.get("application_deadline"):
-        lines.append(
-            f"⏳ Límite *{o['application_deadline']}{_est(o)}* ({_days_left(o['application_deadline'])})"
+        bloques.append(
+            f"⏳ Fecha límite: {o['application_deadline']}{_est(o)} "
+            f"({_days_left(o['application_deadline'])})"
         )
 
-    app_url, info_url = o.get("application_url"), o.get("infopack_url")
-    short_link = _short_map_link(o.get("identifier"))
-    if app_url or info_url:
-        label = "Infopack y form." if (app_url and info_url) else ("Formulario" if app_url else "Infopack")
-        if short_link:
-            lines.append(f"👉 {label} en: {short_link}")
-        else:
-            # Sin mapa configurado (p.ej. local sin MAP_PUBLIC_URL): no perder el dato,
-            # enlaces crudos como respaldo.
-            links = [app_url] if app_url == info_url else [u for u in [app_url, info_url] if u]
-            lines.append(f"👉 {label}: " + " · ".join(links))
-    elif short_link:
-        # Sin formulario/infopack de verdad (p.ej. solo un "apúntate por Instagram" sin
-        # URL) — el mapa sigue siendo útil (ubicación, fechas, contacto), así que TODA
-        # oportunidad lleva enlace, no solo las que tienen enlace externo real.
-        lines.append(f"🗺️ Más información en: {short_link}")
-
-    if o.get("contact_information"):
-        lines.append(f"✉️ {o['contact_information']}")
-    return "\n".join(lines)
+    return "\n\n".join(bloques)
 
 
 def _short_map_link(identifier: str | None) -> str | None:
