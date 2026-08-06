@@ -99,8 +99,11 @@ RULES:
 - country_code = ISO 3166-1 alpha-2 of the host country (e.g. ES, IT, RO, PL, LV, LT), or null.
 - title = the project name (often in quotes/caps), NOT the urgency banner. Ignore intros like "URGENTE" or jokes.
   Keep the title in its ORIGINAL language (do NOT translate it).
-- summary = 1-2 neutral sentences describing the opportunity, ALWAYS written in Spanish (castellano),
-  regardless of the language of the original message. Do not translate proper nouns or the project title.
+- summary = 2 neutral sentences describing the opportunity (roughly 150-250 characters total —
+  enough to give real context, short enough to read in about 3 lines on a phone), ALWAYS written
+  in Spanish (castellano), regardless of the language of the original message. Never a single
+  short sentence, never 3+ sentences or a long paragraph. Do not translate proper nouns or the
+  project title.
 - topic = short comma-separated list of themes, preferably in Spanish, ORDERED BY IMPORTANCE: the FIRST
   tag must be the single most central theme of the opportunity (used downstream to group it with similar
   opportunities), the rest are secondary themes in descending relevance. Judge which theme the activity is

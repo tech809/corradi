@@ -26,11 +26,11 @@ sin intervención humana en el día a día.
 - [Puesta en marcha](#puesta-en-marcha)
 - [Producción (AWS EC2)](#producción-aws-ec2--ya-desplegado)
 - [Configuración (`.env`)](#configuración-env)
-- [Resumen diario](#resumen-diario)
+- [Reenvío a WhatsApp (bot de difusión)](#reenvío-a-whatsapp-bot-de-difusión)
 - [Resumen semanal](#resumen-semanal)
 - [Bandera de país](#bandera-de-país-en-cada-post)
 - [Calidad de extracción](#calidad-de-extracción--aprendido-con-mensajes-reales)
-- [Qué está aparcado (WhatsApp)](#qué-está-aparcado-whatsapp)
+- [Qué está aparcado (WhatsApp Business API)](#qué-está-aparcado-whatsapp-business-api)
 - [Pendiente / siguientes bloques](#pendiente--siguientes-bloques)
 
 ---
@@ -91,8 +91,9 @@ aparcado para esta fase.
 6. Al confirmar, se guarda en `projects` con un identificador legible (`CORRADI-2026-0001`)
    — es **interno**, no se muestra al coordinador ni en el canal; solo se usa en BD/API — y
    se publica en el canal de Telegram [@erasmuscorradi](https://t.me/erasmuscorradi).
-7. Cada día a las 20h, un resumen (ver [Resumen diario](#resumen-diario)) lista **todas las
-   oportunidades con inscripción abierta** (no solo las de ese día) y expira lo vencido.
+7. Al instante, el bot dedicado de difusión reenvía la oportunidad por DM en formato
+   WhatsApp, lista para copiar y pegar (ver [Reenvío a WhatsApp](#reenvío-a-whatsapp-bot-de-difusión)).
+8. Cada día a las 20h se expira lo vencido (sin mandar ningún mensaje — ver la misma sección).
 
 No hay paso de **aprobación por un tercero** (moderación/admin) antes de publicar: si el LLM
 la valida como oportunidad real, no es un duplicado y el propio coordinador confirma el
@@ -255,9 +256,9 @@ al exterior (Caddy filtra las rutas permitidas).
 | Coste | **0 € hasta 31-dic-2026** (free trial), luego ~17-19 €/mes |
 
 **Resiliencia**: los contenedores usan `restart: unless-stopped` y Docker arranca al bootear,
-así que todo vuelve solo tras un reinicio o si un contenedor se cae. Los cron (resumen diario
-20:00, semanal domingos 20:30, backup de BD) están en el `crontab` de la instancia, en hora de
-Madrid.
+así que todo vuelve solo tras un reinicio o si un contenedor se cae. Los cron (expiración
+diaria 20:00, resumen semanal domingos 20:30, backup de BD) están en el `crontab` de la
+instancia, en hora de Madrid.
 
 > ⚠️ **No arranques el bot en local mientras el de AWS esté vivo**: los dos competirían por
 > el mismo token de Telegram (solo un proceso puede hacer *polling*) y fallarían de forma
@@ -342,13 +343,25 @@ de Telegram van en la imagen del post, ver `opportunity_card.py`) se escriben aq
 omitirse. Formato:
 
 ```
-🇮🇹 *Blue & Green Inclusion*
-🎒 Youth Exchange · inclusión, naturaleza, deporte
-📍 Cerdeña, Italia 🗓️ 20-28 sept
-⏳ Límite *2026-08-09* (quedan 5 días)
-👉 Infopack y form. en: https://mapa.proactivefuture.eu/2026-0201
-✉️ info@roescoop.eu
+🇦🇹 *PILCROW*
+🎓 Training Course
+🏷️ Temática: bienestar, naturaleza, actividades al aire libre, aprendizaje no formal, resiliencia
+📍 Rettenegg, Austria
+🗓️ 21-29 sept
+
+Oportunidad de curso de formación Erasmus+ en Rettenegg, Austria, para 8 participantes de 18 a 30 años.
+
+Form: https://forms.gle/Ran8RWbvBNcMw9kb9
+Mapa: https://mapa.proactivefuture.eu/2026-0107
+
+⏳ Fecha límite: 2026-08-06 (estimada) (cierra hoy)
 ```
+
+Cada bloque (cabecera, resumen, Infopack/Form/Contacto/Mapa, fecha límite) va separado por
+una línea en blanco. Infopack/Form/Contacto/Mapa son líneas independientes que solo
+aparecen si hay dato real (nunca "Infopack: -" para rellenar a mano). El resumen se recorta
+a ~3 líneas (`_cap_summary`, corta en frase completa) aunque el original sea más largo —
+tope real en código, no solo en el prompt del extractor.
 
 Cada admin tiene que haberle mandado `/start` al bot al menos una vez: la API de Telegram no
 deja que un bot escriba primero a nadie que no lo haya hecho. Si `WHATSAPP_RELAY_BOT_TOKEN`

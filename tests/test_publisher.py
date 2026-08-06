@@ -82,6 +82,42 @@ def test_format_opportunity_whatsapp_sin_resumen_no_dejar_bloque_vacio():
     assert "\n\n\n" not in t
 
 
+def test_format_opportunity_whatsapp_recorta_resumenes_largos():
+    """Tope real en código (no solo en el prompt del extractor): unas ~3 líneas leídas en
+    el móvil, calibrado contra un resumen real tomado como referencia (228 caracteres)."""
+    largo = {**OPP, "summary": (
+        "Oportunidad de curso de formación Erasmus+ en Rettenegg, Austria, para 8 "
+        "participantes de 18 a 30 años. El curso se centra en el bienestar a través de la "
+        "naturaleza, actividades al aire libre y aprendizaje no formal, buscando "
+        "desarrollar la resiliencia y la conciencia emocional. La participación está "
+        "totalmente financiada por Erasmus+."
+    )}
+    t = pub.format_opportunity_whatsapp(largo)
+    assert len(largo["summary"]) > pub._SUMMARY_WHATSAPP_MAX_LEN  # el original SÍ se pasa
+    assert "financiada por Erasmus+" not in t          # la 3ª frase queda fuera
+    assert "para 8 participantes de 18 a 30 años." in t  # se queda con frases completas
+
+
+def test_cap_summary_corta_en_frase_completa_aunque_sea_corta():
+    """Bug real: exigir que el corte pasara de un % del límite producía un corte a mitad
+    de palabra cuando la única frase completa disponible era corta pero perfectamente
+    válida -- mejor una frase corta que media frase con puntos suspensivos."""
+    texto = "Primera frase corta. " + "Segunda frase mucho más larga " * 15
+    r = pub._cap_summary(texto, limit=50)
+    assert r == "Primera frase corta."
+
+
+def test_cap_summary_sin_puntos_corta_por_palabra():
+    r = pub._cap_summary("x " * 200, limit=50)
+    assert r.endswith("…")
+    assert not r[:-1].endswith(" ")  # no dos espacios antes de la elipsis
+    assert len(r) <= 51
+
+
+def test_cap_summary_texto_corto_no_se_toca():
+    assert pub._cap_summary("Resumen breve.") == "Resumen breve."
+
+
 def test_format_opportunity_whatsapp_campos_de_contacto_solo_si_existen():
     """Cada campo (Infopack/Form/Contacto/Mapa) es una línea aparte y SOLO sale si hay
     dato -- nunca una línea vacía o "Infopack: -" para rellenar a mano."""

@@ -299,6 +299,29 @@ def format_hidden_fields(o: dict[str, Any]) -> str:
     )
 
 
+# Tope de largo del resumen en el texto de WhatsApp -- unas 3 líneas leído en el móvil,
+# calibrado contra un resumen real que se tomó como referencia ("The Boredom Lab", 228
+# caracteres). El prompt del extractor (`app/llm/prompts.py`) ya pide 2 frases cortas, pero
+# esto es un TOPE real en código: no depende de que la IA se porte bien, y cubre también
+# resúmenes ya guardados de antes del ajuste del prompt.
+_SUMMARY_WHATSAPP_MAX_LEN = 260
+
+
+def _cap_summary(text: str, limit: int = _SUMMARY_WHATSAPP_MAX_LEN) -> str:
+    """Si cabe entero, tal cual. Si no, corta en la última frase completa que quepa (por
+    corta que sea la primera frase, siempre es mejor corte que a mitad de otra); solo si no
+    hay ningún punto-y-espacio antes del límite, corta en la última palabra completa y
+    añade '…' -- nunca a mitad de palabra."""
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    corte = text.rfind(". ", 0, limit)
+    if corte != -1:
+        return text[:corte + 1]
+    corte = text.rfind(" ", 0, limit)
+    return (text[:corte] if corte > 0 else text[:limit]).rstrip(".,;: ") + "…"
+
+
 def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
     """Texto en formato WhatsApp (*negrita*, URLs en plano -- WhatsApp no soporta
     texto-ancla en mensajes normales, solo detecta URLs "en crudo" y las hace tocables tal
@@ -322,7 +345,7 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
     bloques = ["\n".join(cabecera)]
 
     if o.get("summary"):
-        bloques.append(o["summary"])
+        bloques.append(_cap_summary(o["summary"]))
 
     contacto = []
     if o.get("infopack_url"):

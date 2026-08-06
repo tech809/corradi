@@ -76,7 +76,8 @@ Reinicia el bot: `docker compose up -d bot`.
 
 - Coste: utility ~0,01-0,03 €/mensaje (a 2 números es despreciable). El texto libre dentro de
   la ventana de 24h es gratis.
-- Mientras no rellenes token/phone_id, el handoff WhatsApp queda **inactivo** (el bot avisa por
-  log y no falla). Puedes usar `HANDOFF_MODE=telegram` como interino.
+- Mientras no rellenes token/phone_id, el handoff por Cloud API queda **inactivo** (el bot avisa
+  por log y no falla). `HANDOFF_MODE=telegram` (bot dedicado de reenvío, ver README principal)
+  sigue siendo el modo real de producción hoy, no un interino.
 - El bot ya construye los 5 parámetros desde la oportunidad
   (`app/publisher/whatsapp_cloud.py::_template_params`). Si cambias la plantilla, ajusta ahí.
