@@ -36,6 +36,39 @@ def test_format_opportunity_whatsapp_bold():
     assert "forms.gle" not in t
 
 
+def test_format_opportunity_whatsapp_incluye_bandera_y_categoria():
+    """Sin foto (el canal de difusión de WhatsApp es solo texto), así que la bandera y la
+    categoría -- que en Telegram van en la imagen del post, no en el pie -- tienen que
+    escribirse aquí o se pierden por completo en la copia."""
+    t = pub.format_opportunity_whatsapp(OPP)
+    assert "🇪🇸 *Green Roots*" in t  # bandera de España, no el 🌍 genérico de antes
+    assert "🎒 Youth Exchange · sostenibilidad" in t  # categoría siempre, tema pegado si lo hay
+
+
+def test_format_opportunity_whatsapp_categoria_sin_tema():
+    """La categoría no puede depender de que haya `topic` -- antes, sin tema, la categoría
+    no aparecía en ningún sitio del texto de WhatsApp."""
+    sin_tema = {**OPP, "topic": None}
+    t = pub.format_opportunity_whatsapp(sin_tema)
+    assert "🎒 Youth Exchange" in t
+    assert "·" not in t.split("\n")[1]  # sin tema no hay " · algo" colgando
+
+
+def test_format_opportunity_whatsapp_bandera_generica_sin_pais():
+    sin_pais = {**OPP, "country_code": None}
+    t = pub.format_opportunity_whatsapp(sin_pais)
+    assert "🌍 *Green Roots*" in t
+
+
+def test_format_opportunity_whatsapp_cuenta_dias_para_el_limite():
+    """La cuenta atrás depende de la fecha real de ejecución (_days_left no recibe `today`
+    explícito aquí), así que solo se comprueba la forma, no el número exacto de días."""
+    t = pub.format_opportunity_whatsapp(OPP)
+    linea = next(l for l in t.split("\n") if l.startswith("⏳"))
+    assert linea.startswith("⏳ Límite *2026-08-25*")
+    assert linea.strip().endswith(")") and "(" in linea  # "(quedan N días)" / "(cierra ...)"
+
+
 def test_daily_summary_empty():
     t = pub.format_daily_summary([], today=date(2026, 7, 21))
     assert "no hay" in t.lower()
@@ -83,20 +116,6 @@ def test_daily_summary_groups_by_type():
     assert "🎓 Training Course (1)" in t
     assert "🤝 ECS (1)" in t
     assert t.index("Youth Exchange") < t.index("Training Course") < t.index("ECS")
-
-
-def test_daily_digest_whatsapp_empty():
-    t = pub.format_daily_digest_whatsapp([])
-    assert "ninguna oportunidad nueva" in t.lower()
-
-
-def test_daily_digest_whatsapp_list():
-    t = pub.format_daily_digest_whatsapp([OPP])
-    assert "Nueva oportunidad: 1" in t
-    assert "*Green Roots*" in t          # negrita WhatsApp, no HTML
-    assert "<b>" not in t
-    assert "👉 Formulario en: " in t     # solo hay application_url, enlace al mapa
-    assert "\n\n\n" not in t             # sin línea en blanco de más entre cabecera y ficha
 
 
 def test_opportunity_whatsapp_links_to_map_not_raw_urls():

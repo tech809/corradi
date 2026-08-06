@@ -186,7 +186,8 @@ corradi/
     ├── pipeline.py                # clasifica → deduplica → guarda → publica → handoff (agnóstico de canal)
     ├── publisher/
     │   ├── telegram_publisher.py   # formatea y publica en el canal
-    │   ├── handoff.py               # despachador de handoff (hoy: none)
+    │   ├── handoff.py               # despachador de handoff (hoy: 'telegram' -> whatsapp_relay.py)
+    │   ├── whatsapp_relay.py        # bot dedicado que reenvía cada oportunidad al admin por DM (ver abajo)
     │   ├── whatsapp_twilio.py       # ⚠️ aparcado
     │   └── whatsapp_cloud.py        # ⚠️ aparcado
     ├── bot/telegram_bot.py         # comandos + captura de mensajes
@@ -194,7 +195,7 @@ corradi/
     │   ├── main.py                  # FastAPI: catálogo/búsqueda
     │   └── twilio_webhook.py        # ⚠️ aparcado (entrada por WhatsApp)
     └── scheduler/
-        ├── daily_summary.py         # resumen diario (programado por cron, ver abajo)
+        ├── daily_summary.py         # solo expira lo vencido (ya no manda ningún mensaje)
         └── weekly_summary.py        # resumen semanal de los domingos
 ```
 
@@ -307,14 +308,15 @@ Variables imprescindibles para el lanzamiento actual (ver `.env.example` para el
 | `TELEGRAM_CHANNEL_ID` | Canal de difusión, formato `-100...` (hoy: `@erasmuscorradi`) |
 | `ADMIN_TELEGRAM_IDS` | IDs numéricos de Telegram con permisos de admin, separados por coma |
 | `GEMINI_API_KEY` | Clave de Google Gemini |
-| `HANDOFF_MODE` | `none` en el lanzamiento actual (WhatsApp aparcado) |
+| `HANDOFF_MODE` | `telegram` (por defecto): reenvía cada oportunidad al bot de difusión — ver `WHATSAPP_RELAY_BOT_TOKEN` |
+| `WHATSAPP_RELAY_BOT_TOKEN` | Token del bot dedicado @corradi_erasmus_whatsapp_bot (DM a `ADMIN_TELEGRAM_IDS` con el texto listo para copiar y pegar en el canal de difusión de WhatsApp) |
 | `DEFAULT_DEADLINE_DAYS` | Días de margen si no hay deadline explícita en el texto (5 por defecto) |
 | `LAST_MINUTE_DEADLINE_DAYS` | Igual, pero si el mensaje dice "última hora"/"últimas plazas" (2 por defecto) |
 | `MAX_DEADLINE_MONTHS` | Solo se aceptan oportunidades cuya deadline caiga dentro de estos meses (3 por defecto; red de seguridad ante años mal inferidos) |
 | `MAP_DOMAIN` | Dominio del mapa público; Caddy pide el certificado HTTPS para este nombre (vacío = HTTP sin TLS) |
-| `MAP_PUBLIC_URL` | URL que enlaza el resumen diario al final (vacío = no se enlaza) |
+| `MAP_PUBLIC_URL` | URL pública del mapa; también la base del enlace corto que lleva cada oportunidad en el texto de WhatsApp |
 | `DEDUP_THRESHOLD` | Umbral de similitud coseno para considerar duplicado (0.88 por defecto) |
-| `TELEGRAM_CHANNEL_USERNAME` | Username público del canal (sin @); enlaza cada post del resumen diario a su mensaje original |
+| `TELEGRAM_CHANNEL_USERNAME` | Username público del canal (sin @); enlaza cada oportunidad a su post original (mapa, resumen semanal) |
 | `MAX_DAILY_OPPORTUNITIES` | Máximo de oportunidades que puede crear un coordinador al día (3 por defecto) |
 | `SPAM_BLOCK_THRESHOLD` | Mensajes seguidos que no son oportunidad antes de bloquear automáticamente (2 por defecto: aviso + bloqueo) |
 
@@ -327,45 +329,43 @@ Variables imprescindibles para el lanzamiento actual (ver `.env.example` para el
    ```
 3. Ponlo en `.env` como `TELEGRAM_CHANNEL_ID` (formato `-100...`).
 
-## Resumen diario
+## Reenvío a WhatsApp (bot de difusión)
 
-`app/scheduler/daily_summary.py` expira lo vencido (una oportunidad expira el mismo día en
-que llega su fecha límite, no al día siguiente) y publica en el canal, cada día a las 20h,
-un resumen de **todas las oportunidades cuya inscripción sigue abierta** — no solo las
-recibidas ese día, sino todo lo vigente, y nunca las expiradas/cerradas — con cabecera de fecha. Cada título enlaza directamente al post original en el canal
-(`https://t.me/<usuario>/<message_id>`, posible porque el canal es público) — así se
-encuentra fácilmente en el historial aunque haya pasado tiempo. Si una oportunidad se
-publicó antes de tener `TELEGRAM_CHANNEL_USERNAME` configurado, sale sin enlace (solo el
-título en negrita, sin más). Formato por oportunidad (3 líneas):
+WhatsApp no tiene API accesible para el canal de difusión real (no es negocio, es un canal
+normal) — así que el flujo es manual a propósito: en cuanto se publica una oportunidad
+(venga de donde venga: bot de Telegram, panel web `/publicar`, backlog de SALTO-YOUTH — las
+tres pasan por `pipeline.commit()`), el bot dedicado **@corradi_erasmus_whatsapp_bot**
+(token propio en `WHATSAPP_RELAY_BOT_TOKEN`, separado del bot principal) le manda por DM a
+cada `ADMIN_TELEGRAM_IDS` el texto ya formateado, listo para copiar y pegar. Sin foto — el
+canal de difusión de WhatsApp es solo texto — así que bandera y categoría (que en el canal
+de Telegram van en la imagen del post, ver `opportunity_card.py`) se escriben aquí en vez de
+omitirse. Formato:
 
 ```
-📅 Resumen diario de oportunidades abiertas — 21 de julio de 2026
-
-☀️ 2 oportunidades con inscripción abierta ahora mismo:
-
-• Inclusion & Solidarity In Action
-🏷️ ECS: Inclusion, Solidarity, Arts 🌍 Turin 📅 2026-09-01 → 2027-06-30
-⏳ Fecha límite inscripción: 2026-07-26 (estimada: última hora)
-
-• I'M POSSIBLE
-🏷️ Youth Exchange: Adventure, personal development 🌍 Asturias 📅 2026-09-05 → 2026-09-15
-⏳ Fecha límite inscripción: 2026-07-30
+🇮🇹 *Blue & Green Inclusion*
+🎒 Youth Exchange · inclusión, naturaleza, deporte
+📍 Cerdeña, Italia 🗓️ 20-28 sept
+⏳ Límite *2026-08-09* (quedan 5 días)
+👉 Infopack y form. en: https://mapa.proactivefuture.eu/2026-0201
+✉️ info@roescoop.eu
 ```
 
-Programado con cron en el host (no dentro del contenedor, para que sobreviva a reinicios de
-`docker compose`):
-```bash
-crontab -l   # ver/editar: 0 20 * * * docker exec corradi-bot python -m app.scheduler.daily_summary
-```
-> En local esto depende de que el Mac esté encendido a las 20h. En EC2, el mismo cron (o
-> EventBridge Scheduler) corre 24/7 — mover el cron ahí es parte de la migración a producción.
+Cada admin tiene que haberle mandado `/start` al bot al menos una vez: la API de Telegram no
+deja que un bot escriba primero a nadie que no lo haya hecho. Si `WHATSAPP_RELAY_BOT_TOKEN`
+está vacío, `whatsapp_relay.py` no hace nada (no revienta el resto del pipeline).
+
+> Hasta el 4-ago-2026 este reenvío iba a un grupo de Telegram y, además, un cron aparte
+> (`daily_summary.py`) mandaba cada noche a las 20h un resumen de lo publicado ese día.
+> Se retiró ese resumen sin sustituto: con el reenvío al instante, un digest al final del
+> día dejó de aportar nada. `daily_summary.py` sigue existiendo (mismo cron, mismo nombre)
+> pero ahora solo expira las oportunidades cuyo plazo ya pasó — no manda ningún mensaje.
 
 ## Mapa público
 
 Mapa interactivo de las oportunidades **abiertas**, servido por la propia API en `GET /mapa`
 (página autocontenida en `app/api/static/mapa.html`, Leaflet + teselas de CARTO/OpenStreetMap,
-sin claves de API ni coste). El resumen diario lo enlaza al final si `MAP_PUBLIC_URL` está
-definida.
+sin claves de API ni coste). `MAP_PUBLIC_URL` es también la base del enlace corto que
+lleva cada oportunidad en el texto de WhatsApp (ver "Reenvío a WhatsApp").
 
 **Qué hace:** pines por categoría (Youth Exchange azul · Training Course amarillo · ECS verde),
 filtros agrupados en un solo panel — texto, categoría, edad, país, fechas
@@ -403,7 +403,7 @@ automático con Let's Encrypt y actúa de filtro:
 |---|---|
 | El contenedor `api` ya no publica el puerto 8000 al host | Todo el tráfico público entra por Caddy |
 | Caddy solo deja pasar `/`, `/mapa`, `/corradi-erasmus`, `/og.png`, `/api/map`, `/api/visit`, `/health` y `/opportunities*` | Cualquier otra ruta devuelve 404 |
-| El webhook de Twilio solo se monta si `HANDOFF_MODE` es de WhatsApp | Con la API pública y `TWILIO_VALIDATE_SIGNATURE=false`, dejarlo montado permitiría a cualquiera hacer POST y colar oportunidades en el canal. Hoy `HANDOFF_MODE=none`, así que la ruta ni existe |
+| El webhook de Twilio solo se monta si `HANDOFF_MODE` es de WhatsApp | Con la API pública y `TWILIO_VALIDATE_SIGNATURE=false`, dejarlo montado permitiría a cualquiera hacer POST y colar oportunidades en el canal. Hoy `HANDOFF_MODE=telegram` (reenvío por bot dedicado, no WhatsApp Business API), así que la ruta ni existe |
 | La API serializa con **lista blanca** de campos (`_PUBLIC_FIELDS`) | `submitted_by`, `submitted_by_id`, `raw_message`, `hash` y `embedding` no salen nunca. Al ser lista blanca, una columna nueva no se filtra sola |
 
 Variables: `MAP_DOMAIN` (dominio para el certificado) y `MAP_PUBLIC_URL` (lo que se enlaza en
@@ -455,16 +455,18 @@ extractor. Dos hallazgos de la última ronda de pruebas:
   no falla: responde pidiendo que se reenvíen por separado, en vez de guardar una ficha
   incompleta o dar un error críptico.
 
-## Qué está aparcado (WhatsApp)
+## Qué está aparcado (WhatsApp Business API)
 
-El equipo decidió lanzar 100% en Telegram. El código de WhatsApp **no se ha borrado**,
-solo está desactivado (`HANDOFF_MODE=none`) y marcado como aparcado en sus docstrings:
+El canal de difusión de WhatsApp real no tiene API accesible, así que la difusión de verdad
+sigue siendo copiar-pegar a mano (ver "Reenvío a WhatsApp" arriba). Lo que SÍ es API oficial
+de WhatsApp Business (mensajería automática 1:1, no el canal de difusión) sigue aparcado, sin
+borrar y marcado como tal en sus docstrings:
 
 - `app/publisher/whatsapp_twilio.py` / `whatsapp_cloud.py` — envío saliente (handoff)
 - `app/api/twilio_webhook.py` — entrada por WhatsApp (funcionó en sandbox con Twilio)
 - `docs/archive/whatsapp_twilio_setup.md` / `whatsapp_cloud_setup.md` — guías de alta
 
-Para reactivarlo: cambiar `HANDOFF_MODE` a `whatsapp_twilio` o `whatsapp_cloud` y seguir
+Para activarlo: cambiar `HANDOFF_MODE` a `whatsapp_twilio` o `whatsapp_cloud` y seguir
 la guía correspondiente en `docs/archive/`.
 
 ## Pendiente / siguientes bloques

@@ -42,12 +42,17 @@ _TIPO_LABEL_TEMA = {
     "VOLUNTEERING": "ECS",
 }
 
-# Orden y cabecera visual de los grupos del resumen diario.
+# Orden y cabecera visual de los grupos del resumen diario. Mismo icono+etiqueta que usa
+# `format_opportunity_whatsapp` para la categoría: en el canal de Telegram categoría+bandera
+# van en la imagen (ver opportunity_card.py), pero el texto de WhatsApp no lleva foto, así
+# que ahí sí hace falta escribirlo.
 _GRUPOS_RESUMEN = [
     ("YOUTH_EXCHANGE", "🎒 Youth Exchange"),
     ("TRAINING_COURSE", "🎓 Training Course"),
     ("VOLUNTEERING", "🤝 ECS"),
 ]
+_CATEGORIA_WHATSAPP = dict(_GRUPOS_RESUMEN)
+_OTRAS_CATEGORIA = "🏷️ Otras"
 
 # Taxonomía para el resumen semanal de temáticas: el `topic` que manda el extractor es
 # texto libre (varias etiquetas por ficha, casi nunca coincide literal entre dos fichas —
@@ -301,18 +306,25 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
     tocables tal cual. En vez de volcar los enlaces externos crudos (a veces larguísimos y
     feos, tipo Microsoft/Google Forms o descargas de SALTO con la URL escapada), se manda
     UN enlace limpio a la ficha en el mapa público (`?o=identifier`, deep link ya soportado
-    por `mapa.html`: centra el pin y abre su popup con los botones reales de Infopack/Form)."""
-    lines = [f"🌍 *{o['title']}*"]
+    por `mapa.html`: centra el pin y abre su popup con los botones reales de Infopack/Form).
 
-    segs = [s for s in [
-        f"🏷️ {_topic_label(o)}: {o['topic']}" if o.get("topic") else "",
-        f"📍 {_place(o)}" if _place(o) else "",
-        f"🗓️ {_compact_dates(o)}",
-    ] if s]
-    lines.append(" ".join(segs))
+    Sin foto (el canal de difusión de WhatsApp es solo texto): bandera y categoría, que en
+    Telegram van en la imagen del post (ver `opportunity_card.py`) y no se repiten en el
+    pie, aquí SÍ hay que escribirlas -- si no, se pierden por completo en la copia."""
+    flag = _flag(o.get("country_code")) or "🌍"
+    lines = [f"{flag} *{o['title']}*"]
+
+    categoria = _CATEGORIA_WHATSAPP.get(o.get("type"), _OTRAS_CATEGORIA)
+    lines.append(f"{categoria} · {o['topic']}" if o.get("topic") else categoria)
+
+    segs = [s for s in [f"📍 {_place(o)}" if _place(o) else "", f"🗓️ {_compact_dates(o)}"] if s]
+    if segs:
+        lines.append(" ".join(segs))
 
     if o.get("application_deadline"):
-        lines.append(f"⏳ Límite *{o['application_deadline']}{_est(o)}*")
+        lines.append(
+            f"⏳ Límite *{o['application_deadline']}{_est(o)}* ({_days_left(o['application_deadline'])})"
+        )
 
     app_url, info_url = o.get("application_url"), o.get("infopack_url")
     short_link = _short_map_link(o.get("identifier"))
@@ -451,47 +463,6 @@ def format_weekly_summary(
     if cfg.map_public_url:
         lines.append(f'\n🗺️ <a href="{cfg.map_public_url}">Ver todas en el mapa</a>')
     return "\n".join(lines)
-
-
-def format_daily_summary_whatsapp(opps: list[dict[str, Any]]) -> str:
-    if not opps:
-        return "☀️ Ahora mismo no hay ninguna oportunidad con inscripción abierta. ¡Mañana más!"
-    out = [f"☀️ *Oportunidades abiertas ({len(opps)})*\n"]
-    for o in opps:
-        bits = [b for b in [o.get("topic"), _place(o), _dates(o)] if b]
-        dl = f" — hasta {o['application_deadline']}" if o.get("application_deadline") else ""
-        out.append(f"• *{o['title']}* ({' · '.join(bits)}){dl}")
-    return "\n".join(out)
-
-
-_WHATSAPP_DIGEST_MAX_LEN = 3500  # margen bajo el límite real de Telegram (4096) para el DM
-
-
-def format_daily_digest_whatsapp(opps: list[dict[str, Any]]) -> str:
-    """Resumen diario en formato WhatsApp de SOLO lo publicado hoy (no lo abierto en
-    general), pensado para copiar y pegar a mano en el canal de difusión de WhatsApp
-    (no automatizable, ver `handoff.py`). Se manda por DM a los admins vía `notify_admin`.
-
-    Recorta si hace falta en vez de trocear en varios DMs (a diferencia de
-    `send_chunked_dm`): el mensaje se copia y pega ENTERO a mano en WhatsApp, así que tiene
-    que quedarse en UNA sola pieza — un día con muchas publicaciones no debe tumbar el envío
-    entero con "BadRequest: Message is too long" (visto en producción)."""
-    if not opps:
-        return "☀️ Resumen del día — ninguna oportunidad nueva hoy."
-    plural = len(opps) != 1
-    parts = [f"☀️ Resumen del día — Nueva{'s' if plural else ''} oportunidad{'es' if plural else ''}: {len(opps)}"]
-    included = 0
-    for o in opps:
-        entry = format_opportunity_whatsapp(o)
-        if included > 0 and len("\n\n".join(parts + [entry])) > _WHATSAPP_DIGEST_MAX_LEN:
-            break
-        parts.append(entry)
-        included += 1
-    if included < len(opps):
-        remaining = len(opps) - included
-        link = cfg.map_public_url or "el mapa"
-        parts.append(f"➕ {remaining} oportunidad{'es' if remaining != 1 else ''} más hoy — mira el mapa: {link}")
-    return "\n\n".join(parts)
 
 
 def _theme_groups_lines(opps: list[dict[str, Any]], max_per_group: int = 20) -> list[str]:
@@ -661,17 +632,3 @@ async def send_chunked_dm(admin_id: int, text: str) -> None:
             chunk = candidate
     if chunk:
         await notify_admin(admin_id, chunk)
-
-
-async def send_to_handoff_group(whatsapp_text: str) -> None:
-    """Manda al grupo privado de admins (Telegram) el texto en formato WhatsApp, listo para pegar."""
-    if not cfg.whatsapp_handoff_group_id:
-        return
-    from telegram import Bot
-
-    bot = Bot(cfg.telegram_bot_token)
-    await bot.send_message(
-        chat_id=cfg.whatsapp_handoff_group_id,
-        text="📋 Copia y pega esto en el canal de WhatsApp:\n\n" + whatsapp_text,
-        disable_web_page_preview=True,
-    )

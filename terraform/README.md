@@ -52,13 +52,15 @@ principal.
 t4g.small: **gratis hasta 31-dic-2026** (free trial AWS, 750 h/mes) y ~17-19 €/mes después.
 EBS gp3 30 GB ~2,5 €/mes. Sin NAT Gateway. La IP elástica es gratis mientras esté asociada.
 
-## Resumen diario y semanal (cron)
+## Expiración diaria y resumen semanal (cron)
 
-Por SSM (ver acceso abajo), añade los dos crons en la instancia:
+Por SSM (ver acceso abajo), añade los dos crons en la instancia. El "diario" ya no manda
+ningún mensaje (ver "Reenvío a WhatsApp" en el README principal) — solo cierra las
+oportunidades cuyo plazo de inscripción ya pasó:
 ```bash
 (crontab -l 2>/dev/null; \
- echo "0 20 * * * docker exec corradi-bot python -m app.scheduler.daily_summary"; \
- echo "30 20 * * 0 docker exec corradi-bot python -m app.scheduler.weekly_summary" \
+ echo "0 20 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.daily_summary"; \
+ echo "30 20 * * 0 cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.weekly_summary" \
 ) | crontab -
 ```
 (o usa EventBridge Scheduler + una tarea, como evolución).
