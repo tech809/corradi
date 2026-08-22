@@ -605,9 +605,9 @@ _SHORT_ID_RE = re.compile(r"^\d{4}-\d{4}$")
 # copiado en vez de importado porque main.py es la superficie pública y no debe depender
 # de app/publisher/*, que trae sus propias dependencias pesadas de Telegram/WhatsApp).
 _TIPOS_ES = {
-    "YOUTH_EXCHANGE": "Intercambio juvenil",
-    "TRAINING_COURSE": "Training course",
-    "VOLUNTEERING": "Voluntariado (ECS)",
+    "YOUTH_EXCHANGE": "Youth Exchange",
+    "TRAINING_COURSE": "Training Course",
+    "VOLUNTEERING": "ESC",
 }
 _PAISES_ES = {
     "ES": "España", "PT": "Portugal", "FR": "Francia", "IT": "Italia", "DE": "Alemania",
