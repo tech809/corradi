@@ -222,7 +222,7 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
 .popup .deep-info h4 { margin: 10px 0 3px; font: 700 11px var(--font-display); }
 .popup .deep-info p { margin: 0; color: var(--ink-soft); white-space: pre-line; font-size: 11.5px; line-height: 1.5; }
 .popup-photo { height: 150px; margin: -14px -18px 14px; border-radius: 15px 15px 8px 8px; background: #e2e3e5 center/cover no-repeat; }
-.popup .actions{display:flex;flex-wrap:nowrap;gap:6px}.popup .actions .btn{padding:9px 10px;font-size:11px;white-space:nowrap}.map-detail-tools{display:flex;gap:7px;margin-left:auto}.map-detail-tools button,.map-detail-tools a{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);background:#fff;color:var(--brand);text-decoration:none;cursor:pointer;font-size:15px}.map-detail-tools .saved{background:var(--brand);color:#fff}
+.popup .actions{display:flex;flex-wrap:nowrap;gap:6px}.popup .actions .btn{padding:9px 10px;font-size:11px;white-space:nowrap}.popup .actions .info-only{width:34px;padding:9px;flex:none}.map-detail-tools{display:flex;gap:7px;margin-left:auto}.map-detail-tools button,.map-detail-tools a{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);background:#fff;color:var(--brand);text-decoration:none;cursor:pointer;font-size:15px}.map-detail-tools svg{width:18px;height:18px}.map-detail-tools .saved{background:var(--brand);color:#fff}.opportunity-foot{display:flex;gap:8px;padding:14px 24px;border-top:1px solid var(--line-soft);position:sticky;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);z-index:5}.opportunity-foot:empty{display:none}.opportunity-foot .btn{flex:1;justify-content:center}
 
 /* ── Dock de resultados (escritorio: panel flotante a la izquierda) ──────── */
 .dock {
@@ -860,6 +860,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 <dialog id="opportunityDialog" class="sheet-dialog" aria-labelledby="opportunityTitle">
   <div class="sheet-head"><h2 id="opportunityTitle">Toda la información</h2><div class="map-detail-tools" id="mapDetailTools"></div><button type="button" class="sheet-close" id="opportunityClose" aria-label="Cerrar">×</button></div>
   <div class="info-body" id="opportunityBody"></div>
+  <div class="opportunity-foot" id="opportunityFoot"></div>
 </dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -898,6 +899,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     pencil: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16.5 3.5 4 4L7 21l-4.5 1L4 17.5Z"/><path d="m14 6 4 4"/></svg>',
     calendarPlus: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17M12 13.5v5M9.5 16h5"/></svg>',
     link: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5 14.5 9.5"/><path d="M11 6.5 12.4 5a3.8 3.8 0 1 1 5.4 5.4l-1.6 1.6M13 17.5 11.6 19a3.8 3.8 0 1 1-5.4-5.4l1.6-1.6"/></svg>',
+    share: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg>',
     close: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5 5 19"/></svg>',
     warn: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20Z"/><path d="M12 9.5v4.5M12 17v.1"/></svg>',
     ig: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="#fff" stroke="none"/></svg>'
@@ -1221,7 +1223,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
       (o.summary ? '<p class="story">' + esc(o.summary) + '</p>' : "") +
       '<div class="actions">' +
-        '<button class="btn primary" type="button" onclick="openOpportunityInfo(\'' + esc(o.identifier) + '\')">' + ICON.info + 'Toda la info</button>' +
+        '<button class="btn primary info-only" type="button" onclick="openOpportunityInfo(\'' + esc(o.identifier) + '\')" aria-label="Toda la información" title="Toda la información">' + ICON.info + '</button>' +
         (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener" data-click="infopack">' + ICON.doc + 'Infopack</a>' : "") +
         (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Form</a>' : "") +
       "</div>" +
@@ -1233,8 +1235,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var sections = [["Sobre el proyecto",o.detailed_description||o.summary],["Programa y actividades",o.programme_details],["Qué aprenderás",o.learning_outcomes],["Perfil participante",o.participant_profile],["Países participantes",o.eligibility_countries],["Alojamiento y comidas",o.accommodation_details],["Qué está cubierto",o.covered_costs],["Viaje y reembolso",o.travel_details]].filter(function(x){return x[1]});
     var actions=(o.application_url?'<a class="btn primary" href="'+esc(o.application_url)+'" target="_blank" rel="noopener">Form</a>':"")+(o.infopack_url?'<a class="btn" href="'+esc(o.infopack_url)+'" target="_blank" rel="noopener">Infopack</a>':"");
     document.getElementById("opportunityTitle").textContent=o.title;
-    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div><p><strong>'+flag(o.country_code)+' '+esc([o.location,countryName(o.country_code)].filter(Boolean).join(", "))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("")+'<div class="actions">'+actions+'</div>';
-    document.getElementById("mapDetailTools").innerHTML=(gcalUrl(o)?'<a href="'+esc(gcalUrl(o))+'" target="_blank" rel="noopener" title="Guardar en calendario" aria-label="Guardar en calendario">◷</a>':"")+'<button id="mapFav" class="'+(favourites.has(id)?"saved":"")+'" title="Guardar en favoritos" aria-label="Guardar en favoritos">'+(favourites.has(id)?"♥":"♡")+'</button><button id="mapShare" title="Compartir" aria-label="Compartir">↗</button>';
+    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div><p><strong>'+flag(o.country_code)+' '+esc([o.location,countryName(o.country_code)].filter(Boolean).join(", "))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
+    document.getElementById("opportunityFoot").innerHTML=actions;
+    document.getElementById("mapDetailTools").innerHTML=(gcalUrl(o)?'<a href="'+esc(gcalUrl(o))+'" target="_blank" rel="noopener" title="Guardar en calendario" aria-label="Guardar en calendario">'+ICON.calendarPlus+'</a>':"")+'<button id="mapFav" class="'+(favourites.has(id)?"saved":"")+'" title="Guardar en favoritos" aria-label="Guardar en favoritos">'+(favourites.has(id)?"♥":"♡")+'</button><button id="mapShare" title="Compartir" aria-label="Compartir">'+ICON.share+'</button>';
     document.getElementById("mapFav").onclick=function(){favourites.has(id)?favourites.delete(id):favourites.add(id);localStorage.setItem("corradi-favourites",JSON.stringify(Array.from(favourites)));this.classList.toggle("saved",favourites.has(id));this.textContent=favourites.has(id)?"♥":"♡"};document.getElementById("mapShare").onclick=function(){shareOpp(id)};
     document.getElementById("opportunityDialog").showModal();
   };
