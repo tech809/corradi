@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 import httpx
 
-_MAX_BYTES = 8 * 1024 * 1024
+_MAX_BYTES = 24 * 1024 * 1024
 _MAX_TEXT = 45_000
 
 

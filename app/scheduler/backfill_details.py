@@ -34,6 +34,9 @@ async def run(only_open: bool = True, limit: int | None = None, identifier: str 
         rows = await repo.list_without_details(only_open)
         if identifier:
             rows = [row for row in rows if row["identifier"] == identifier]
+            if not rows:
+                existing = await repo.get_by_identifier(identifier)
+                rows = [existing] if existing else []
         if limit is not None:
             rows = rows[:limit]
         log.info("%s fichas pendientes de enriquecer", len(rows))
