@@ -856,6 +856,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   </div>
 </dialog>
 
+<dialog id="opportunityDialog" class="sheet-dialog" aria-labelledby="opportunityTitle">
+  <div class="sheet-head"><h2 id="opportunityTitle">Toda la información</h2><button type="button" class="sheet-close" id="opportunityClose" aria-label="Cerrar">×</button></div>
+  <div class="info-body" id="opportunityBody"></div>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="ig-popup" id="igPopup" hidden role="complementary" aria-label="Síguenos en Instagram">
@@ -949,6 +954,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   function renderAge() { document.getElementById("ageVal").innerHTML = (ageValue == null ? "–" : ageValue) + "<small>años</small>"; }
 
   var all = [], shown = [], markers = {}, map, layer, activeId = null;
+  var favourites = new Set(JSON.parse(localStorage.getItem("corradi-favourites") || "[]"));
   var isMobileQuery = window.matchMedia && window.matchMedia("(max-width: 880px)");
 
   function esc(s) {
@@ -1203,10 +1209,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
     return '<div class="popup"><div class="popup-photo" style="background-image:url(&quot;' + esc(mapImage(o)) + '&quot;)"></div><div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
       (isNew(o) ? '<span class="new-tag">Nuevo hoy</span>' : "") + "</div>" +
-      '<div class="corner-actions">' +
-        (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
-        '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
-      "</div></div>" +
+      '</div></div>' +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
         (place ? "<span>" + (flag(o.country_code) ? '<span class="flag-emoji">' + flag(o.country_code) + '</span>' : ICON.pin) + esc(place) + "</span>" : "") +
@@ -1216,16 +1219,23 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
       (o.summary ? '<p class="story">' + esc(o.summary) + '</p>' : "") +
-      mapDetailsHTML(o) +
       '<div class="actions">' +
-        '<a class="btn primary" href="/proyecto/' + encodeURIComponent(o.identifier) + '">' + ICON.info + 'Ficha completa</a>' +
-        (o.channel_url ? '<a class="btn" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener" data-click="info">Fuente</a>' : "") +
+        '<button class="btn primary" type="button" onclick="openOpportunityInfo(\'' + esc(o.identifier) + '\')">' + ICON.info + 'Toda la info</button>' +
         (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener" data-click="infopack">' + ICON.doc + 'Infopack</a>' : "") +
         (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Form</a>' : "") +
       "</div>" +
       (o.approx_location ? '<div class="approx">' + ICON.pin + 'Ubicación aproximada (país)</div>' : "") +
       "</div>";
   }
+  window.openOpportunityInfo = function (id) {
+    var o = all.filter(function (x) { return x.identifier === id; })[0]; if (!o) return;
+    var sections = [["Sobre el proyecto",o.detailed_description||o.summary],["Programa y actividades",o.programme_details],["Qué aprenderás",o.learning_outcomes],["Perfil participante",o.participant_profile],["Países participantes",o.eligibility_countries],["Alojamiento y comidas",o.accommodation_details],["Qué está cubierto",o.covered_costs],["Viaje y reembolso",o.travel_details]].filter(function(x){return x[1]});
+    var actions=(o.application_url?'<a class="btn primary" href="'+esc(o.application_url)+'" target="_blank" rel="noopener">Form</a>':"")+(o.infopack_url?'<a class="btn" href="'+esc(o.infopack_url)+'" target="_blank" rel="noopener">Infopack</a>':"")+(gcalUrl(o)?'<a class="btn" href="'+esc(gcalUrl(o))+'" target="_blank" rel="noopener">Calendario</a>':"");
+    document.getElementById("opportunityTitle").textContent=o.title;
+    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div><p><strong>'+flag(o.country_code)+' '+esc([o.location,countryName(o.country_code)].filter(Boolean).join(", "))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("")+'<div class="actions">'+actions+'<button class="btn" id="mapFav">'+(favourites.has(id)?"♥ Guardada":"♡ Guardar")+'</button><button class="btn" onclick="shareOpp(\''+esc(id)+'\')">Compartir</button></div>';
+    document.getElementById("mapFav").onclick=function(){favourites.has(id)?favourites.delete(id):favourites.add(id);localStorage.setItem("corradi-favourites",JSON.stringify(Array.from(favourites)));this.textContent=favourites.has(id)?"♥ Guardada":"♡ Guardar"};
+    document.getElementById("opportunityDialog").showModal();
+  };
   function renderMarkers() {
     layer.clearLayers(); markers = {};
     var batch = [];
@@ -1584,6 +1594,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var infoDlg = document.getElementById("infoDialog");
     document.getElementById("infoClose").addEventListener("click", function () { infoDlg.close(); });
     infoDlg.addEventListener("click", function (e) { if (e.target === infoDlg) infoDlg.close(); });
+    var opportunityDlg = document.getElementById("opportunityDialog");
+    document.getElementById("opportunityClose").addEventListener("click", function () { opportunityDlg.close(); });
+    opportunityDlg.addEventListener("click", function (e) { if (e.target === opportunityDlg) opportunityDlg.close(); });
 
     // Al panel web, no al bot: se puede publicar sin salir del navegador (el bot sigue
     // funcionando igual para quien prefiera Telegram, y de hecho el login es el mismo).
