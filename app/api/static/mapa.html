@@ -607,8 +607,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
     <div class="top-actions">
       <button type="button" class="icon-btn" id="contribute" aria-label="¿Quieres contribuir?" title="¿Quieres contribuir?"></button>
-      <a class="pill-btn solid" id="channel" href="https://t.me/erasmuscorradi" target="_blank" rel="noopener">
-        <span id="channelIconSlot"></span><span class="label">Ver canal</span>
+      <a class="pill-btn solid" id="channel" href="/">
+        <span id="channelIconSlot"></span><span class="label">Ver web</span>
       </a>
       <button type="button" class="icon-btn" id="infoBtn" aria-label="Más información" title="Más información"></button>
       <a class="icon-btn ig-btn" id="igTopBtn" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener" aria-label="Síguenos en Instagram" title="Síguenos en Instagram"></a>
@@ -1739,7 +1739,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     document.getElementById("filtersIconSlot").innerHTML = ICON.sliders;
     document.getElementById("askIconSlot").innerHTML = ICON.sparkle;
     document.getElementById("searchClose").innerHTML = ICON.close;
-    document.getElementById("channelIconSlot").innerHTML = ICON.send;
+    document.getElementById("channelIconSlot").innerHTML = ICON.compass;
     document.getElementById("contribute").innerHTML = ICON.plus;
     document.getElementById("infoBtn").innerHTML = ICON.info;
     document.getElementById("igTopBtn").innerHTML = ICON.ig;
@@ -1773,7 +1773,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (data) {
         all = data.results || [];
-        if (data.channel) document.getElementById("channel").href = "https://t.me/" + data.channel;
         buildCountries();
         buildTopics();
         buildMonths();

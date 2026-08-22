@@ -498,9 +498,7 @@ function renderThanks(contributors) {
     var n = c.total + (c.total === 1 ? " oportunidad" : " oportunidades");
     var inner = '<div class="assoc-avatar">' + esc(initials(c.name)) + '</div>' +
       '<span class="t-name">' + esc(c.name) + '</span><span class="t-n">· ' + n + '</span>';
-    return c.username
-      ? '<a class="thanks-chip" href="https://t.me/' + esc(c.username) + '" target="_blank" rel="noopener">' + inner + '</a>'
-      : '<span class="thanks-chip">' + inner + '</span>';
+    return '<span class="thanks-chip">' + inner + '</span>';
   }).join("");
 }
 
