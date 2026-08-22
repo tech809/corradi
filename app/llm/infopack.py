@@ -9,12 +9,24 @@ import ipaddress
 import io
 import re
 import socket
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 import httpx
 
 _MAX_BYTES = 8 * 1024 * 1024
 _MAX_TEXT = 45_000
+
+
+def _downloadable_url(url: str) -> str:
+    """Convierte enlaces compartidos de Drive en descargas legibles cuando es posible."""
+    parts = urlsplit(url)
+    if parts.hostname not in ("drive.google.com", "docs.google.com"):
+        return url
+    match = re.search(r"/(?:file/d|document/d|presentation/d)/([^/]+)", parts.path)
+    file_id = match.group(1) if match else (parse_qs(parts.query).get("id") or [None])[0]
+    if not file_id:
+        return url
+    return urlunsplit(("https", "drive.google.com", "/uc", urlencode({"export": "download", "id": file_id}), ""))
 
 
 def _public_url(url: str) -> bool:
@@ -36,6 +48,7 @@ def _html_text(raw: str) -> str:
 
 def read(url: str) -> str | None:
     """Devuelve texto acotado de un PDF/HTML público, o None si no es seguro/legible."""
+    url = _downloadable_url(url)
     if not _public_url(url):
         return None
     try:

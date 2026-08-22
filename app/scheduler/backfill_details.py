@@ -10,8 +10,8 @@ ejecuta automáticamente durante un despliegue.
 from __future__ import annotations
 
 import asyncio
+import argparse
 import logging
-import sys
 
 from app import images
 from app.db import repository as repo
@@ -28,10 +28,14 @@ _DETAIL_KEYS = (
 )
 
 
-async def run(only_open: bool = True) -> None:
+async def run(only_open: bool = True, limit: int | None = None, identifier: str | None = None) -> None:
     await open_pool()
     try:
         rows = await repo.list_without_details(only_open)
+        if identifier:
+            rows = [row for row in rows if row["identifier"] == identifier]
+        if limit is not None:
+            rows = rows[:limit]
         log.info("%s fichas pendientes de enriquecer", len(rows))
         for row in rows:
             try:
@@ -55,4 +59,9 @@ async def run(only_open: bool = True) -> None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    asyncio.run(run(only_open="--todas" not in sys.argv))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--todas", action="store_true", help="incluye oportunidades cerradas")
+    parser.add_argument("--limit", type=int, help="máximo de fichas a procesar")
+    parser.add_argument("--id", dest="identifier", help="procesa solo este identificador")
+    args = parser.parse_args()
+    asyncio.run(run(only_open=not args.todas, limit=args.limit, identifier=args.identifier))
