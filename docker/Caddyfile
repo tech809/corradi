@@ -12,7 +12,7 @@
 	# Superficie pública mínima: solo el mapa y sus datos de lectura.
 	# Todo lo demás (webhooks, docs de la API) se corta aquí como segunda barrera,
 	# además de no estar montado en la app.
-	@publico path / /mapa /corradi-erasmus /og.png /api/map /api/visit /api/click /api/chat /api/chat/status /api/stats /health /opportunities /opportunities/* /ig/* /fonts/* /robots.txt /sitemap.xml /estadisticas
+	@publico path / /mapa /corradi-erasmus /proyecto/* /og.png /assets/* /api/map /api/visit /api/click /api/chat /api/chat/status /api/stats /health /opportunities /opportunities/* /ig/* /fonts/* /robots.txt /sitemap.xml /estadisticas
 	handle @publico {
 		reverse_proxy api:8000
 	}
