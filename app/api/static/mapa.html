@@ -1765,6 +1765,20 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
           setSheet("peek");
           focusOpportunity(wanted, true);
+        } else if (wanted) {
+          // Los enlaces cortos son permanentes. Si la convocatoria ya cerró y por eso no
+          // viene en /api/map, recuperamos solo esa ficha para mantener su popup accesible.
+          fetch("/opportunities/" + encodeURIComponent(wanted), { headers: { Accept: "application/json" } })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (opportunity) {
+              all.push(opportunity);
+              shown = [opportunity];
+              renderList();
+              renderMarkers();
+              setSheet("peek");
+              focusOpportunity(wanted, true);
+            })
+            .catch(function () {});
         }
         if (params.has("preguntar")) {
           openChat();

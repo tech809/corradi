@@ -677,7 +677,7 @@ def _short_link_page(row: dict[str, Any]) -> str:
     description = html.escape(f"{tipo}{lugar}. {summary}"[:200].strip()) if summary else html.escape(f"{tipo}{lugar} — Erasmus+ con Corradi".strip())
     deadline = row.get("application_deadline")
     plazo = f"<p class=\"meta\">📅 Plazo: hasta {html.escape(deadline.isoformat())}</p>" if deadline else ""
-    map_url = f"/proyecto/{identifier}"
+    map_url = f"/mapa?o={identifier}"
     return f"""<!doctype html>
 <html lang="es">
 <head>
@@ -703,7 +703,7 @@ def _short_link_page(row: dict[str, Any]) -> str:
 <h1>{title}</h1>
 <p class="meta">{html.escape(tipo)}{html.escape(lugar)}</p>
 {plazo}
-<a class="cta" href="{map_url}">Ver ficha completa →</a>
+<a class="cta" href="{map_url}">Ver en el mapa →</a>
 </body>
 </html>"""
 
@@ -727,4 +727,4 @@ async def short_link(short_id: str) -> Response:
     row = await repo.get_by_identifier(identifier)
     if not row:
         raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
-    return HTMLResponse(_short_link_page(row))
+    return RedirectResponse(f"/mapa?o={identifier}", status_code=302)
