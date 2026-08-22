@@ -298,6 +298,17 @@ async def list_without_details(only_open: bool = True) -> list[dict[str, Any]]:
             return await cur.fetchall()
 
 
+async def list_without_images(only_open: bool = True) -> list[dict[str, Any]]:
+    """Fichas que todavía dependen de la fotografía local de respaldo."""
+    where = "image_url IS NULL"
+    if only_open:
+        where += " AND status = 'open'"
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(f"SELECT * FROM projects WHERE {where} ORDER BY created DESC")
+            return await cur.fetchall()
+
+
 async def list_open_geo() -> list[dict[str, Any]]:
     """Oportunidades abiertas que tienen coordenadas (las que se pintan en el mapa)."""
     async with get_pool().connection() as conn:

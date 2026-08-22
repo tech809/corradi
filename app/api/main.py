@@ -183,6 +183,20 @@ async def og_image() -> FileResponse:
     )
 
 
+@app.get("/media/opportunities/{filename}", include_in_schema=False)
+async def opportunity_media(filename: str) -> FileResponse:
+    """Fotografías aportadas por coordinadores, normalizadas por el bot."""
+    if not re.fullmatch(r"[a-f0-9]{32}\.jpg", filename):
+        raise HTTPException(status_code=404)
+    path = Path(cfg.media_dir) / "opportunities" / filename
+    if not path.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(
+        path, media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
 @app.get("/api/map")
 async def map_data(response: Response) -> dict[str, Any]:
     """Datos del mapa: TODAS las oportunidades abiertas, tengan coordenadas o no.

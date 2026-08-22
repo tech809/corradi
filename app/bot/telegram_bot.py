@@ -1,6 +1,7 @@
 """Bot de captura de oportunidades en Telegram (acceso abierto + LLM + dedup + publicación)."""
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -10,7 +11,7 @@ from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters,
 )
 
-from app import alerts, pipeline
+from app import alerts, images, pipeline
 from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
@@ -42,7 +43,8 @@ async def cmd_ayuda(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "limpiar nada). Yo extraigo estos campos, asegúrate de que están: título/fechas/"
         "país/deadline/formulario/infopack/contacto.\n\n"
         "Te enseño cómo quedaría. Tú decides: <b>✅ Enviar</b>, <b>✏️ Modificar</b> o "
-        "<b>❌ Cancelar</b>.\n\n"
+        "<b>❌ Cancelar</b>. También puedes añadir una <b>📷 foto opcional</b>; si no, "
+        "buscaré automáticamente una imagen del lugar.\n\n"
         "📋 <b>Reglas:</b>\n"
         "• Una oportunidad por mensaje (si tienes varias, mándalas por separado)\n"
         f"• Máximo {cfg.max_daily_opportunities} al día\n"
@@ -143,11 +145,12 @@ def _reject_text(result: dict) -> str | None:
     return None
 
 
-_PREVIEW_KEYBOARD = InlineKeyboardMarkup([[
-    InlineKeyboardButton("✅ Enviar", callback_data="send"),
-    InlineKeyboardButton("✏️ Modificar", callback_data="modify"),
-    InlineKeyboardButton("❌ Cancelar", callback_data="cancel"),
-]])
+_PREVIEW_KEYBOARD = InlineKeyboardMarkup([
+    [InlineKeyboardButton("✅ Enviar", callback_data="send"),
+     InlineKeyboardButton("📷 Añadir foto", callback_data="add_photo")],
+    [InlineKeyboardButton("✏️ Modificar", callback_data="modify"),
+     InlineKeyboardButton("❌ Cancelar", callback_data="cancel")],
+])
 
 
 async def _show_preview(message, ctx: ContextTypes.DEFAULT_TYPE, result: dict) -> None:
@@ -233,6 +236,28 @@ async def on_submission(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(_reject_text(result) or "No he podido procesar el mensaje.")
 
 
+async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Recibe la foto opcional únicamente cuando existe una ficha pendiente."""
+    pend = ctx.user_data.get("pending")
+    if ctx.user_data.get("awaiting") != "photo" or not pend:
+        await update.message.reply_text(
+            "Primero envíame el texto de una oportunidad; después podrás añadir una foto opcional."
+        )
+        return
+    photo = update.message.photo[-1]
+    if photo.file_size and photo.file_size > 12 * 1024 * 1024:
+        await update.message.reply_text("La foto es demasiado grande. Envíame otra de menos de 12 MB.")
+        return
+    telegram_file = await photo.get_file()
+    pend["photo_bytes"] = bytes(await telegram_file.download_as_bytearray())
+    ctx.user_data.pop("awaiting", None)
+    await update.message.reply_text(
+        "📷 <b>Foto añadida.</b> Tendrá prioridad sobre la imagen automática de la ciudad.\n\n"
+        "Puedes publicar ya o seguir modificando la ficha.",
+        parse_mode=ParseMode.HTML, reply_markup=_PREVIEW_KEYBOARD,
+    )
+
+
 async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     """Botones de la vista previa (Enviar/Modificar/Cancelar) y de edición/eliminación
     (/editarmisproyectos)."""
@@ -262,6 +287,31 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
+    if data == "add_photo":
+        if not ctx.user_data.get("pending"):
+            await query.message.reply_text("No hay ninguna ficha pendiente. Mándame la oportunidad otra vez.")
+            return
+        ctx.user_data["awaiting"] = "photo"
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(
+            "📷 Envíame una fotografía horizontal del proyecto o del lugar. Es opcional.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Continuar sin foto", callback_data="skip_photo")
+            ]]),
+        )
+        return
+
+    if data == "skip_photo":
+        if not ctx.user_data.get("pending"):
+            await query.message.reply_text("No hay ninguna ficha pendiente. Mándame la oportunidad otra vez.")
+            return
+        ctx.user_data.pop("awaiting", None)
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(
+            "Perfecto. Usaré una imagen automática del lugar.", reply_markup=_PREVIEW_KEYBOARD
+        )
+        return
+
     if data == "send":
         pend = ctx.user_data.get("pending")
         if not pend or not pend.get("fields"):
@@ -269,6 +319,20 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             return
         await query.edit_message_reply_markup(reply_markup=None)
         await query.message.chat.send_action("typing")
+        if pend.get("photo_bytes"):
+            try:
+                pend["fields"]["image_url"] = await asyncio.to_thread(
+                    images.save_uploaded, pend["photo_bytes"]
+                )
+                pend["fields"]["image_credit"] = None
+                pend["fields"]["image_source_url"] = None
+                pend["fields"]["image_origin"] = "telegram"
+            except (OSError, ValueError) as exc:
+                await query.message.reply_text(
+                    f"⚠️ No pude preparar esa foto: {exc}. Prueba con otra imagen."
+                )
+                ctx.user_data["awaiting"] = "photo"
+                return
         result = await pipeline.commit(
             pend["fields"], source="gestor",
             submitted_by=f"{user.full_name} (@{user.username})", submitted_by_id=user.id,
@@ -405,6 +469,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("editarmisproyectos", cmd_editarmisproyectos))
     app.add_handler(CommandHandler("historicomisproyectos", cmd_historicomisproyectos))
     app.add_handler(CallbackQueryHandler(on_callback))
+    app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_submission))
     app.add_error_handler(on_error)
     return app
