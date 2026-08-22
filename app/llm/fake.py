@@ -65,6 +65,10 @@ def extract(raw_text: str, ref_day: date | None = None, corrections: list[str] |
         "infopack_url": None, "application_url": url_m.group(0) if url_m else None,
         "max_participants": None, "participant_min_age": None, "participant_max_age": None,
         "cost": None, "contact_information": None,
+        "detailed_description": " ".join(lines[:4])[:1200],
+        "programme_details": None, "learning_outcomes": None,
+        "participant_profile": None, "accommodation_details": None,
+        "covered_costs": None, "travel_details": None, "eligibility_countries": None,
     }
     fields = normalize(
         fields, ref_day, cfg.default_deadline_days,

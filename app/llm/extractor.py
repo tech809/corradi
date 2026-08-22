@@ -8,7 +8,7 @@ from datetime import date
 
 from app.config import cfg
 from app.domain.project import normalize
-from app.llm.prompts import CORRECTIONS_TEMPLATE, EXTRACTION_PROMPT
+from app.llm.prompts import CORRECTIONS_TEMPLATE, EXTRACTION_PROMPT, INFOPACK_ENRICHMENT_PROMPT
 
 log = logging.getLogger("corradi.extractor")
 
@@ -152,3 +152,44 @@ def extract(raw_text: str, ref_day: date | None = None, corrections: list[str] |
     fields["is_opportunity"] = True
     fields["raw_message"] = raw_text.strip()   # limpio, sin las correcciones
     return fields
+
+
+def enrich_from_infopack(fields: dict) -> dict:
+    """Completa campos editoriales desde el infopack; conserva la extracción si falla."""
+    if cfg.llm_provider == "fake" or not fields.get("infopack_url"):
+        return fields
+    from google.genai import types
+    from app.llm.infopack import read
+    from app.llm.retry import with_retry
+
+    text = read(fields["infopack_url"])
+    if not text:
+        return fields
+    context = {k: fields.get(k) for k in (
+        "title", "summary", "type", "topic", "location", "start_date", "end_date",
+        "participant_min_age", "participant_max_age", "cost",
+    )}
+    prompt = (INFOPACK_ENRICHMENT_PROMPT
+              .replace("__FIELDS__", json.dumps(context, default=str, ensure_ascii=False))
+              .replace("__INFOPACK__", text))
+    try:
+        resp = with_retry(lambda: _gemini_client().models.generate_content(
+            model=cfg.llm_model,
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1),
+        ))
+        _usage_queue.put_nowait(_cost_usd(getattr(resp, "usage_metadata", None)))
+        enriched = json.loads(_strip_fences(resp.text), strict=False)
+        out = dict(fields)
+        for key in (
+            "detailed_description", "programme_details", "learning_outcomes",
+            "participant_profile", "accommodation_details", "covered_costs",
+            "travel_details", "eligibility_countries",
+        ):
+            if enriched.get(key):
+                out[key] = enriched[key]
+        out["infopack_enriched"] = True
+        return out
+    except Exception:  # noqa: BLE001 - la publicación no depende del enriquecimiento
+        log.warning("No pude enriquecer el infopack %s", fields.get("infopack_url"), exc_info=True)
+        return fields

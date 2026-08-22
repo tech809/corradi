@@ -23,6 +23,10 @@ _INSERT_COLS = [
     "country_code", "location", "start_date", "end_date", "application_deadline",
     "deadline_estimated", "infopack_url", "application_url", "max_participants",
     "participant_min_age", "participant_max_age", "cost", "contact_information",
+    "detailed_description", "programme_details", "learning_outcomes",
+    "participant_profile", "accommodation_details", "covered_costs", "travel_details",
+    "eligibility_countries", "infopack_enriched",
+    "image_url", "image_credit", "image_source_url", "image_origin",
     "status", "source", "submitted_by", "submitted_by_id", "embedding",
 ]
 
@@ -66,6 +70,19 @@ async def insert_project(fields: dict[str, Any], embedding: list[float] | None) 
                 "participant_max_age": fields.get("participant_max_age"),
                 "cost": fields.get("cost"),
                 "contact_information": fields.get("contact_information"),
+                "detailed_description": fields.get("detailed_description"),
+                "programme_details": fields.get("programme_details"),
+                "learning_outcomes": fields.get("learning_outcomes"),
+                "participant_profile": fields.get("participant_profile"),
+                "accommodation_details": fields.get("accommodation_details"),
+                "covered_costs": fields.get("covered_costs"),
+                "travel_details": fields.get("travel_details"),
+                "eligibility_countries": fields.get("eligibility_countries"),
+                "infopack_enriched": fields.get("infopack_enriched", False),
+                "image_url": fields.get("image_url"),
+                "image_credit": fields.get("image_credit"),
+                "image_source_url": fields.get("image_source_url"),
+                "image_origin": fields.get("image_origin"),
                 "status": "open",
                 "source": fields.get("source"),
                 "submitted_by": fields.get("submitted_by"),
@@ -194,6 +211,10 @@ _EDITABLE_COLS = [
     "start_date", "end_date", "application_deadline", "deadline_estimated",
     "infopack_url", "application_url", "max_participants",
     "participant_min_age", "participant_max_age", "cost", "contact_information",
+    "detailed_description", "programme_details", "learning_outcomes",
+    "participant_profile", "accommodation_details", "covered_costs", "travel_details",
+    "eligibility_countries", "infopack_enriched",
+    "image_url", "image_credit", "image_source_url", "image_origin",
     "latitude", "longitude",
 ]
 
@@ -261,6 +282,18 @@ async def list_without_coords(only_open: bool = True) -> list[dict[str, Any]]:
             await cur.execute(
                 f"SELECT id, identifier, title, location, country_code FROM projects "
                 f"WHERE (latitude IS NULL OR longitude IS NULL) {clause} ORDER BY created"
+            )
+            return await cur.fetchall()
+
+
+async def list_without_details(only_open: bool = True) -> list[dict[str, Any]]:
+    """Fichas creadas antes de la descripción editorial extensa."""
+    clause = "AND status = 'open'" if only_open else ""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT identifier, title, raw_message FROM projects "
+                f"WHERE detailed_description IS NULL {clause} ORDER BY created"
             )
             return await cur.fetchall()
 

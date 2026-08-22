@@ -134,6 +134,7 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
   background: var(--glass); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--line-soft); border-radius: 999px; padding: 8px 16px 8px 8px; box-shadow: var(--shadow-1);
 }
+.brand-mark { text-decoration: none; }
 .brand-mark .glyph {
   width: 30px; height: 30px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
   background: var(--brand); color: #fff; font-family: var(--font-display); font-weight: 800; font-size: 13px;
@@ -214,6 +215,13 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
    habitual de Instagram — para que se sienta parte de Corradi, no un widget ajeno pegado. */
 .icon-btn.ig-btn { background: var(--brand); border-color: transparent; color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 40%, transparent); text-decoration: none; }
 .icon-btn.ig-btn:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--brand) 45%, transparent); }
+.popup .story { margin: 12px 0; color: var(--ink-soft); font-size: 12.5px; line-height: 1.55; }
+.popup details { margin: 12px 0; border-top: 1px solid var(--line); padding-top: 10px; }
+.popup details summary { cursor: pointer; color: var(--brand); font-weight: 700; font-size: 12px; }
+.popup .deep-info { max-height: 210px; overflow-y: auto; padding: 8px 3px 2px; }
+.popup .deep-info h4 { margin: 10px 0 3px; font: 700 11px var(--font-display); }
+.popup .deep-info p { margin: 0; color: var(--ink-soft); white-space: pre-line; font-size: 11.5px; line-height: 1.5; }
+.popup-photo { height: 150px; margin: -14px -18px 14px; border-radius: 15px 15px 8px 8px; background: #e2e3e5 center/cover no-repeat; }
 
 /* ── Dock de resultados (escritorio: panel flotante a la izquierda) ──────── */
 .dock {
@@ -579,10 +587,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   <div id="map" role="application" aria-label="Mapa de oportunidades"></div>
 
   <div class="hud">
-    <div class="brand-mark">
+  <a class="brand-mark" href="/" title="Ir a descubrir oportunidades">
       <span class="glyph">C</span>
       <span class="word">Corradi Erasmus+<small>Mapa de oportunidades</small></span>
-    </div>
+    </a>
 
     <div class="command" id="commandBar">
       <span class="icon-slot" id="searchIconSlot"></span>
@@ -1174,10 +1182,26 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         '<circle cx="13" cy="13" r="4.5" fill="#fff"/></svg></div>'
     });
   }
+  function mapDetailsHTML(o) {
+    var blocks = [
+      ["Qué vas a vivir", o.detailed_description], ["Programa y actividades", o.programme_details],
+      ["Qué aprenderás", o.learning_outcomes], ["Perfil participante", o.participant_profile],
+      ["Países participantes", o.eligibility_countries], ["Alojamiento y comidas", o.accommodation_details],
+      ["Qué está cubierto", o.covered_costs], ["Viaje y reembolso", o.travel_details]
+    ].filter(function (x) { return !!x[1]; });
+    if (!blocks.length) return "";
+    return '<details><summary>Ver información completa</summary><div class="deep-info">' +
+      blocks.map(function (x) { return '<h4>' + esc(x[0]) + '</h4><p>' + esc(x[1]) + '</p>'; }).join("") +
+      '</div></details>';
+  }
+  function mapImage(o) {
+    return o.image_url || (o.type === "TRAINING_COURSE"
+      ? "/assets/category-training-course.jpg" : "/assets/category-youth-exchange.jpg");
+  }
   function popupHtml(o) {
     var t = typeOf(o), dl = deadlineText(o);
     var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
-    return '<div class="popup"><div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
+    return '<div class="popup"><div class="popup-photo" style="background-image:url(&quot;' + esc(mapImage(o)) + '&quot;)"></div><div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
       (isNew(o) ? '<span class="new-tag">Nuevo hoy</span>' : "") + "</div>" +
       '<div class="corner-actions">' +
         (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
@@ -1191,8 +1215,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       "</div>" +
       '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
+      (o.summary ? '<p class="story">' + esc(o.summary) + '</p>' : "") +
+      mapDetailsHTML(o) +
       '<div class="actions">' +
-        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener" data-click="info">' + ICON.info + 'Más info</a>' : "") +
+        '<a class="btn primary" href="/proyecto/' + encodeURIComponent(o.identifier) + '">' + ICON.info + 'Ficha completa</a>' +
+        (o.channel_url ? '<a class="btn" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener" data-click="info">Fuente</a>' : "") +
         (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener" data-click="infopack">' + ICON.doc + 'Infopack</a>' : "") +
         (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Form</a>' : "") +
       "</div>" +

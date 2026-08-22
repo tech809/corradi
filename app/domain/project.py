@@ -25,6 +25,10 @@ EXTRACTABLE_FIELDS = [
     "infopack_url", "application_url",
     "max_participants", "participant_min_age", "participant_max_age",
     "cost", "contact_information",
+    "detailed_description", "programme_details", "learning_outcomes",
+    "participant_profile", "accommodation_details", "covered_costs",
+    "travel_details", "eligibility_countries",
+    "image_url", "image_credit", "image_source_url", "image_origin",
 ]
 
 
