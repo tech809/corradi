@@ -598,6 +598,23 @@ async def instagram_story_image(identifier: str) -> Response:
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 
+@app.get("/share/{identifier}/story.png", include_in_schema=False)
+async def share_story_image(identifier: str) -> Response:
+    """Tarjeta vertical para compartir una oportunidad desde la web o el mapa."""
+    row = await repo.get_by_identifier(identifier)
+    if not row:
+        raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
+    png = instagram_card.render_share(row, instagram.days_left_label(row))
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Content-Disposition": f'inline; filename="corradi-{identifier}.png"',
+        },
+    )
+
+
 @app.get("/ig/{identifier}/reel.mp4", include_in_schema=False)
 async def instagram_reel_video(identifier: str) -> FileResponse:
     """El .mp4 del Reel, GENERADO DE ANTEMANO por `bot` (pesado: fotogramas + ffmpeg, ver

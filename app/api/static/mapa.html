@@ -1194,9 +1194,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   function mapDetailsHTML(o) {
     var blocks = [
       ["Qué vas a vivir", o.detailed_description], ["Programa y actividades", o.programme_details],
-      ["Qué aprenderás", o.learning_outcomes], ["Perfil participante", o.participant_profile],
+      ["Qué aprenderás", o.learning_outcomes], ["A quién buscan", o.participant_profile],
       ["Países participantes", o.eligibility_countries], ["Alojamiento y comidas", o.accommodation_details],
-      ["Qué está cubierto", o.covered_costs], ["Viaje y reembolso", o.travel_details]
+      ["Costes y cobertura", o.covered_costs], ["Viaje y reembolso", o.travel_details],
+      ["Contacto", o.contact_information]
     ].filter(function (x) { return !!x[1]; });
     if (!blocks.length) return "";
     return '<details><summary>Ver información completa</summary><div class="deep-info">' +
@@ -1232,7 +1233,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
   window.openOpportunityInfo = function (id) {
     var o = all.filter(function (x) { return x.identifier === id; })[0]; if (!o) return;
-    var sections = [["Sobre el proyecto",o.detailed_description||o.summary],["Programa y actividades",o.programme_details],["Qué aprenderás",o.learning_outcomes],["Perfil participante",o.participant_profile],["Países participantes",o.eligibility_countries],["Alojamiento y comidas",o.accommodation_details],["Qué está cubierto",o.covered_costs],["Viaje y reembolso",o.travel_details]].filter(function(x){return x[1]});
+    var sections = [["Sobre el proyecto",o.detailed_description||o.summary],["Programa y actividades",o.programme_details],["Qué aprenderás",o.learning_outcomes],["A quién buscan",o.participant_profile],["Países participantes",o.eligibility_countries],["Alojamiento y comidas",o.accommodation_details],["Costes y cobertura",o.covered_costs],["Viaje y reembolso",o.travel_details],["Contacto",o.contact_information]].filter(function(x){return x[1]});
     var actions=(o.application_url?'<a class="btn primary" href="'+esc(o.application_url)+'" target="_blank" rel="noopener">Form</a>':"")+(o.infopack_url?'<a class="btn" href="'+esc(o.infopack_url)+'" target="_blank" rel="noopener">Infopack</a>':"");
     document.getElementById("opportunityTitle").textContent=o.title;
     document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div><p><strong>'+flag(o.country_code)+' '+esc([o.location,countryName(o.country_code)].filter(Boolean).join(", "))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
@@ -1656,10 +1657,24 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   function shareUrl(id) { return location.origin + location.pathname + "?o=" + encodeURIComponent(id); }
   window.shareOpp = function (id) {
     var opp = all.filter(function (o) { return o.identifier === id; })[0];
-    var data = { title: opp ? opp.title : "Oportunidad Erasmus+", url: shareUrl(id) };
-    if (navigator.share) { navigator.share(data).catch(function () {}); }
-    else if (navigator.clipboard) { navigator.clipboard.writeText(data.url).then(function () { toast("Enlace copiado ✓"); }); }
-    else { toast(data.url); }
+    var url = shareUrl(id), title = opp ? opp.title : "Oportunidad Erasmus+";
+    toast("Preparando tarjeta…");
+    fetch("/share/" + encodeURIComponent(id) + "/story.png").then(function (r) {
+      if (!r.ok) throw new Error(); return r.blob();
+    }).then(function (blob) {
+      var file = new File([blob], "corradi-" + id.replace("CORRADI-", "") + ".png", { type: "image/png" });
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+        return navigator.share({ title: title, text: "Mira esta oportunidad Erasmus+ en Corradi", url: url, files: [file] });
+      }
+      var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      if (navigator.clipboard) navigator.clipboard.writeText(url);
+      toast("Tarjeta descargada · enlace copiado ✓");
+    }).catch(function () {
+      if (navigator.share) navigator.share({ title: title, url: url }).catch(function () {});
+      else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast("Enlace copiado ✓"); });
+      else toast(url);
+    });
   };
 
   function paintTiles() {

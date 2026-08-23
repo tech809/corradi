@@ -152,7 +152,8 @@ def _clock_icon(d: ImageDraw.ImageDraw, cx: float, cy: float, r: float, color, w
 
 
 def _compose(
-    opp: dict[str, Any], size: tuple[int, int], pill_label: str, scale: float, pill_icon: str = "clock",
+    opp: dict[str, Any], size: tuple[int, int], pill_label: str, scale: float,
+    pill_icon: str = "clock", cta_text: str = "TODA LA INFO EN EL LINK DE LA BIO",
 ) -> bytes:
     W, H = size
     otype = opp.get("type") or "YOUTH_EXCHANGE"
@@ -200,7 +201,7 @@ def _compose(
     pill_h = s(76)
 
     cta_f = _font("DejaVuSans-Bold.ttf", s(32))
-    cta = "TODA LA INFO EN EL LINK DE LA BIO"
+    cta = cta_text
     cta_lines = _wrap(d, cta, cta_f, max_w)
     cta_line_h = s(40)
     cta_h = cta_line_h * len(cta_lines)
@@ -260,3 +261,11 @@ def render_feed(opp: dict[str, Any], pill_label: str) -> bytes:
 
 def render_story(opp: dict[str, Any], pill_label: str) -> bytes:
     return _compose(opp, STORY_SIZE, pill_label, scale=1.3, pill_icon="clock")
+
+
+def render_share(opp: dict[str, Any], pill_label: str) -> bytes:
+    """Story compartible desde web/móvil, sin la referencia exclusiva a Instagram."""
+    return _compose(
+        opp, STORY_SIZE, pill_label, scale=1.3, pill_icon="clock",
+        cta_text="DESCUBRE EL PROYECTO EN CORRADI",
+    )
