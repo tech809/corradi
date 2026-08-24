@@ -1,4 +1,4 @@
-.PHONY: up down logs build bot api summary weekly-summary backfill-geo install dev-db test demo seed
+.PHONY: up down logs build bot api summary weekly-summary backfill-geo backfill-details install dev-db test demo seed
 
 # ─── Docker (local = EC2: mismo compose) ───────────────────────────────────
 up:        ## Levanta toda la pila (db, api, bot, caddy)
@@ -34,6 +34,9 @@ weekly-summary:
 
 backfill-geo:  ## Geocodifica las fichas antiguas que aún no tienen coordenadas (mapa)
 	python -m app.scheduler.backfill_geo
+
+backfill-details:  ## Enriquece fichas antiguas con anuncio + infopack (usa llamadas LLM)
+	python -m app.scheduler.backfill_details
 
 scrape-salto:  ## Busca oportunidades nuevas de Training Course en SALTO-YOUTH y avisa por DM
 	python -m app.scheduler.scrape_salto

@@ -58,6 +58,8 @@ class Config:
     llm_model: str = os.getenv("LLM_MODEL", "gemini-2.5-flash-lite")
     embed_model: str = os.getenv("EMBED_MODEL", "gemini-embedding-001")
     embed_dim: int = int(os.getenv("EMBED_DIM", "768"))
+    # Imagen editorial opcional. Sin clave, la web usa las fotografías propias por tipo.
+    pexels_api_key: str = os.getenv("PEXELS_API_KEY", "")
 
     # Negocio
     # Fecha límite estimada cuando el mensaje no trae ninguna: +5 días normalmente, y solo

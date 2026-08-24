@@ -1,0 +1,6 @@
+# Local browser preview. Keeps the production compose file unchanged and exposes only
+# FastAPI on localhost, bypassing Caddy's public-domain HTTPS configuration.
+services:
+  api:
+    ports:
+      - "8000:8000"

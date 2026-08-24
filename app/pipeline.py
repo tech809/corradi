@@ -12,7 +12,7 @@ from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from app import geo
+from app import geo, images
 from app.config import cfg
 from app.db import repository as repo
 from app.domain.project import canonicalize_organiser, make_hash
@@ -114,6 +114,13 @@ async def preview(
         spam = {"warn": False, "blocked": False} if is_admin else await _spam_check(submitted_by_id, submitted_by_username)
         return {"status": "not_opportunity", "reason": fields.get("reason"), **spam}
 
+    # Un infopack legible aporta la descripción extensa y los detalles prácticos. Es un
+    # enriquecimiento opcional: si el alojamiento del documento bloquea bots, seguimos con
+    # lo que ya se extrajo del anuncio.
+    if fields.get("infopack_url"):
+        fields = await asyncio.to_thread(extractor.enrich_from_infopack, fields)
+        await extractor.flush_usage()
+
     # 1bis) Fuera de plazo: la fecha límite que trae el mensaje ya pasó.
     if fields.get("deadline_in_past"):
         deadline = fields.get("stated_deadline")
@@ -146,6 +153,9 @@ async def preview(
     if fields.get("organiser_name"):
         existing_organisers = await repo.distinct_organiser_names()
         fields["organiser_name"] = canonicalize_organiser(fields["organiser_name"], existing_organisers)
+
+    # Fotografía editorial con atribución; la portada tiene fallback propio si no hay clave.
+    fields = await asyncio.to_thread(images.enrich, fields)
 
     # 2) Deduplicación (hash exacto + embedding semántico)
     try:

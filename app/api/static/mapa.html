@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Corradi — Mapa de oportunidades</title>
 <meta name="description" content="Mapa interactivo de las oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ECS.">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="Mapa de oportunidades · Corradi Erasmus+">
 <meta property="og:description" content="Todas las oportunidades Erasmus+ con inscripción abierta, en el mapa.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://mapa.proactivefuture.eu/corradi-erasmus">
+<meta property="og:url" content="https://mapa.proactivefuture.eu/mapa">
+<meta property="og:locale" content="es_ES">
 <!-- Tarjeta de previsualización al compartir el enlace (WhatsApp, Telegram, LinkedIn…).
      La imagen se genera a mano con scripts/make_og_image.py, no al vuelo. -->
 <meta property="og:image" content="https://mapa.proactivefuture.eu/og.png">
@@ -17,13 +19,13 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Mapa de oportunidades Corradi Erasmus+">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="canonical" href="https://mapa.proactivefuture.eu/corradi-erasmus">
+<link rel="canonical" href="https://mapa.proactivefuture.eu/mapa">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
   "name": "Corradi Erasmus+",
-  "url": "https://mapa.proactivefuture.eu/corradi-erasmus",
+  "url": "https://mapa.proactivefuture.eu/mapa",
   "description": "Mapa interactivo de oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ECS.",
   "publisher": { "@type": "Organization", "name": "Corradi" }
 }
@@ -35,6 +37,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
       integrity="sha256-YU3qCpj/P06tdPBJGPax0bm6Q1wltfwjsho5TR4+TYc=" crossorigin="">
 <style>
+.skip-map{position:fixed;z-index:1000;left:12px;top:12px;transform:translateY(-160%);background:#fff;color:var(--brand);padding:11px 15px;border-radius:10px;font-weight:700;text-decoration:none}.skip-map:focus{transform:none}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 /* ═══════════════════════════════════════════════════════════════════════════
    CORRADI — mapa v3, rediseño de cero (2026-07-28)
    Dirección: minimalismo tipo Apple/Mercedes — negros y blancos muy cuidados,
@@ -134,6 +138,7 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
   background: var(--glass); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--line-soft); border-radius: 999px; padding: 8px 16px 8px 8px; box-shadow: var(--shadow-1);
 }
+.brand-mark { text-decoration: none; }
 .brand-mark .glyph {
   width: 30px; height: 30px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
   background: var(--brand); color: #fff; font-family: var(--font-display); font-weight: 800; font-size: 13px;
@@ -214,6 +219,14 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
    habitual de Instagram — para que se sienta parte de Corradi, no un widget ajeno pegado. */
 .icon-btn.ig-btn { background: var(--brand); border-color: transparent; color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 40%, transparent); text-decoration: none; }
 .icon-btn.ig-btn:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--brand) 45%, transparent); }
+.popup .story { margin: 12px 0; color: var(--ink-soft); font-size: 12.5px; line-height: 1.55; }
+.popup details { margin: 12px 0; border-top: 1px solid var(--line); padding-top: 10px; }
+.popup details summary { cursor: pointer; color: var(--brand); font-weight: 700; font-size: 12px; }
+.popup .deep-info { max-height: 210px; overflow-y: auto; padding: 8px 3px 2px; }
+.popup .deep-info h4 { margin: 10px 0 3px; font: 700 11px var(--font-display); }
+.popup .deep-info p { margin: 0; color: var(--ink-soft); white-space: pre-line; font-size: 11.5px; line-height: 1.5; }
+.popup-photo { height: 150px; margin: -14px -18px 14px; border-radius: 15px 15px 8px 8px; background: #e2e3e5 center/cover no-repeat; }
+.popup .actions{display:flex;flex-wrap:nowrap;gap:6px}.popup .actions .btn{padding:9px 10px;font-size:11px;white-space:nowrap}.popup .actions .info-only{width:34px;padding:9px;flex:none}.map-detail-tools{display:flex;gap:7px;margin-left:auto}.map-detail-tools button,.map-detail-tools a{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);background:#fff;color:var(--brand);text-decoration:none;cursor:pointer;font-size:15px}.map-detail-tools svg{width:18px;height:18px}.map-detail-tools .saved{background:var(--brand);color:#fff}.opportunity-foot{display:flex;gap:8px;padding:14px 24px;border-top:1px solid var(--line-soft);position:sticky;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);z-index:5}.opportunity-foot:empty{display:none}.opportunity-foot .btn{flex:1;justify-content:center}
 
 /* ── Dock de resultados (escritorio: panel flotante a la izquierda) ──────── */
 .dock {
@@ -529,7 +542,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
      un width fijo aquí es justo el bug que se coló la primera vez: la barra
      invadía los botones de la derecha porque el cálculo no coincidía con su
      ancho real. */
-  .command { top: 14px; left: 14px; right: 136px; width: auto; transform: none; }
+  .command { top: calc(12px + env(safe-area-inset-top)); left: 12px; right: 64px; width: auto; transform: none; padding: 5px; }
   body.searching .command { right: 14px; }
   body.searching .top-actions { display: none; }
   /* Sin esto la "×" para cerrar la búsqueda existía en el DOM pero nunca se veía
@@ -541,12 +554,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   /* Los chips de categoría se quedan solo en escritorio (poco sitio en móvil) pero el
      botón "Filtros" (edad/fechas/país/urgencia — no solo categoría) tiene que seguir
      accesible: sin esto no había NINGUNA forma de abrir ese panel en móvil. */
-  #qfCategories { display: none; }
-  .quick-filters { position: absolute; top: 106px; left: 14px; right: auto; transform: none; max-width: none; }
+  #qfCategories { display: flex; }
+  .quick-filters { position: absolute; top: calc(70px + env(safe-area-inset-top)); left: 12px; right: 12px; transform: none; max-width: none; padding-right:4px; }
   body.searching .quick-filters { display: none; }
-  /* 4 botones no caben en una fila sin invadir la barra de mando -- 2 columnas x 2 filas,
-     mismo hueco de 8px que ya usaba la fila única. */
-  .top-actions { top: 14px; right: 14px; display: grid; grid-template-columns: repeat(2, 40px); grid-auto-rows: 40px; gap: 8px; }
+  .top-actions { top: calc(12px + env(safe-area-inset-top)); right: 12px; display: flex; }
+  .top-actions #contribute, .top-actions #infoBtn, .top-actions #igTopBtn { display: none; }
   .top-actions .pill-btn .label { display: none; }
   .top-actions .pill-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
 
@@ -554,7 +566,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 500; display: flex; flex-direction: column;
     background: var(--glass-strong); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
     border-radius: 26px 26px 0 0; box-shadow: 0 -8px 32px rgba(17,17,19,.18); border-top: 1px solid var(--line-soft);
-    height: 86vh; transform: translateY(calc(86vh - 128px)); transition: transform .38s var(--ease-out);
+    height: min(86dvh, 760px); transform: translateY(calc(min(86dvh, 760px) - 116px - env(safe-area-inset-bottom))); transition: transform .38s var(--ease-out);
   }
   .sheet.full { transform: translateY(0); }
   .sheet-handle { flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 20px 6px; cursor: pointer; }
@@ -562,27 +574,30 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   .sheet-handle .summary { display: flex; align-items: center; justify-content: space-between; width: 100%; }
   .sheet-handle .summary strong { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
   .sheet-handle .summary span { font-size: 12px; color: var(--ink-faint); font-weight: 600; }
-  .sheet .dock-body { padding: 6px 16px 26px; }
+  .sheet .dock-body { padding: 6px 12px calc(26px + env(safe-area-inset-bottom)); overscroll-behavior: contain; }
   /* El orden solo se ve con la hoja desplegada del todo -- en "peek" (asomando) el
      hueco es justo el del tirador; meterlo ahí lo hubiera cortado a la mitad. */
   .sheet .sort-switch { display: none; }
   .sheet.full .sort-switch { display: flex; }
 
   .bottom-dock { display: none; }
-  .card { padding: 15px 16px 14px; }
+  .card { padding: 14px 15px 13px; border-radius: 17px; }
+  .qf-chip{min-height:42px;padding-top:7px;padding-bottom:7px}.sheet-handle{touch-action:none;user-select:none}.corner-btn{min-width:40px;min-height:40px}
+  .leaflet-control-zoom { margin-bottom: calc(124px + env(safe-area-inset-bottom)) !important; }
 }
 </style>
 </head>
 <body>
+<a href="#listMobile" class="skip-map">Saltar a resultados</a>
 
 <div id="stage">
   <div id="map" role="application" aria-label="Mapa de oportunidades"></div>
 
   <div class="hud">
-    <div class="brand-mark">
+  <a class="brand-mark" href="/" title="Ir a descubrir oportunidades">
       <span class="glyph">C</span>
       <span class="word">Corradi Erasmus+<small>Mapa de oportunidades</small></span>
-    </div>
+    </a>
 
     <div class="command" id="commandBar">
       <span class="icon-slot" id="searchIconSlot"></span>
@@ -593,13 +608,15 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
     <div class="quick-filters" id="quickFilters">
       <div class="qf-categories" id="qfCategories"></div>
+      <button type="button" class="qf-chip more" id="quickSoon">⏳ Cierre próximo</button>
+      <button type="button" class="qf-chip more" id="quickSaved">♥ Guardadas</button>
       <button type="button" class="qf-chip more" id="filtersToggle"><span id="filtersIconSlot"></span>Filtros<span class="badge-count" id="filtersCount" hidden></span></button>
     </div>
 
     <div class="top-actions">
       <button type="button" class="icon-btn" id="contribute" aria-label="¿Quieres contribuir?" title="¿Quieres contribuir?"></button>
-      <a class="pill-btn solid" id="channel" href="https://t.me/erasmuscorradi" target="_blank" rel="noopener">
-        <span id="channelIconSlot"></span><span class="label">Ver canal</span>
+      <a class="pill-btn solid" id="channel" href="/">
+        <span id="channelIconSlot"></span><span class="label">Ver web</span>
       </a>
       <button type="button" class="icon-btn" id="infoBtn" aria-label="Más información" title="Más información"></button>
       <a class="icon-btn ig-btn" id="igTopBtn" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener" aria-label="Síguenos en Instagram" title="Síguenos en Instagram"></a>
@@ -848,6 +865,12 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   </div>
 </dialog>
 
+<dialog id="opportunityDialog" class="sheet-dialog" aria-labelledby="opportunityTitle">
+  <div class="sheet-head"><h2 id="opportunityTitle">Toda la información</h2><div class="map-detail-tools" id="mapDetailTools"></div><button type="button" class="sheet-close" id="opportunityClose" aria-label="Cerrar">×</button></div>
+  <div class="info-body" id="opportunityBody"></div>
+  <div class="opportunity-foot" id="opportunityFoot"></div>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="ig-popup" id="igPopup" hidden role="complementary" aria-label="Síguenos en Instagram">
@@ -884,6 +907,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     pencil: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16.5 3.5 4 4L7 21l-4.5 1L4 17.5Z"/><path d="m14 6 4 4"/></svg>',
     calendarPlus: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17M12 13.5v5M9.5 16h5"/></svg>',
     link: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5 14.5 9.5"/><path d="M11 6.5 12.4 5a3.8 3.8 0 1 1 5.4 5.4l-1.6 1.6M13 17.5 11.6 19a3.8 3.8 0 1 1-5.4-5.4l1.6-1.6"/></svg>',
+    share: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg>',
     close: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5 5 19"/></svg>',
     warn: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20Z"/><path d="M12 9.5v4.5M12 17v.1"/></svg>',
     ig: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r=".6" fill="#fff" stroke="none"/></svg>'
@@ -941,6 +965,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   function renderAge() { document.getElementById("ageVal").innerHTML = (ageValue == null ? "–" : ageValue) + "<small>años</small>"; }
 
   var all = [], shown = [], markers = {}, map, layer, activeId = null;
+  var favourites = new Set(JSON.parse(localStorage.getItem("corradi-favourites") || "[]"));
   var isMobileQuery = window.matchMedia && window.matchMedia("(max-width: 880px)");
 
   function esc(s) {
@@ -1074,6 +1099,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     return n;
   }
 
+  function saveSharedFilters(){try{localStorage.setItem("corradi-filters",JSON.stringify({q:state.q,type:state.types.size===1?Array.from(state.types)[0]:"",countries:sameSet(state.countries,defaultCountrySet())?[]:Array.from(state.countries),age:state.age,soon:state.soon,saved:!!state.only}))}catch(e){}}
+  function restoreSharedFilters(raw){var p;try{p=raw?JSON.parse(raw):null}catch(e){}if(!p)return;state.q=p.q||"";document.getElementById("q").value=p.q||"";if(p.type){var mapped=p.type==="VOLUNTEERING"?"ESC":p.type;state.types=new Set([mapped])}if(p.countries&&p.countries.length)state.countries=new Set(p.countries);if(p.age){state.age=Number(p.age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}state.soon=!!p.soon;if(p.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
+
   // "Últimas subidas": por fecha de creación, la más reciente primero (created es ISO,
   // compara bien como string). "Cierran antes": por fecha límite, sin ella al final (una
   // oportunidad sin deadline conocida no es "la más urgente", es la que menos se sabe).
@@ -1095,6 +1123,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
   function apply() {
     shown = sortShown(all.filter(matches));
+    saveSharedFilters();
     renderList();
     renderMarkers();
     var n = shown.length;
@@ -1119,6 +1148,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         '<div class="corner-actions">' +
           (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
           '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
+          '<button type="button" class="corner-btn fav-btn' + (favourites.has(o.identifier)?' saved':'') + '" aria-label="Guardar en favoritos" title="Guardar" onclick="event.stopPropagation();toggleMapFavourite(\'' + esc(o.identifier) + '\')">' + (favourites.has(o.identifier)?'♥':'♡') + '</button>' +
         "</div></div>" +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
@@ -1174,15 +1204,29 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         '<circle cx="13" cy="13" r="4.5" fill="#fff"/></svg></div>'
     });
   }
+  function mapDetailsHTML(o) {
+    var blocks = [
+      ["Qué vas a vivir", o.detailed_description], ["Programa y actividades", o.programme_details],
+      ["Qué aprenderás", o.learning_outcomes], ["A quién buscan", o.participant_profile],
+      ["Países participantes", o.eligibility_countries], ["Alojamiento y comidas", o.accommodation_details],
+      ["Costes y cobertura", o.covered_costs], ["Viaje y reembolso", o.travel_details],
+      ["Contacto", o.contact_information]
+    ].filter(function (x) { return !!x[1]; });
+    if (!blocks.length) return "";
+    return '<details><summary>Ver información completa</summary><div class="deep-info">' +
+      blocks.map(function (x) { return '<h4>' + esc(x[0]) + '</h4><p>' + esc(x[1]) + '</p>'; }).join("") +
+      '</div></details>';
+  }
+  function mapImage(o) {
+    return o.image_url || (o.type === "TRAINING_COURSE"
+      ? "/assets/category-training-course.jpg" : "/assets/category-youth-exchange.jpg");
+  }
   function popupHtml(o) {
     var t = typeOf(o), dl = deadlineText(o);
     var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
-    return '<div class="popup"><div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
+    return '<div class="popup"><div class="popup-photo" style="background-image:url(&quot;' + esc(mapImage(o)) + '&quot;)"></div><div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
       (isNew(o) ? '<span class="new-tag">Nuevo hoy</span>' : "") + "</div>" +
-      '<div class="corner-actions">' +
-        (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
-        '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
-      "</div></div>" +
+      '</div></div>' +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
         (place ? "<span>" + (flag(o.country_code) ? '<span class="flag-emoji">' + flag(o.country_code) + '</span>' : ICON.pin) + esc(place) + "</span>" : "") +
@@ -1191,14 +1235,26 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       "</div>" +
       '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
+      (o.summary ? '<p class="story">' + esc(o.summary) + '</p>' : "") +
       '<div class="actions">' +
-        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener" data-click="info">' + ICON.info + 'Más info</a>' : "") +
+        '<button class="btn primary info-only" type="button" onclick="openOpportunityInfo(\'' + esc(o.identifier) + '\')" aria-label="Toda la información" title="Toda la información">' + ICON.info + '</button>' +
         (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener" data-click="infopack">' + ICON.doc + 'Infopack</a>' : "") +
         (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Form</a>' : "") +
       "</div>" +
       (o.approx_location ? '<div class="approx">' + ICON.pin + 'Ubicación aproximada (país)</div>' : "") +
       "</div>";
   }
+  window.openOpportunityInfo = function (id) {
+    var o = all.filter(function (x) { return x.identifier === id; })[0]; if (!o) return;
+    var sections = [["Sobre el proyecto",o.detailed_description||o.summary],["Programa y actividades",o.programme_details],["Qué aprenderás",o.learning_outcomes],["A quién buscan",o.participant_profile],["Países participantes",o.eligibility_countries],["Alojamiento y comidas",o.accommodation_details],["Costes y cobertura",o.covered_costs],["Viaje y reembolso",o.travel_details],["Contacto",o.contact_information]].filter(function(x){return x[1]});
+    var actions=(o.application_url?'<a class="btn primary" href="'+esc(o.application_url)+'" target="_blank" rel="noopener">Form</a>':"")+(o.infopack_url?'<a class="btn" href="'+esc(o.infopack_url)+'" target="_blank" rel="noopener">Infopack</a>':"");
+    document.getElementById("opportunityTitle").textContent=o.title;
+    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div><p><strong>'+flag(o.country_code)+' '+esc([o.location,countryName(o.country_code)].filter(Boolean).join(", "))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
+    document.getElementById("opportunityFoot").innerHTML=actions;
+    document.getElementById("mapDetailTools").innerHTML=(gcalUrl(o)?'<a href="'+esc(gcalUrl(o))+'" target="_blank" rel="noopener" title="Guardar en calendario" aria-label="Guardar en calendario">'+ICON.calendarPlus+'</a>':"")+'<button id="mapFav" class="'+(favourites.has(id)?"saved":"")+'" title="Guardar en favoritos" aria-label="Guardar en favoritos">'+(favourites.has(id)?"♥":"♡")+'</button><button id="mapShare" title="Compartir" aria-label="Compartir">'+ICON.share+'</button>';
+    document.getElementById("mapFav").onclick=function(){favourites.has(id)?favourites.delete(id):favourites.add(id);localStorage.setItem("corradi-favourites",JSON.stringify(Array.from(favourites)));this.classList.toggle("saved",favourites.has(id));this.textContent=favourites.has(id)?"♥":"♡"};document.getElementById("mapShare").onclick=function(){shareOpp(id)};
+    document.getElementById("opportunityDialog").showModal();
+  };
   function renderMarkers() {
     layer.clearLayers(); markers = {};
     var batch = [];
@@ -1207,7 +1263,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       var lat = Number(o.latitude), lon = Number(o.longitude);
       var m = L.marker([lat, lon], { icon: pinIcon(o, false), title: o.title, riseOnHover: true })
         .bindPopup(popupHtml(o), { closeButton: true, autoPanPadding: [30, 30] })
-        .on("click", function () { setActive(o.identifier, false); });
+        .on("click", function () { setActive(o.identifier, true); if(isMobileQuery&&isMobileQuery.matches)setSheet("full"); });
       markers[o.identifier] = m; batch.push(m);
     });
     layer.addLayers(batch);
@@ -1219,7 +1275,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (!bounds.length) return;
     map.invalidateSize({ animate: false });
     if (bounds.length === 1) map.setView(bounds[0], 7, { animate: false });
-    else map.fitBounds(L.latLngBounds(bounds), { animate: false, maxZoom: 9, padding: [64, 64] });
+    else {
+      map.fitBounds(L.latLngBounds(bounds), { animate: false, maxZoom: 9, padding: [64, 64] });
+      if (isMobileQuery && isMobileQuery.matches) map.setZoom(Math.min(6, map.getZoom() + 2), { animate: false });
+    }
   }
   function highlight(id) {
     Array.prototype.forEach.call(document.querySelectorAll(".pin"), function (p) { p.classList.toggle("active", p.dataset.id === id); });
@@ -1265,6 +1324,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       var n = all.filter(function (o) { return (o.type || "OTHER") === c.dataset.type; }).length;
       var b = c.querySelector(".badge-count"); if (b) b.textContent = n;
     });
+    document.getElementById("quickSoon").setAttribute("aria-pressed",String(state.soon));document.getElementById("quickSaved").setAttribute("aria-pressed",String(!!state.only));
     var groups = activeFilterGroups();
     var badge = document.getElementById("filtersCount");
     badge.textContent = groups; badge.hidden = !groups;
@@ -1490,6 +1550,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       var sheet = document.getElementById("sheet");
       setSheet(sheet.classList.contains("full") ? "peek" : "full");
     });
+    (function(){var handle=document.getElementById("sheetHandle"),startY=null,moved=false;handle.addEventListener("pointerdown",function(e){startY=e.clientY;moved=false;handle.setPointerCapture(e.pointerId)});handle.addEventListener("pointermove",function(e){if(startY==null)return;if(Math.abs(e.clientY-startY)>8)moved=true});handle.addEventListener("pointerup",function(e){if(startY==null)return;var dy=e.clientY-startY;startY=null;if(!moved||Math.abs(dy)<35)return;e.preventDefault();setSheet(dy<0?"full":"peek")})})();
+    document.getElementById("quickSoon").addEventListener("click",function(){state.soon=!state.soon;this.setAttribute("aria-pressed",String(state.soon));apply()});
+    document.getElementById("quickSaved").addEventListener("click",function(){state.only=state.only?null:new Set(Array.from(favourites));this.setAttribute("aria-pressed",String(!!state.only));apply()});
 
     // Dos copias (escritorio + hoja móvil) del mismo control -- se mantienen
     // sincronizadas entre sí por si acaso (p.ej. cambia el tamaño de la ventana a medio
@@ -1557,6 +1620,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var infoDlg = document.getElementById("infoDialog");
     document.getElementById("infoClose").addEventListener("click", function () { infoDlg.close(); });
     infoDlg.addEventListener("click", function (e) { if (e.target === infoDlg) infoDlg.close(); });
+    var opportunityDlg = document.getElementById("opportunityDialog");
+    document.getElementById("opportunityClose").addEventListener("click", function () { opportunityDlg.close(); });
+    opportunityDlg.addEventListener("click", function (e) { if (e.target === opportunityDlg) opportunityDlg.close(); });
 
     // Al panel web, no al bot: se puede publicar sin salir del navegador (el bot sigue
     // funcionando igual para quien prefiera Telegram, y de hecho el login es el mismo).
@@ -1609,12 +1675,27 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2200);
   }
   function shareUrl(id) { return location.origin + location.pathname + "?o=" + encodeURIComponent(id); }
+  window.toggleMapFavourite=function(id){favourites.has(id)?favourites.delete(id):favourites.add(id);localStorage.setItem("corradi-favourites",JSON.stringify(Array.from(favourites)));if(state.only)state.only=new Set(Array.from(favourites));apply()};
   window.shareOpp = function (id) {
     var opp = all.filter(function (o) { return o.identifier === id; })[0];
-    var data = { title: opp ? opp.title : "Oportunidad Erasmus+", url: shareUrl(id) };
-    if (navigator.share) { navigator.share(data).catch(function () {}); }
-    else if (navigator.clipboard) { navigator.clipboard.writeText(data.url).then(function () { toast("Enlace copiado ✓"); }); }
-    else { toast(data.url); }
+    var url = shareUrl(id), title = opp ? opp.title : "Oportunidad Erasmus+";
+    toast("Preparando tarjeta…");
+    fetch("/share/" + encodeURIComponent(id) + "/story.png").then(function (r) {
+      if (!r.ok) throw new Error(); return r.blob();
+    }).then(function (blob) {
+      var file = new File([blob], "corradi-" + id.replace("CORRADI-", "") + ".png", { type: "image/png" });
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+        return navigator.share({ title: title, text: "Mira esta oportunidad Erasmus+ en Corradi", url: url, files: [file] });
+      }
+      var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      if (navigator.clipboard) navigator.clipboard.writeText(url);
+      toast("Tarjeta descargada · enlace copiado ✓");
+    }).catch(function () {
+      if (navigator.share) navigator.share({ title: title, url: url }).catch(function () {});
+      else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast("Enlace copiado ✓"); });
+      else toast(url);
+    });
   };
 
   function paintTiles() {
@@ -1628,7 +1709,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     L.control.zoom({ position: "bottomleft" }).addTo(map);
     paintTiles();
     layer = L.markerClusterGroup({
-      maxClusterRadius: 14, spiderfyOnMaxZoom: true, showCoverageOnHover: false, disableClusteringAtZoom: 10,
+      maxClusterRadius: 14, spiderfyOnMaxZoom: true, showCoverageOnHover: false, disableClusteringAtZoom: isMobileQuery && isMobileQuery.matches ? 6 : 10,
       iconCreateFunction: function (cluster) {
         var n = cluster.getChildCount();
         return L.divIcon({ html: '<div class="cluster" style="width:' + (34 + Math.min(n, 20)) + 'px;height:' + (34 + Math.min(n, 20)) + 'px">' + n + "</div>", className: "", iconSize: null });
@@ -1694,7 +1775,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     document.getElementById("filtersIconSlot").innerHTML = ICON.sliders;
     document.getElementById("askIconSlot").innerHTML = ICON.sparkle;
     document.getElementById("searchClose").innerHTML = ICON.close;
-    document.getElementById("channelIconSlot").innerHTML = ICON.send;
+    document.getElementById("channelIconSlot").innerHTML = ICON.compass;
     document.getElementById("contribute").innerHTML = ICON.plus;
     document.getElementById("infoBtn").innerHTML = ICON.info;
     document.getElementById("igTopBtn").innerHTML = ICON.ig;
@@ -1728,16 +1809,31 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (data) {
         all = data.results || [];
-        if (data.channel) document.getElementById("channel").href = "https://t.me/" + data.channel;
         buildCountries();
         buildTopics();
         buildMonths();
+        var sharedFiltersRaw=localStorage.getItem("corradi-filters");
         resetFilters();
+        restoreSharedFilters(sharedFiltersRaw);
         var params = new URLSearchParams(location.search);
         var wanted = params.get("o");
         if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
           setSheet("peek");
           focusOpportunity(wanted, true);
+        } else if (wanted) {
+          // Los enlaces cortos son permanentes. Si la convocatoria ya cerró y por eso no
+          // viene en /api/map, recuperamos solo esa ficha para mantener su popup accesible.
+          fetch("/opportunities/" + encodeURIComponent(wanted), { headers: { Accept: "application/json" } })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (opportunity) {
+              all.push(opportunity);
+              shown = [opportunity];
+              renderList();
+              renderMarkers();
+              setSheet("peek");
+              focusOpportunity(wanted, true);
+            })
+            .catch(function () {});
         }
         if (params.has("preguntar")) {
           openChat();

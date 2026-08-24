@@ -19,6 +19,7 @@ pgvector==0.3.6
 
 # HTTP (WhatsApp Cloud API)
 httpx>=0.27,<0.29
+pypdf>=5.1,<6
 
 # Utilidades
 python-dotenv==1.0.1

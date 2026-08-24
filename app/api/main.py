@@ -41,6 +41,10 @@ _PUBLIC_FIELDS = (
     "start_date", "end_date", "application_deadline", "deadline_estimated",
     "infopack_url", "application_url", "max_participants",
     "participant_min_age", "participant_max_age", "cost", "contact_information",
+    "detailed_description", "programme_details", "learning_outcomes",
+    "participant_profile", "accommodation_details", "covered_costs", "travel_details",
+    "eligibility_countries", "infopack_enriched",
+    "image_url", "image_credit", "image_source_url", "image_origin",
     "status", "telegram_message_id", "created",
 )
 
@@ -109,6 +113,7 @@ if cfg.handoff_mode in ("whatsapp_twilio", "whatsapp_cloud"):
 # mapa.html las pide en /fonts/*.ttf. Cache larga: el nombre de fichero ya lleva el peso,
 # así que un cambio de fuente sería un fichero nuevo, no uno que mute bajo la misma URL.
 app.mount("/fonts", StaticFiles(directory=_STATIC / "fonts"), name="fonts")
+app.mount("/assets", StaticFiles(directory=_STATIC), name="assets")
 
 
 @app.get("/health")
@@ -122,11 +127,18 @@ def _file_etag(path: Path) -> str:
     return f'"{int(st.st_mtime)}-{st.st_size}"'
 
 
-# URL "bonita" para compartir/publicitar. `/mapa` se conserva como alias (no como
-# redirect): cualquier enlace ya repartido (resumen diario de hace días, capturas,
-# el propio `channel_url` guardado en la BD) sigue funcionando igual, sin 301 de por
-# medio — dos rutas, un único fichero servido.
+# La raíz es la puerta de entrada editorial/listado. El mapa conserva sus dos URLs
+# públicas históricas: los enlaces ya repartidos siguen funcionando sin redirecciones.
 @app.get("/", include_in_schema=False)
+async def discover(request: Request) -> Response:
+    path = _STATIC / "discover.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
+
+
 @app.get("/mapa", include_in_schema=False)
 @app.get("/corradi-erasmus", include_in_schema=False)
 async def mapa(request: Request) -> Response:
@@ -147,6 +159,19 @@ async def mapa(request: Request) -> Response:
     return FileResponse(path, media_type="text/html", headers=headers)
 
 
+@app.get("/proyecto/{identifier}", include_in_schema=False)
+async def project_page(identifier: str, request: Request) -> Response:
+    """Ficha editorial de una oportunidad; los datos se cargan desde la API pública."""
+    if not re.fullmatch(r"CORRADI-\d{4}-\d{4}", identifier):
+        raise HTTPException(status_code=404)
+    path = _STATIC / "project.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
+
+
 @app.get("/og.png", include_in_schema=False)
 async def og_image() -> FileResponse:
     """Imagen de previsualización al compartir el enlace. Cambia muy de vez en cuando,
@@ -155,6 +180,20 @@ async def og_image() -> FileResponse:
         _STATIC / "og.png",
         media_type="image/png",
         headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+@app.get("/media/opportunities/{filename}", include_in_schema=False)
+async def opportunity_media(filename: str) -> FileResponse:
+    """Fotografías aportadas por coordinadores, normalizadas por el bot."""
+    if not re.fullmatch(r"[a-f0-9]{32}\.jpg", filename):
+        raise HTTPException(status_code=404)
+    path = Path(cfg.media_dir) / "opportunities" / filename
+    if not path.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(
+        path, media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
     )
 
 
@@ -287,6 +326,10 @@ _PREVIEW_FIELDS = (
     "application_deadline", "deadline_estimated",
     "infopack_url", "application_url", "max_participants",
     "participant_min_age", "participant_max_age", "cost", "contact_information",
+    "detailed_description", "programme_details", "learning_outcomes",
+    "participant_profile", "accommodation_details", "covered_costs", "travel_details",
+    "eligibility_countries", "infopack_enriched",
+    "image_url", "image_credit", "image_source_url", "image_origin",
 )
 
 
@@ -555,6 +598,23 @@ async def instagram_story_image(identifier: str) -> Response:
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 
+@app.get("/share/{identifier}/story.png", include_in_schema=False)
+async def share_story_image(identifier: str) -> Response:
+    """Tarjeta vertical para compartir una oportunidad desde la web o el mapa."""
+    row = await repo.get_by_identifier(identifier)
+    if not row:
+        raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
+    png = instagram_card.render_share(row, instagram.days_left_label(row))
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Content-Disposition": f'inline; filename="corradi-{identifier}.png"',
+        },
+    )
+
+
 @app.get("/ig/{identifier}/reel.mp4", include_in_schema=False)
 async def instagram_reel_video(identifier: str) -> FileResponse:
     """El .mp4 del Reel, GENERADO DE ANTEMANO por `bot` (pesado: fotogramas + ffmpeg, ver
@@ -576,9 +636,9 @@ _SHORT_ID_RE = re.compile(r"^\d{4}-\d{4}$")
 # copiado en vez de importado porque main.py es la superficie pública y no debe depender
 # de app/publisher/*, que trae sus propias dependencias pesadas de Telegram/WhatsApp).
 _TIPOS_ES = {
-    "YOUTH_EXCHANGE": "Intercambio juvenil",
-    "TRAINING_COURSE": "Training course",
-    "VOLUNTEERING": "Voluntariado (ECS)",
+    "YOUTH_EXCHANGE": "Youth Exchange",
+    "TRAINING_COURSE": "Training Course",
+    "VOLUNTEERING": "ESC",
 }
 _PAISES_ES = {
     "ES": "España", "PT": "Portugal", "FR": "Francia", "IT": "Italia", "DE": "Alemania",
@@ -624,7 +684,10 @@ async def sitemap_xml() -> Response:
     if not origin:
         raise HTTPException(status_code=404)
     rows = await repo.list_open()
-    urls = [f"  <url><loc>{origin}/mapa</loc><changefreq>hourly</changefreq></url>"]
+    urls = [
+        f"  <url><loc>{origin}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>",
+        f"  <url><loc>{origin}/mapa</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>",
+    ]
     for r in rows:
         short_id = str(r["identifier"]).removeprefix("CORRADI-")
         if not _SHORT_ID_RE.fullmatch(short_id):
@@ -674,7 +737,7 @@ def _short_link_page(row: dict[str, Any]) -> str:
 <h1>{title}</h1>
 <p class="meta">{html.escape(tipo)}{html.escape(lugar)}</p>
 {plazo}
-<a class="cta" href="{map_url}">Ver ficha completa en el mapa →</a>
+<a class="cta" href="{map_url}">Ver en el mapa →</a>
 </body>
 </html>"""
 
@@ -698,6 +761,4 @@ async def short_link(short_id: str) -> Response:
     row = await repo.get_by_identifier(identifier)
     if not row:
         raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
-    if row.get("status") != "open":
-        return RedirectResponse("/mapa", status_code=302)
-    return HTMLResponse(_short_link_page(row))
+    return RedirectResponse(f"/mapa?o={identifier}", status_code=302)
