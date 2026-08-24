@@ -684,7 +684,10 @@ async def sitemap_xml() -> Response:
     if not origin:
         raise HTTPException(status_code=404)
     rows = await repo.list_open()
-    urls = [f"  <url><loc>{origin}/mapa</loc><changefreq>hourly</changefreq></url>"]
+    urls = [
+        f"  <url><loc>{origin}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>",
+        f"  <url><loc>{origin}/mapa</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>",
+    ]
     for r in rows:
         short_id = str(r["identifier"]).removeprefix("CORRADI-")
         if not _SHORT_ID_RE.fullmatch(short_id):

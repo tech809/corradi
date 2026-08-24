@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Corradi — Mapa de oportunidades</title>
 <meta name="description" content="Mapa interactivo de las oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ECS.">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="Mapa de oportunidades · Corradi Erasmus+">
 <meta property="og:description" content="Todas las oportunidades Erasmus+ con inscripción abierta, en el mapa.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://mapa.proactivefuture.eu/corradi-erasmus">
+<meta property="og:url" content="https://mapa.proactivefuture.eu/mapa">
+<meta property="og:locale" content="es_ES">
 <!-- Tarjeta de previsualización al compartir el enlace (WhatsApp, Telegram, LinkedIn…).
      La imagen se genera a mano con scripts/make_og_image.py, no al vuelo. -->
 <meta property="og:image" content="https://mapa.proactivefuture.eu/og.png">
@@ -17,13 +19,13 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Mapa de oportunidades Corradi Erasmus+">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="canonical" href="https://mapa.proactivefuture.eu/corradi-erasmus">
+<link rel="canonical" href="https://mapa.proactivefuture.eu/mapa">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
   "name": "Corradi Erasmus+",
-  "url": "https://mapa.proactivefuture.eu/corradi-erasmus",
+  "url": "https://mapa.proactivefuture.eu/mapa",
   "description": "Mapa interactivo de oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ECS.",
   "publisher": { "@type": "Organization", "name": "Corradi" }
 }
@@ -35,6 +37,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
       integrity="sha256-YU3qCpj/P06tdPBJGPax0bm6Q1wltfwjsho5TR4+TYc=" crossorigin="">
 <style>
+.skip-map{position:fixed;z-index:1000;left:12px;top:12px;transform:translateY(-160%);background:#fff;color:var(--brand);padding:11px 15px;border-radius:10px;font-weight:700;text-decoration:none}.skip-map:focus{transform:none}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 /* ═══════════════════════════════════════════════════════════════════════════
    CORRADI — mapa v3, rediseño de cero (2026-07-28)
    Dirección: minimalismo tipo Apple/Mercedes — negros y blancos muy cuidados,
@@ -538,7 +542,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
      un width fijo aquí es justo el bug que se coló la primera vez: la barra
      invadía los botones de la derecha porque el cálculo no coincidía con su
      ancho real. */
-  .command { top: 14px; left: 14px; right: 136px; width: auto; transform: none; }
+  .command { top: calc(12px + env(safe-area-inset-top)); left: 12px; right: 64px; width: auto; transform: none; padding: 5px; }
   body.searching .command { right: 14px; }
   body.searching .top-actions { display: none; }
   /* Sin esto la "×" para cerrar la búsqueda existía en el DOM pero nunca se veía
@@ -550,12 +554,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   /* Los chips de categoría se quedan solo en escritorio (poco sitio en móvil) pero el
      botón "Filtros" (edad/fechas/país/urgencia — no solo categoría) tiene que seguir
      accesible: sin esto no había NINGUNA forma de abrir ese panel en móvil. */
-  #qfCategories { display: none; }
-  .quick-filters { position: absolute; top: 106px; left: 14px; right: auto; transform: none; max-width: none; }
+  #qfCategories { display: flex; }
+  .quick-filters { position: absolute; top: calc(70px + env(safe-area-inset-top)); left: 12px; right: 12px; transform: none; max-width: none; padding-right:4px; }
   body.searching .quick-filters { display: none; }
-  /* 4 botones no caben en una fila sin invadir la barra de mando -- 2 columnas x 2 filas,
-     mismo hueco de 8px que ya usaba la fila única. */
-  .top-actions { top: 14px; right: 14px; display: grid; grid-template-columns: repeat(2, 40px); grid-auto-rows: 40px; gap: 8px; }
+  .top-actions { top: calc(12px + env(safe-area-inset-top)); right: 12px; display: flex; }
+  .top-actions #contribute, .top-actions #infoBtn, .top-actions #igTopBtn { display: none; }
   .top-actions .pill-btn .label { display: none; }
   .top-actions .pill-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
 
@@ -563,7 +566,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 500; display: flex; flex-direction: column;
     background: var(--glass-strong); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
     border-radius: 26px 26px 0 0; box-shadow: 0 -8px 32px rgba(17,17,19,.18); border-top: 1px solid var(--line-soft);
-    height: 86vh; transform: translateY(calc(86vh - 128px)); transition: transform .38s var(--ease-out);
+    height: min(86dvh, 760px); transform: translateY(calc(min(86dvh, 760px) - 116px - env(safe-area-inset-bottom))); transition: transform .38s var(--ease-out);
   }
   .sheet.full { transform: translateY(0); }
   .sheet-handle { flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 20px 6px; cursor: pointer; }
@@ -571,18 +574,21 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   .sheet-handle .summary { display: flex; align-items: center; justify-content: space-between; width: 100%; }
   .sheet-handle .summary strong { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
   .sheet-handle .summary span { font-size: 12px; color: var(--ink-faint); font-weight: 600; }
-  .sheet .dock-body { padding: 6px 16px 26px; }
+  .sheet .dock-body { padding: 6px 12px calc(26px + env(safe-area-inset-bottom)); overscroll-behavior: contain; }
   /* El orden solo se ve con la hoja desplegada del todo -- en "peek" (asomando) el
      hueco es justo el del tirador; meterlo ahí lo hubiera cortado a la mitad. */
   .sheet .sort-switch { display: none; }
   .sheet.full .sort-switch { display: flex; }
 
   .bottom-dock { display: none; }
-  .card { padding: 15px 16px 14px; }
+  .card { padding: 14px 15px 13px; border-radius: 17px; }
+  .qf-chip{min-height:42px;padding-top:7px;padding-bottom:7px}.sheet-handle{touch-action:none;user-select:none}.corner-btn{min-width:40px;min-height:40px}
+  .leaflet-control-zoom { margin-bottom: calc(124px + env(safe-area-inset-bottom)) !important; }
 }
 </style>
 </head>
 <body>
+<a href="#listMobile" class="skip-map">Saltar a resultados</a>
 
 <div id="stage">
   <div id="map" role="application" aria-label="Mapa de oportunidades"></div>
@@ -602,6 +608,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
     <div class="quick-filters" id="quickFilters">
       <div class="qf-categories" id="qfCategories"></div>
+      <button type="button" class="qf-chip more" id="quickSoon">⏳ Cierre próximo</button>
+      <button type="button" class="qf-chip more" id="quickSaved">♥ Guardadas</button>
       <button type="button" class="qf-chip more" id="filtersToggle"><span id="filtersIconSlot"></span>Filtros<span class="badge-count" id="filtersCount" hidden></span></button>
     </div>
 
@@ -1091,6 +1099,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     return n;
   }
 
+  function saveSharedFilters(){try{localStorage.setItem("corradi-filters",JSON.stringify({q:state.q,type:state.types.size===1?Array.from(state.types)[0]:"",countries:sameSet(state.countries,defaultCountrySet())?[]:Array.from(state.countries),age:state.age,soon:state.soon,saved:!!state.only}))}catch(e){}}
+  function restoreSharedFilters(raw){var p;try{p=raw?JSON.parse(raw):null}catch(e){}if(!p)return;state.q=p.q||"";document.getElementById("q").value=p.q||"";if(p.type){var mapped=p.type==="VOLUNTEERING"?"ESC":p.type;state.types=new Set([mapped])}if(p.countries&&p.countries.length)state.countries=new Set(p.countries);if(p.age){state.age=Number(p.age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}state.soon=!!p.soon;if(p.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
+
   // "Últimas subidas": por fecha de creación, la más reciente primero (created es ISO,
   // compara bien como string). "Cierran antes": por fecha límite, sin ella al final (una
   // oportunidad sin deadline conocida no es "la más urgente", es la que menos se sabe).
@@ -1112,6 +1123,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
   function apply() {
     shown = sortShown(all.filter(matches));
+    saveSharedFilters();
     renderList();
     renderMarkers();
     var n = shown.length;
@@ -1136,6 +1148,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         '<div class="corner-actions">' +
           (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
           '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
+          '<button type="button" class="corner-btn fav-btn' + (favourites.has(o.identifier)?' saved':'') + '" aria-label="Guardar en favoritos" title="Guardar" onclick="event.stopPropagation();toggleMapFavourite(\'' + esc(o.identifier) + '\')">' + (favourites.has(o.identifier)?'♥':'♡') + '</button>' +
         "</div></div>" +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
@@ -1250,7 +1263,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       var lat = Number(o.latitude), lon = Number(o.longitude);
       var m = L.marker([lat, lon], { icon: pinIcon(o, false), title: o.title, riseOnHover: true })
         .bindPopup(popupHtml(o), { closeButton: true, autoPanPadding: [30, 30] })
-        .on("click", function () { setActive(o.identifier, false); });
+        .on("click", function () { setActive(o.identifier, true); if(isMobileQuery&&isMobileQuery.matches)setSheet("full"); });
       markers[o.identifier] = m; batch.push(m);
     });
     layer.addLayers(batch);
@@ -1262,7 +1275,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (!bounds.length) return;
     map.invalidateSize({ animate: false });
     if (bounds.length === 1) map.setView(bounds[0], 7, { animate: false });
-    else map.fitBounds(L.latLngBounds(bounds), { animate: false, maxZoom: 9, padding: [64, 64] });
+    else {
+      map.fitBounds(L.latLngBounds(bounds), { animate: false, maxZoom: 9, padding: [64, 64] });
+      if (isMobileQuery && isMobileQuery.matches) map.setZoom(Math.min(6, map.getZoom() + 2), { animate: false });
+    }
   }
   function highlight(id) {
     Array.prototype.forEach.call(document.querySelectorAll(".pin"), function (p) { p.classList.toggle("active", p.dataset.id === id); });
@@ -1308,6 +1324,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       var n = all.filter(function (o) { return (o.type || "OTHER") === c.dataset.type; }).length;
       var b = c.querySelector(".badge-count"); if (b) b.textContent = n;
     });
+    document.getElementById("quickSoon").setAttribute("aria-pressed",String(state.soon));document.getElementById("quickSaved").setAttribute("aria-pressed",String(!!state.only));
     var groups = activeFilterGroups();
     var badge = document.getElementById("filtersCount");
     badge.textContent = groups; badge.hidden = !groups;
@@ -1533,6 +1550,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       var sheet = document.getElementById("sheet");
       setSheet(sheet.classList.contains("full") ? "peek" : "full");
     });
+    (function(){var handle=document.getElementById("sheetHandle"),startY=null,moved=false;handle.addEventListener("pointerdown",function(e){startY=e.clientY;moved=false;handle.setPointerCapture(e.pointerId)});handle.addEventListener("pointermove",function(e){if(startY==null)return;if(Math.abs(e.clientY-startY)>8)moved=true});handle.addEventListener("pointerup",function(e){if(startY==null)return;var dy=e.clientY-startY;startY=null;if(!moved||Math.abs(dy)<35)return;e.preventDefault();setSheet(dy<0?"full":"peek")})})();
+    document.getElementById("quickSoon").addEventListener("click",function(){state.soon=!state.soon;this.setAttribute("aria-pressed",String(state.soon));apply()});
+    document.getElementById("quickSaved").addEventListener("click",function(){state.only=state.only?null:new Set(Array.from(favourites));this.setAttribute("aria-pressed",String(!!state.only));apply()});
 
     // Dos copias (escritorio + hoja móvil) del mismo control -- se mantienen
     // sincronizadas entre sí por si acaso (p.ej. cambia el tamaño de la ventana a medio
@@ -1655,6 +1675,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2200);
   }
   function shareUrl(id) { return location.origin + location.pathname + "?o=" + encodeURIComponent(id); }
+  window.toggleMapFavourite=function(id){favourites.has(id)?favourites.delete(id):favourites.add(id);localStorage.setItem("corradi-favourites",JSON.stringify(Array.from(favourites)));if(state.only)state.only=new Set(Array.from(favourites));apply()};
   window.shareOpp = function (id) {
     var opp = all.filter(function (o) { return o.identifier === id; })[0];
     var url = shareUrl(id), title = opp ? opp.title : "Oportunidad Erasmus+";
@@ -1688,7 +1709,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     L.control.zoom({ position: "bottomleft" }).addTo(map);
     paintTiles();
     layer = L.markerClusterGroup({
-      maxClusterRadius: 14, spiderfyOnMaxZoom: true, showCoverageOnHover: false, disableClusteringAtZoom: 10,
+      maxClusterRadius: 14, spiderfyOnMaxZoom: true, showCoverageOnHover: false, disableClusteringAtZoom: isMobileQuery && isMobileQuery.matches ? 6 : 10,
       iconCreateFunction: function (cluster) {
         var n = cluster.getChildCount();
         return L.divIcon({ html: '<div class="cluster" style="width:' + (34 + Math.min(n, 20)) + 'px;height:' + (34 + Math.min(n, 20)) + 'px">' + n + "</div>", className: "", iconSize: null });
@@ -1791,7 +1812,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         buildCountries();
         buildTopics();
         buildMonths();
+        var sharedFiltersRaw=localStorage.getItem("corradi-filters");
         resetFilters();
+        restoreSharedFilters(sharedFiltersRaw);
         var params = new URLSearchParams(location.search);
         var wanted = params.get("o");
         if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
