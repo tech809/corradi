@@ -267,6 +267,36 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
   .seg { flex-wrap: wrap; }
   .seg button { padding: 7px 11px; font-size: 11.5px; }
 }
+
+/* ── Lectura editorial desde Oportunidades por mes ─────────────────────── */
+.insights-zone { margin: 34px -24px 0; padding: 44px 24px 26px; border-radius: 30px; background: #eef0f4; border: 1px solid rgba(20,38,94,.07); }
+.insights-intro { display: flex; align-items: end; justify-content: space-between; gap: 28px; margin: 0 4px 22px; }
+.insights-intro .overline { color: var(--brand); font: 750 10px var(--font-display); letter-spacing: .16em; text-transform: uppercase; }
+.insights-intro h2 { margin-top: 7px; font-size: clamp(24px,3vw,34px); letter-spacing: -.035em; }
+.insights-intro p { max-width: 42ch; margin: 0; color: var(--ink-soft); font-size: 13px; }
+.insights-zone .card { border-color: rgba(20,38,94,.08); box-shadow: 0 12px 38px rgba(20,38,94,.055); }
+.insights-zone .grid-2 { grid-template-columns: 1.2fr .8fr; gap: 14px; }
+.insights-zone .grid-2 .card:first-child { background: var(--brand-ink); color: #fff; }
+.insights-zone .grid-2 .card:first-child .hint { color: rgba(255,255,255,.55); }
+.insights-zone .grid-2 .card:first-child .tl-bar .m { color: rgba(255,255,255,.48); }
+.insights-zone .grid-2 .card:first-child .tl-bar .v { color: rgba(255,255,255,.82); }
+.insights-zone .grid-2 .card:first-child .tl-bar .bar { background: linear-gradient(180deg,#d9f27e,#a9c955); box-shadow: 0 0 0 1px rgba(255,255,255,.06); transition: filter .2s,transform .2s; transform-origin: bottom; }
+.insights-zone .grid-2 .card:first-child .tl-bar:hover .bar { filter: brightness(1.1); transform: scaleY(1.025); }
+.insights-zone .grid-2 .card:last-child { background: #f9f8f5; }
+.insights-zone .rank-row .bar-wrap { height: 5px; background: rgba(20,38,94,.08); }
+.insights-zone .rank-row .bar-wrap .fill { background: var(--brand); }
+.insights-zone>.card { padding: 31px 32px; }
+.insights-zone>.card .card-head { padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.insights-zone>.card .card-head h2 { font-size: 20px; letter-spacing: -.025em; }
+.insights-zone .assoc-avatar { border-radius: 11px; }
+.insights-zone .assoc-row { padding: 13px 8px; }
+.insights-zone .arch-card { background: #f8f7f3; border-radius: 12px; transition: transform .18s var(--ease-out),box-shadow .18s var(--ease); }
+.insights-zone .arch-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.insights-zone #heatmap { height: 460px; border-radius: 16px; box-shadow: inset 0 0 0 1px rgba(20,38,94,.08); }
+.insights-zone .thanks-card { background: var(--brand-ink); color: #fff; }
+.insights-zone .thanks-card .hint { color: rgba(255,255,255,.6); }
+@media(max-width:760px){.insights-zone .grid-2{grid-template-columns:1fr}.insights-intro{align-items:start;flex-direction:column;gap:10px}.insights-intro p{max-width:58ch}}
+@media(max-width:560px){.insights-zone{margin:26px -8px 0;padding:30px 8px 18px;border-radius:22px}.insights-intro{margin:0 10px 18px}.insights-zone>.card{padding:22px 18px}.insights-zone .timeline{min-width:560px}.insights-zone .grid-2 .card:first-child{overflow-x:auto}.insights-zone #heatmap{height:360px}}
 </style>
 </head>
 <body>
@@ -304,6 +334,8 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
     <p class="chart-note" id="chartNote"></p>
   </section>
 
+  <div class="insights-zone">
+  <div class="insights-intro"><div><span class="overline">El catálogo en perspectiva</span><h2>Lo que está pasando, de un vistazo</h2></div><p>Ritmo de publicación, destinos y organizaciones que hacen posible cada movilidad.</p></div>
   <div class="grid-2">
     <section class="card">
       <div class="card-head">
@@ -368,6 +400,7 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
     <p class="hint">Nada de esto existiría sin las personas que mandan oportunidades a mano, una a una, para que otros jóvenes se enteren a tiempo.</p>
     <div class="thanks-list" id="thanksList"></div>
   </section>
+  </div>
 
   <footer class="foot">Corradi Erasmus+ · <a href="/mapa">mapa.proactivefuture.eu</a></footer>
 </div>
