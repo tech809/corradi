@@ -608,8 +608,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
     <div class="quick-filters" id="quickFilters">
       <div class="qf-categories" id="qfCategories"></div>
-      <button type="button" class="qf-chip more" id="quickSoon">⏳ Cierre próximo</button>
-      <button type="button" class="qf-chip more" id="quickSaved">♥ Guardadas</button>
       <button type="button" class="qf-chip more" id="filtersToggle"><span id="filtersIconSlot"></span>Filtros<span class="badge-count" id="filtersCount" hidden></span></button>
     </div>
 
@@ -1324,7 +1322,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       var n = all.filter(function (o) { return (o.type || "OTHER") === c.dataset.type; }).length;
       var b = c.querySelector(".badge-count"); if (b) b.textContent = n;
     });
-    document.getElementById("quickSoon").setAttribute("aria-pressed",String(state.soon));document.getElementById("quickSaved").setAttribute("aria-pressed",String(!!state.only));
     var groups = activeFilterGroups();
     var badge = document.getElementById("filtersCount");
     badge.textContent = groups; badge.hidden = !groups;
@@ -1551,8 +1548,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       setSheet(sheet.classList.contains("full") ? "peek" : "full");
     });
     (function(){var handle=document.getElementById("sheetHandle"),startY=null,moved=false;handle.addEventListener("pointerdown",function(e){startY=e.clientY;moved=false;handle.setPointerCapture(e.pointerId)});handle.addEventListener("pointermove",function(e){if(startY==null)return;if(Math.abs(e.clientY-startY)>8)moved=true});handle.addEventListener("pointerup",function(e){if(startY==null)return;var dy=e.clientY-startY;startY=null;if(!moved||Math.abs(dy)<35)return;e.preventDefault();setSheet(dy<0?"full":"peek")})})();
-    document.getElementById("quickSoon").addEventListener("click",function(){state.soon=!state.soon;this.setAttribute("aria-pressed",String(state.soon));apply()});
-    document.getElementById("quickSaved").addEventListener("click",function(){state.only=state.only?null:new Set(Array.from(favourites));this.setAttribute("aria-pressed",String(!!state.only));apply()});
 
     // Dos copias (escritorio + hoja móvil) del mismo control -- se mantienen
     // sincronizadas entre sí por si acaso (p.ej. cambia el tamaño de la ventana a medio
