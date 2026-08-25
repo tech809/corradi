@@ -16,6 +16,15 @@ OPPORTUNITY = {
 }
 
 
+def test_participant_countries_only_uses_explicit_country_lists():
+    assert instagram_card._participant_country_codes("España, Grecia, Polonia, Lituania, Portugal") == (
+        ["ES", "GR", "PL", "LT", "PT"], 0,
+    )
+    assert instagram_card._participant_country_codes(
+        "No se especifica; se asume que participan países del programa Erasmus+",
+    ) == ([], 0)
+
+
 def test_feed_uses_project_photo_and_keeps_instagram_dimensions(monkeypatch):
     monkeypatch.setattr(
         instagram_card, "_project_photo",
