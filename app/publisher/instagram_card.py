@@ -16,15 +16,71 @@ from __future__ import annotations
 
 import io
 import math
+import re
+from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFilter
+import httpx
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
-from app.publisher.opportunity_card import CAT_COLORS, CAT_LABELS, WHITE, _flag, _font, _wrap
+from app.config import cfg
+from app.publisher.opportunity_card import CAT_COLORS, CAT_LABELS, WHITE, _flag, _wrap
 from app.publisher.telegram_publisher import _compact_dates
 
 FEED_SIZE = (1080, 1350)
 STORY_SIZE = (1080, 1920)
+INK = "#101a3d"
+PAPER = "#f5f2ea"
+BRAND_FONT_DIR = Path(__file__).parents[1] / "api" / "static" / "fonts"
+
+
+def _font(name: str, size: int) -> ImageFont.FreeTypeFont:
+    """Tipografía de marca incluida en el repo, idéntica en local y producción."""
+    filename = "Manrope-Bold.ttf" if "Bold" in name else "Manrope-Regular.ttf"
+    return ImageFont.truetype(str(BRAND_FONT_DIR / filename), size)
+
+
+def _project_photo(opp: dict[str, Any], size: tuple[int, int]) -> Image.Image | None:
+    """Carga la foto editorial; un fallo de red nunca bloquea la publicación."""
+    url = str(opp.get("image_url") or "").strip()
+    if not url:
+        return None
+    try:
+        if url.startswith("/media/"):
+            raw = (Path(cfg.media_dir) / url.removeprefix("/media/")).read_bytes()
+        elif url.startswith(("https://", "http://")):
+            response = httpx.get(url, timeout=12.0, follow_redirects=True)
+            response.raise_for_status()
+            raw = response.content
+            if len(raw) > 20 * 1024 * 1024:
+                return None
+        else:
+            return None
+        with Image.open(io.BytesIO(raw)) as source:
+            photo = ImageOps.exif_transpose(source).convert("RGB")
+            return ImageOps.fit(photo, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.46))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _keywords(topic: Any, limit: int = 3) -> list[str]:
+    """Convierte el tema libre del extractor en etiquetas breves y no repetidas."""
+    text = re.sub(r"\s+", " ", str(topic or "")).strip(" .")
+    if not text:
+        return []
+    chunks = re.split(r"\s*(?:[,;|/]|\by\b|\band\b|\b&\b)\s*", text, flags=re.IGNORECASE)
+    out: list[str] = []
+    for chunk in chunks:
+        chunk = chunk.strip(" .#")
+        if not chunk:
+            continue
+        if len(chunk) > 28:
+            chunk = chunk[:27].rstrip() + "…"
+        if chunk.casefold() not in {item.casefold() for item in out}:
+            out.append(chunk)
+        if len(out) == limit:
+            break
+    return out or [text[:27].rstrip() + ("…" if len(text) > 28 else "")]
 
 
 def _hex_to_rgb(h: str) -> tuple[int, int, int]:
@@ -158,97 +214,101 @@ def _compose(
     W, H = size
     otype = opp.get("type") or "YOUTH_EXCHANGE"
     color = CAT_COLORS.get(otype, CAT_COLORS["YOUTH_EXCHANGE"])
-    img = _gradient_bg(size, color)
-    img = _watermark(img, otype, color)
-    d = ImageDraw.Draw(img)
-    x0 = round(76 * scale)
-    max_w = W - x0 - round(60 * scale)
+    accent = _hex_to_rgb(color)
 
     def s(px: float) -> int:
         return round(px * scale)
 
-    fw, fh = s(140), s(92)
-    flag_bottom = s(70) + fh
-    _flag(img, W - x0 - fw, s(70), fw, fh, opp.get("country_code"))
+    margin = s(52)
+    photo_h = round(H * (0.53 if size == FEED_SIZE else 0.65))
+    photo = _project_photo(opp, (W, photo_h))
+    if photo is None:
+        photo = _watermark(_gradient_bg((W, photo_h), color), otype, color)
+    img = Image.new("RGB", size, PAPER)
+    img.paste(photo, (0, 0))
+
+    # Oscurece solo la base de la foto para que el título sea legible sin taparla.
+    overlay = Image.new("RGBA", size, (0, 0, 0, 0))
+    overlay_h = round(photo_h * 0.5)
+    alpha = Image.linear_gradient("L").resize((W, overlay_h))
+    shade = Image.new("RGBA", (W, overlay_h), (6, 12, 32, 230))
+    shade.putalpha(alpha)
+    overlay.alpha_composite(shade, (0, photo_h - overlay_h))
+    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
     d = ImageDraw.Draw(img)
 
-    # ── Fase 1: medir cada bloque sin dibujar, para poder centrar el conjunto ──────────
-    cat_f = _font("DejaVuSans.ttf", s(36))
-    cat_h = int(cat_f.size * 1.3)
+    brand_f = _font("DejaVuSans-Bold.ttf", s(24))
+    cat_f = _font("DejaVuSans-Bold.ttf", s(22))
+    d.text((margin, s(42)), "CORRADI", font=brand_f, fill=WHITE, stroke_width=1)
+    category = CAT_LABELS.get(otype, otype)
+    category_w = d.textlength(category, font=cat_f)
+    category_x = W - margin - category_w - s(34)
+    d.rounded_rectangle([category_x, s(34), W - margin, s(80)], radius=s(23), fill=accent)
+    d.text((category_x + s(17), s(45)), category, font=cat_f, fill=WHITE)
 
-    title = opp.get("title") or ""
-    title_f = _font("DejaVuSans-Bold.ttf", s(96))
-    lines = _wrap(d, title, title_f, max_w)
-    while len(lines) > 3 and title_f.size > s(52):
-        title_f = _font("DejaVuSans-Bold.ttf", title_f.size - s(6))
-        lines = _wrap(d, title, title_f, max_w)
-    title_line_h = int(title_f.size * 1.2)
-    title_h = title_line_h * len(lines)
+    title_f = _font("DejaVuSans-Bold.ttf", s(66))
+    lines = _wrap(d, str(opp.get("title") or ""), title_f, W - margin * 2)
+    while len(lines) > 3 and title_f.size > s(42):
+        title_f = _font("DejaVuSans-Bold.ttf", title_f.size - s(4))
+        lines = _wrap(d, str(opp.get("title") or ""), title_f, W - margin * 2)
+    if len(lines) > 3:
+        rest = " ".join(lines[2:])
+        while d.textlength(rest + "…", font=title_f) > W - margin * 2 and rest:
+            rest = rest[:-1].rstrip()
+        lines = [lines[0], lines[1], rest + "…"]
+    line_h = int(title_f.size * 1.12)
+    title_y = photo_h - s(42) - line_h * len(lines)
+    for line in lines:
+        d.text((margin, title_y), line, font=title_f, fill=WHITE)
+        title_y += line_h
 
-    meta_f = _font("DejaVuSans.ttf", s(40))
-    location = opp.get("location") or ""
-    parts = [p.strip() for p in location.split(",") if p.strip()]
+    cursor = photo_h + s(38)
+    label_f = _font("DejaVuSans-Bold.ttf", s(20))
+    meta_f = _font("DejaVuSans.ttf", s(27))
+    meta_bold = _font("DejaVuSans-Bold.ttf", s(27))
+    location = str(opp.get("location") or "")
+    parts = [part.strip() for part in location.split(",") if part.strip()]
     if len(parts) > 2:
         location = f"{parts[0]}, {parts[-1]}"
     dates = _compact_dates(opp)
     if dates == "fechas por confirmar":
         dates = ""
-    meta_row_h = s(60)
-    meta_rows = int(bool(location)) + int(bool(dates))
-    meta_h = meta_row_h * meta_rows
-
-    pill_f = _font("DejaVuSans-Bold.ttf", s(38))
-    pill_h = s(76)
-
-    cta_f = _font("DejaVuSans-Bold.ttf", s(32))
-    cta = cta_text
-    cta_lines = _wrap(d, cta, cta_f, max_w)
-    cta_line_h = s(40)
-    cta_h = cta_line_h * len(cta_lines)
-
-    gap_cat_title, gap_title_meta, gap_meta_pill, gap_pill_cta = s(40), s(50), s(70), s(50)
-    total_h = (
-        cat_h + gap_cat_title + title_h + gap_title_meta + meta_h
-        + (gap_meta_pill if meta_h else gap_title_meta) + pill_h + gap_pill_cta + cta_h
+    split_meta = bool(
+        location and dates
+        and d.textlength(location, font=meta_bold) <= W / 2 - margin - s(28)
+        and d.textlength(dates, font=meta_f) <= W / 2 - margin - s(28)
     )
-
-    # ── Fase 2: dibujar, centrado en el hueco entre la bandera y el borde inferior ──────
-    area_top = flag_bottom + s(20)
-    area_bottom = H - s(60)
-    top = area_top + max(0, (area_bottom - area_top - total_h) // 2)
-
-    cursor = top
-    d.text((x0, cursor), CAT_LABELS.get(otype, otype), font=cat_f, fill=WHITE)
-    cursor += cat_h + gap_cat_title
-
-    for ln in lines:
-        d.text((x0, cursor), ln, font=title_f, fill=WHITE)
-        cursor += title_line_h
-    cursor += gap_title_meta
-
     if location:
-        _dot(d, x0 + s(7), cursor + s(20), s(7), WHITE)
-        d.text((x0 + s(28), cursor), location, font=meta_f, fill=WHITE)
-        cursor += meta_row_h
+        d.text((margin, cursor), "DESTINO", font=label_f, fill=accent)
+        d.text((margin, cursor + s(31)), location, font=meta_bold, fill=INK)
     if dates:
-        _calendar_icon(d, x0 + s(4), cursor + s(8), s(26), WHITE)
-        d.text((x0 + s(42), cursor), dates, font=meta_f, fill=WHITE)
-        cursor += meta_row_h
-    cursor += gap_meta_pill if meta_h else 0
+        date_x = W // 2 + s(10) if split_meta else margin
+        date_y = cursor if split_meta or not location else cursor + s(74)
+        d.text((date_x, date_y), "FECHAS", font=label_f, fill=accent)
+        d.text((date_x, date_y + s(31)), dates, font=meta_f, fill=INK)
+    cursor += s(88 if split_meta or not (location and dates) else 158)
 
-    pill_text = pill_label.upper()
-    tw = d.textlength(pill_text, font=pill_f)
-    d.rounded_rectangle([x0, cursor, x0 + tw + s(100), cursor + pill_h], radius=pill_h // 2, fill=WHITE)
-    if pill_icon == "calendar":
-        _calendar_icon(d, x0 + s(30), cursor + pill_h // 2 - s(12), s(26), color, width=max(2, s(3)))
-    else:
-        _clock_icon(d, x0 + s(40), cursor + pill_h // 2, s(20), color, width=max(2, s(4)))
-    d.text((x0 + s(76), cursor + s(19)), pill_text, font=pill_f, fill=color)
-    cursor += pill_h + gap_pill_cta
+    tags = _keywords(opp.get("topic"))
+    if tags:
+        d.text((margin, cursor), "PALABRAS CLAVE", font=label_f, fill=accent)
+        cursor += s(38)
+        tag_f = _font("DejaVuSans-Bold.ttf", s(21))
+        tag_x = margin
+        for tag in tags:
+            tag_w = d.textlength(tag, font=tag_f)
+            if tag_x + tag_w + s(34) > W - margin:
+                break
+            d.rounded_rectangle([tag_x, cursor, tag_x + tag_w + s(34), cursor + s(44)], radius=s(22), fill="#e4e0d7")
+            d.text((tag_x + s(17), cursor + s(9)), tag, font=tag_f, fill=INK)
+            tag_x += tag_w + s(45)
 
-    for ln in cta_lines:
-        d.text((x0, cursor), ln, font=cta_f, fill=WHITE)
-        cursor += cta_line_h
+    footer_y = H - s(76)
+    d.line([margin, footer_y - s(19), W - margin, footer_y - s(19)], fill="#d6d1c6", width=max(1, s(1)))
+    deadline_f = _font("DejaVuSans-Bold.ttf", s(23))
+    d.text((margin, footer_y), f"SOLICITA HASTA · {pill_label.upper()}", font=deadline_f, fill=accent)
+    link_f = _font("DejaVuSans.ttf", s(21))
+    link = "corradi.eu"
+    d.text((W - margin - d.textlength(link, font=link_f), footer_y + s(1)), link, font=link_f, fill=INK)
 
     buf = io.BytesIO()
     img.save(buf, "PNG", optimize=True)
