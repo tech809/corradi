@@ -63,26 +63,6 @@ def _project_photo(opp: dict[str, Any], size: tuple[int, int]) -> Image.Image | 
         return None
 
 
-def _keywords(topic: Any, limit: int = 3) -> list[str]:
-    """Convierte el tema libre del extractor en etiquetas breves y no repetidas."""
-    text = re.sub(r"\s+", " ", str(topic or "")).strip(" .")
-    if not text:
-        return []
-    chunks = re.split(r"\s*(?:[,;|/]|\by\b|\band\b|\b&\b)\s*", text, flags=re.IGNORECASE)
-    out: list[str] = []
-    for chunk in chunks:
-        chunk = chunk.strip(" .#")
-        if not chunk:
-            continue
-        if len(chunk) > 28:
-            chunk = chunk[:27].rstrip() + "…"
-        if chunk.casefold() not in {item.casefold() for item in out}:
-            out.append(chunk)
-        if len(out) == limit:
-            break
-    return out or [text[:27].rstrip() + ("…" if len(text) > 28 else "")]
-
-
 def _hex_to_rgb(h: str) -> tuple[int, int, int]:
     h = h.lstrip("#")
     return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
@@ -219,53 +199,79 @@ def _compose(
     def s(px: float) -> int:
         return round(px * scale)
 
-    margin = s(52)
-    photo_h = round(H * (0.53 if size == FEED_SIZE else 0.65))
-    photo = _project_photo(opp, (W, photo_h))
+    margin = s(38)
+    photo = _project_photo(opp, size)
     if photo is None:
-        photo = _watermark(_gradient_bg((W, photo_h), color), otype, color)
-    img = Image.new("RGB", size, PAPER)
-    img.paste(photo, (0, 0))
-
-    # Oscurece solo la base de la foto para que el título sea legible sin taparla.
-    overlay = Image.new("RGBA", size, (0, 0, 0, 0))
-    overlay_h = round(photo_h * 0.5)
-    alpha = Image.linear_gradient("L").resize((W, overlay_h))
-    shade = Image.new("RGBA", (W, overlay_h), (6, 12, 32, 230))
-    shade.putalpha(alpha)
-    overlay.alpha_composite(shade, (0, photo_h - overlay_h))
-    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+        photo = _watermark(_gradient_bg(size, color), otype, color)
+    img = photo.copy()
     d = ImageDraw.Draw(img)
 
-    brand_f = _font("DejaVuSans-Bold.ttf", s(24))
-    cat_f = _font("DejaVuSans-Bold.ttf", s(22))
-    d.text((margin, s(42)), "CORRADI", font=brand_f, fill=WHITE, stroke_width=1)
+    # Cabecera mínima sobre la foto; una sombra discreta asegura contraste sin oscurecerla.
+    brand_f = _font("DejaVuSans-Bold.ttf", s(23))
+    cat_f = _font("DejaVuSans-Bold.ttf", s(19))
+    d.text((margin + s(14), s(44)), "CORRADI", font=brand_f, fill="#17213e")
+    d.text((margin + s(12), s(42)), "CORRADI", font=brand_f, fill=WHITE)
     category = CAT_LABELS.get(otype, otype)
     category_w = d.textlength(category, font=cat_f)
-    category_x = W - margin - category_w - s(34)
-    d.rounded_rectangle([category_x, s(34), W - margin, s(80)], radius=s(23), fill=accent)
-    d.text((category_x + s(17), s(45)), category, font=cat_f, fill=WHITE)
+    category_x = W - margin - category_w - s(30)
+    d.rounded_rectangle([category_x, s(32), W - margin, s(76)], radius=s(22), fill=accent)
+    d.text((category_x + s(15), s(43)), category, font=cat_f, fill=WHITE)
 
-    title_f = _font("DejaVuSans-Bold.ttf", s(66))
-    lines = _wrap(d, str(opp.get("title") or ""), title_f, W - margin * 2)
-    while len(lines) > 3 and title_f.size > s(42):
+    # Tarjeta flotante: compacta, cálida y con la foto todavía como protagonista.
+    panel_y = round(H * (0.59 if size == FEED_SIZE else 0.61))
+    panel = Image.new("RGBA", size, (0, 0, 0, 0))
+    pd = ImageDraw.Draw(panel)
+    shadow_box = [margin + s(3), panel_y + s(10), W - margin + s(3), H - margin + s(7)]
+    pd.rounded_rectangle(shadow_box, radius=s(34), fill=(6, 12, 32, 55))
+    panel_box = [margin, panel_y, W - margin, H - margin]
+    pd.rounded_rectangle(panel_box, radius=s(34), fill=PAPER)
+    img = Image.alpha_composite(img.convert("RGBA"), panel).convert("RGB")
+    d = ImageDraw.Draw(img)
+
+    inner_x = margin + s(38)
+    inner_w = W - 2 * inner_x
+    cursor = panel_y + s(34)
+    edition_f = _font("DejaVuSans-Bold.ttf", s(17))
+    d.text((inner_x, cursor), "NUEVA OPORTUNIDAD  ·  ERASMUS+", font=edition_f, fill=accent)
+    cursor += s(37)
+
+    title_f = _font("DejaVuSans-Bold.ttf", s(48))
+    lines = _wrap(d, str(opp.get("title") or ""), title_f, inner_w)
+    while len(lines) > 2 and title_f.size > s(35):
         title_f = _font("DejaVuSans-Bold.ttf", title_f.size - s(4))
-        lines = _wrap(d, str(opp.get("title") or ""), title_f, W - margin * 2)
-    if len(lines) > 3:
-        rest = " ".join(lines[2:])
-        while d.textlength(rest + "…", font=title_f) > W - margin * 2 and rest:
+        lines = _wrap(d, str(opp.get("title") or ""), title_f, inner_w)
+    if len(lines) > 2:
+        rest = " ".join(lines[1:])
+        while d.textlength(rest + "…", font=title_f) > inner_w and rest:
             rest = rest[:-1].rstrip()
-        lines = [lines[0], lines[1], rest + "…"]
-    line_h = int(title_f.size * 1.12)
-    title_y = photo_h - s(42) - line_h * len(lines)
+        lines = [lines[0], rest + "…"]
+    line_h = int(title_f.size * 1.08)
     for line in lines:
-        d.text((margin, title_y), line, font=title_f, fill=WHITE)
-        title_y += line_h
+        d.text((inner_x, cursor), line, font=title_f, fill=INK)
+        cursor += line_h
+    cursor += s(19)
 
-    cursor = photo_h + s(38)
-    label_f = _font("DejaVuSans-Bold.ttf", s(20))
-    meta_f = _font("DejaVuSans.ttf", s(27))
-    meta_bold = _font("DejaVuSans-Bold.ttf", s(27))
+    topic = re.sub(r"\s+", " ", str(opp.get("topic") or "")).strip(" .")
+    if topic:
+        topic_label_f = _font("DejaVuSans-Bold.ttf", s(17))
+        topic_f = _font("DejaVuSans.ttf", s(25))
+        d.text((inner_x, cursor), "TEMÁTICA", font=topic_label_f, fill=accent)
+        cursor += s(29)
+        topic_lines = _wrap(d, topic, topic_f, inner_w)
+        if len(topic_lines) > 2:
+            topic_lines = topic_lines[:2]
+            last = topic_lines[-1]
+            while d.textlength(last + "…", font=topic_f) > inner_w and last:
+                last = last[:-1].rstrip()
+            topic_lines[-1] = last + "…"
+        for line in topic_lines:
+            d.text((inner_x, cursor), line, font=topic_f, fill=INK)
+            cursor += s(31)
+
+    # Destino y fechas se leen como una única línea editorial, no como tabla.
+    meta_y = H - margin - s(118)
+    d.line([inner_x, meta_y - s(21), W - inner_x, meta_y - s(21)], fill="#d4cfc3", width=max(1, s(1)))
+    meta_f = _font("DejaVuSans-Bold.ttf", s(22))
     location = str(opp.get("location") or "")
     parts = [part.strip() for part in location.split(",") if part.strip()]
     if len(parts) > 2:
@@ -273,42 +279,23 @@ def _compose(
     dates = _compact_dates(opp)
     if dates == "fechas por confirmar":
         dates = ""
-    split_meta = bool(
-        location and dates
-        and d.textlength(location, font=meta_bold) <= W / 2 - margin - s(28)
-        and d.textlength(dates, font=meta_f) <= W / 2 - margin - s(28)
+    meta = "  ·  ".join(bit for bit in (location, dates) if bit)
+    while d.textlength(meta, font=meta_f) > inner_w and len(meta) > 1:
+        meta = meta[:-2].rstrip(" ·,") + "…"
+    d.text((inner_x, meta_y), meta, font=meta_f, fill=INK)
+
+    deadline_y = meta_y + s(43)
+    deadline_f = _font("DejaVuSans-Bold.ttf", s(18))
+    deadline = f"SOLICITA HASTA  {pill_label.upper()}"
+    deadline_w = d.textlength(deadline, font=deadline_f)
+    d.rounded_rectangle(
+        [inner_x, deadline_y, inner_x + deadline_w + s(30), deadline_y + s(38)],
+        radius=s(19), fill=accent,
     )
-    if location:
-        d.text((margin, cursor), "DESTINO", font=label_f, fill=accent)
-        d.text((margin, cursor + s(31)), location, font=meta_bold, fill=INK)
-    if dates:
-        date_x = W // 2 + s(10) if split_meta else margin
-        date_y = cursor if split_meta or not location else cursor + s(74)
-        d.text((date_x, date_y), "FECHAS", font=label_f, fill=accent)
-        d.text((date_x, date_y + s(31)), dates, font=meta_f, fill=INK)
-    cursor += s(88 if split_meta or not (location and dates) else 158)
-
-    tags = _keywords(opp.get("topic"))
-    if tags:
-        d.text((margin, cursor), "PALABRAS CLAVE", font=label_f, fill=accent)
-        cursor += s(38)
-        tag_f = _font("DejaVuSans-Bold.ttf", s(21))
-        tag_x = margin
-        for tag in tags:
-            tag_w = d.textlength(tag, font=tag_f)
-            if tag_x + tag_w + s(34) > W - margin:
-                break
-            d.rounded_rectangle([tag_x, cursor, tag_x + tag_w + s(34), cursor + s(44)], radius=s(22), fill="#e4e0d7")
-            d.text((tag_x + s(17), cursor + s(9)), tag, font=tag_f, fill=INK)
-            tag_x += tag_w + s(45)
-
-    footer_y = H - s(76)
-    d.line([margin, footer_y - s(19), W - margin, footer_y - s(19)], fill="#d6d1c6", width=max(1, s(1)))
-    deadline_f = _font("DejaVuSans-Bold.ttf", s(23))
-    d.text((margin, footer_y), f"SOLICITA HASTA · {pill_label.upper()}", font=deadline_f, fill=accent)
-    link_f = _font("DejaVuSans.ttf", s(21))
-    link = "corradi.eu"
-    d.text((W - margin - d.textlength(link, font=link_f), footer_y + s(1)), link, font=link_f, fill=INK)
+    d.text((inner_x + s(15), deadline_y + s(9)), deadline, font=deadline_f, fill=WHITE)
+    link_f = _font("DejaVuSans-Bold.ttf", s(18))
+    link = "DESCÚBRELO EN CORRADI"
+    d.text((W - inner_x - d.textlength(link, font=link_f), deadline_y + s(9)), link, font=link_f, fill=INK)
 
     buf = io.BytesIO()
     img.save(buf, "PNG", optimize=True)
