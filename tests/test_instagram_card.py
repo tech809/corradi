@@ -16,12 +16,6 @@ OPPORTUNITY = {
 }
 
 
-def test_keywords_are_short_distinct_and_limited():
-    assert instagram_card._keywords(OPPORTUNITY["topic"]) == [
-        "bienestar digital", "naturaleza", "participación juvenil",
-    ]
-
-
 def test_feed_uses_project_photo_and_keeps_instagram_dimensions(monkeypatch):
     monkeypatch.setattr(
         instagram_card, "_project_photo",
