@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import math
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -33,11 +34,49 @@ INK = "#101a3d"
 PAPER = "#f5f2ea"
 BRAND_FONT_DIR = Path(__file__).parents[1] / "api" / "static" / "fonts"
 
+_COUNTRY_NAMES = {
+    "albania": "AL", "alemania": "DE", "germany": "DE", "armenia": "AM",
+    "austria": "AT", "azerbaiyan": "AZ", "belgica": "BE", "belgium": "BE",
+    "bosnia y herzegovina": "BA", "bulgaria": "BG", "chipre": "CY", "cyprus": "CY",
+    "croacia": "HR", "croatia": "HR", "dinamarca": "DK", "denmark": "DK",
+    "eslovaquia": "SK", "slovakia": "SK", "eslovenia": "SI", "slovenia": "SI",
+    "espana": "ES", "spain": "ES", "estonia": "EE", "finlandia": "FI",
+    "finland": "FI", "francia": "FR", "france": "FR", "georgia": "GE",
+    "grecia": "GR", "greece": "GR", "hungria": "HU", "hungary": "HU",
+    "irlanda": "IE", "ireland": "IE", "islandia": "IS", "iceland": "IS",
+    "italia": "IT", "italy": "IT", "letonia": "LV", "latvia": "LV",
+    "liechtenstein": "LI", "lituania": "LT", "lithuania": "LT",
+    "luxemburgo": "LU", "luxembourg": "LU", "malta": "MT", "marruecos": "MA",
+    "moldavia": "MD", "moldova": "MD", "montenegro": "ME", "noruega": "NO",
+    "norway": "NO", "paises bajos": "NL", "netherlands": "NL", "polonia": "PL",
+    "poland": "PL", "portugal": "PT", "republica checa": "CZ", "czechia": "CZ",
+    "rumania": "RO", "romania": "RO", "serbia": "RS", "suecia": "SE",
+    "sweden": "SE", "suiza": "CH", "switzerland": "CH", "tunez": "TN",
+    "turquia": "TR", "turkiye": "TR", "ucrania": "UA", "ukraine": "UA",
+    "macedonia del norte": "MK", "north macedonia": "MK", "kosovo": "XK",
+}
+
 
 def _font(name: str, size: int) -> ImageFont.FreeTypeFont:
     """Tipografía de marca incluida en el repo, idéntica en local y producción."""
     filename = "Manrope-Bold.ttf" if "Bold" in name else "Manrope-Regular.ttf"
     return ImageFont.truetype(str(BRAND_FONT_DIR / filename), size)
+
+
+def _participant_country_codes(value: Any, limit: int = 9) -> tuple[list[str], int]:
+    """Extrae países explícitos; omite inferencias genéricas del extractor."""
+    text = str(value or "").strip()
+    normal = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
+    vague = ("no especifica", "se asume", "se espera", "implica que", "paises del programa", "estados miembros")
+    if not normal or any(phrase in normal for phrase in vague):
+        return [], 0
+    found: list[tuple[int, str]] = []
+    for name, code in _COUNTRY_NAMES.items():
+        match = re.search(rf"\b{re.escape(name)}\b", normal)
+        if match:
+            found.append((match.start(), code))
+    codes = list(dict.fromkeys(code for _, code in sorted(found)))
+    return codes[:limit], max(0, len(codes) - limit)
 
 
 def _project_photo(opp: dict[str, Any], size: tuple[int, int]) -> Image.Image | None:
@@ -207,18 +246,53 @@ def _compose(
     d = ImageDraw.Draw(img)
 
     # Cabecera mínima sobre la foto; una sombra discreta asegura contraste sin oscurecerla.
-    brand_f = _font("DejaVuSans-Bold.ttf", s(23))
-    cat_f = _font("DejaVuSans-Bold.ttf", s(19))
+    brand_f = _font("DejaVuSans-Bold.ttf", s(27))
+    cat_f = _font("DejaVuSans-Bold.ttf", s(22))
     d.text((margin + s(14), s(44)), "CORRADI", font=brand_f, fill="#17213e")
     d.text((margin + s(12), s(42)), "CORRADI", font=brand_f, fill=WHITE)
     category = CAT_LABELS.get(otype, otype)
     category_w = d.textlength(category, font=cat_f)
-    category_x = W - margin - category_w - s(30)
-    d.rounded_rectangle([category_x, s(32), W - margin, s(76)], radius=s(22), fill=accent)
-    d.text((category_x + s(15), s(43)), category, font=cat_f, fill=WHITE)
+    category_x = W - margin - category_w - s(34)
+    d.rounded_rectangle([category_x, s(32), W - margin, s(82)], radius=s(25), fill=accent)
+    d.text((category_x + s(17), s(44)), category, font=cat_f, fill=WHITE)
 
-    # Tarjeta flotante: compacta, cálida y con la foto todavía como protagonista.
-    panel_y = round(H * (0.59 if size == FEED_SIZE else 0.61))
+    # Medimos primero el contenido: la tarjeta crece solo si título/temática lo necesitan.
+    inner_x = margin + s(38)
+    inner_w = W - 2 * inner_x
+    edition_f = _font("DejaVuSans-Bold.ttf", s(19))
+    title_f = _font("DejaVuSans-Bold.ttf", s(55))
+    lines = _wrap(d, str(opp.get("title") or ""), title_f, inner_w)
+    while len(lines) > 2 and title_f.size > s(40):
+        title_f = _font("DejaVuSans-Bold.ttf", title_f.size - s(4))
+        lines = _wrap(d, str(opp.get("title") or ""), title_f, inner_w)
+    if len(lines) > 2:
+        rest = " ".join(lines[1:])
+        while d.textlength(rest + "…", font=title_f) > inner_w and rest:
+            rest = rest[:-1].rstrip()
+        lines = [lines[0], rest + "…"]
+    line_h = int(title_f.size * 1.08)
+
+    topic = re.sub(r"\s+", " ", str(opp.get("topic") or "")).strip(" .")
+    topic_label_f = _font("DejaVuSans-Bold.ttf", s(19))
+    topic_f = _font("DejaVuSans.ttf", s(29))
+    topic_lines = _wrap(d, topic, topic_f, inner_w) if topic else []
+    if len(topic_lines) > 2:
+        topic_lines = topic_lines[:2]
+        last = topic_lines[-1]
+        while d.textlength(last + "…", font=topic_f) > inner_w and last:
+            last = last[:-1].rstrip()
+        topic_lines[-1] = last + "…"
+
+    participant_codes, participant_extra = _participant_country_codes(opp.get("eligibility_countries"))
+    participants_h = s(29 + 36 + 18) if participant_codes else 0
+
+    panel_h = (
+        s(34 + 37 + 19 + 32 + 28 + 58 + 44 + 28)
+        + line_h * len(lines)
+        + (s(32 + 36 * len(topic_lines)) if topic_lines else 0)
+        + participants_h
+    )
+    panel_y = H - margin - panel_h
     panel = Image.new("RGBA", size, (0, 0, 0, 0))
     pd = ImageDraw.Draw(panel)
     shadow_box = [margin + s(3), panel_y + s(10), W - margin + s(3), H - margin + s(7)]
@@ -228,50 +302,43 @@ def _compose(
     img = Image.alpha_composite(img.convert("RGBA"), panel).convert("RGB")
     d = ImageDraw.Draw(img)
 
-    inner_x = margin + s(38)
-    inner_w = W - 2 * inner_x
     cursor = panel_y + s(34)
-    edition_f = _font("DejaVuSans-Bold.ttf", s(17))
     d.text((inner_x, cursor), "NUEVA OPORTUNIDAD  ·  ERASMUS+", font=edition_f, fill=accent)
     cursor += s(37)
 
-    title_f = _font("DejaVuSans-Bold.ttf", s(48))
-    lines = _wrap(d, str(opp.get("title") or ""), title_f, inner_w)
-    while len(lines) > 2 and title_f.size > s(35):
-        title_f = _font("DejaVuSans-Bold.ttf", title_f.size - s(4))
-        lines = _wrap(d, str(opp.get("title") or ""), title_f, inner_w)
-    if len(lines) > 2:
-        rest = " ".join(lines[1:])
-        while d.textlength(rest + "…", font=title_f) > inner_w and rest:
-            rest = rest[:-1].rstrip()
-        lines = [lines[0], rest + "…"]
-    line_h = int(title_f.size * 1.08)
     for line in lines:
         d.text((inner_x, cursor), line, font=title_f, fill=INK)
         cursor += line_h
     cursor += s(19)
 
-    topic = re.sub(r"\s+", " ", str(opp.get("topic") or "")).strip(" .")
-    if topic:
-        topic_label_f = _font("DejaVuSans-Bold.ttf", s(17))
-        topic_f = _font("DejaVuSans.ttf", s(25))
+    if topic_lines:
         d.text((inner_x, cursor), "TEMÁTICA", font=topic_label_f, fill=accent)
-        cursor += s(29)
-        topic_lines = _wrap(d, topic, topic_f, inner_w)
-        if len(topic_lines) > 2:
-            topic_lines = topic_lines[:2]
-            last = topic_lines[-1]
-            while d.textlength(last + "…", font=topic_f) > inner_w and last:
-                last = last[:-1].rstrip()
-            topic_lines[-1] = last + "…"
+        cursor += s(32)
         for line in topic_lines:
             d.text((inner_x, cursor), line, font=topic_f, fill=INK)
-            cursor += s(31)
+            cursor += s(36)
+
+    if participant_codes:
+        cursor += s(18)
+        participant_label_f = _font("DejaVuSans-Bold.ttf", s(17))
+        d.text((inner_x, cursor), "PAÍSES PARTICIPANTES", font=participant_label_f, fill=accent)
+        cursor += s(29)
+        country_x = inner_x
+        country_w, country_h, country_gap = s(50), s(32), s(12)
+        for code in participant_codes:
+            _flag(img, country_x, cursor, country_w, country_h, code)
+            country_x += country_w + country_gap
+        if participant_extra:
+            extra_f = _font("DejaVuSans-Bold.ttf", s(18))
+            d = ImageDraw.Draw(img)
+            d.text((country_x, cursor + s(6)), f"+{participant_extra}", font=extra_f, fill=INK)
+        cursor += country_h
 
     # Destino y fechas se leen como una única línea editorial, no como tabla.
-    meta_y = H - margin - s(118)
-    d.line([inner_x, meta_y - s(21), W - inner_x, meta_y - s(21)], fill="#d4cfc3", width=max(1, s(1)))
-    meta_f = _font("DejaVuSans-Bold.ttf", s(22))
+    cursor += s(32)
+    d.line([inner_x, cursor, W - inner_x, cursor], fill="#d4cfc3", width=max(1, s(1)))
+    meta_y = cursor + s(28)
+    meta_f = _font("DejaVuSans-Bold.ttf", s(26))
     location = str(opp.get("location") or "")
     parts = [part.strip() for part in location.split(",") if part.strip()]
     if len(parts) > 2:
@@ -280,22 +347,27 @@ def _compose(
     if dates == "fechas por confirmar":
         dates = ""
     meta = "  ·  ".join(bit for bit in (location, dates) if bit)
-    while d.textlength(meta, font=meta_f) > inner_w and len(meta) > 1:
+    flag_w, flag_h = s(48), s(32)
+    flag_gap = s(16) if opp.get("country_code") else 0
+    meta_w = inner_w - flag_w - flag_gap if opp.get("country_code") else inner_w
+    while d.textlength(meta, font=meta_f) > meta_w and len(meta) > 1:
         meta = meta[:-2].rstrip(" ·,") + "…"
-    d.text((inner_x, meta_y), meta, font=meta_f, fill=INK)
+    meta_x = inner_x
+    if opp.get("country_code"):
+        _flag(img, inner_x, meta_y - s(1), flag_w, flag_h, opp.get("country_code"))
+        d = ImageDraw.Draw(img)
+        meta_x += flag_w + flag_gap
+    d.text((meta_x, meta_y), meta, font=meta_f, fill=INK)
 
-    deadline_y = meta_y + s(43)
-    deadline_f = _font("DejaVuSans-Bold.ttf", s(18))
+    deadline_y = meta_y + s(58)
+    deadline_f = _font("DejaVuSans-Bold.ttf", s(21))
     deadline = f"SOLICITA HASTA  {pill_label.upper()}"
     deadline_w = d.textlength(deadline, font=deadline_f)
     d.rounded_rectangle(
-        [inner_x, deadline_y, inner_x + deadline_w + s(30), deadline_y + s(38)],
-        radius=s(19), fill=accent,
+        [inner_x, deadline_y, inner_x + deadline_w + s(34), deadline_y + s(44)],
+        radius=s(22), fill=accent,
     )
-    d.text((inner_x + s(15), deadline_y + s(9)), deadline, font=deadline_f, fill=WHITE)
-    link_f = _font("DejaVuSans-Bold.ttf", s(18))
-    link = "DESCÚBRELO EN CORRADI"
-    d.text((W - inner_x - d.textlength(link, font=link_f), deadline_y + s(9)), link, font=link_f, fill=INK)
+    d.text((inner_x + s(17), deadline_y + s(10)), deadline, font=deadline_f, fill=WHITE)
 
     buf = io.BytesIO()
     img.save(buf, "PNG", optimize=True)
