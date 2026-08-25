@@ -292,12 +292,15 @@ def _compose(
         + (s(32 + 36 * len(topic_lines)) if topic_lines else 0)
         + participants_h
     )
-    panel_y = H - margin - panel_h
+    # En story la interfaz de Instagram ocupa arriba y abajo: centramos la tarjeta en la
+    # zona segura. En feed permanece anclada abajo, donde funciona como pie editorial.
+    panel_y = (H - panel_h) // 2 if size == STORY_SIZE else H - margin - panel_h
+    panel_bottom = panel_y + panel_h
     panel = Image.new("RGBA", size, (0, 0, 0, 0))
     pd = ImageDraw.Draw(panel)
-    shadow_box = [margin + s(3), panel_y + s(10), W - margin + s(3), H - margin + s(7)]
+    shadow_box = [margin + s(3), panel_y + s(10), W - margin + s(3), panel_bottom + s(7)]
     pd.rounded_rectangle(shadow_box, radius=s(34), fill=(6, 12, 32, 55))
-    panel_box = [margin, panel_y, W - margin, H - margin]
+    panel_box = [margin, panel_y, W - margin, panel_bottom]
     pd.rounded_rectangle(panel_box, radius=s(34), fill=PAPER)
     img = Image.alpha_composite(img.convert("RGBA"), panel).convert("RGB")
     d = ImageDraw.Draw(img)

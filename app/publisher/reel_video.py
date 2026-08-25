@@ -1,13 +1,12 @@
-"""Genera el Reel de Instagram (1080×1920, ~6s) de una oportunidad: mismo fondo (degradado
-+ marca de agua de categoría) y mismo contenido que `instagram_card.py`, pero animado —
-zoom-out lento del fondo + aparición escalonada de cada bloque de texto (categoría, título,
-meta, pill, CTA) — con el fondo musical generado por `reel_audio.py`.
+"""Genera un Reel 1080×1920 a partir de la misma tarjeta editorial que la story.
 
-Todo el "arte" (fondo, tipografía, iconos) se apoya en las piezas ya construidas y
-validadas en `instagram_card.py`: aquí solo se añade la dimensión temporal encima.
+La composición se mantiene idéntica —foto, temática, países, destino y color de categoría—
+y el vídeo añade solo un movimiento de cámara suave y música. Así feed, story y reel no
+divergen visualmente cada vez que se mejora la plantilla principal.
 """
 from __future__ import annotations
 
+import io
 import logging
 import subprocess
 import tempfile
@@ -27,6 +26,7 @@ from app.publisher.instagram_card import (
     _gradient_bg,
     _watermark,
     _wrap,
+    render_story,
 )
 from app.publisher.reel_audio import synth_wav_bytes
 from app.publisher.telegram_publisher import _compact_dates
@@ -36,7 +36,7 @@ log = logging.getLogger("corradi.reel")
 SIZE = (1080, 1920)
 FPS = 24
 DURATION = 6.0
-_OVERSCAN = 1.18  # cuánto más grande se renderiza el fondo, para poder hacer zoom-out
+_OVERSCAN = 1.06  # zoom muy sutil: la tarjeta nunca sale de la zona segura
 
 
 def _layer_at_alpha(layer: Image.Image, factor: float) -> Image.Image | None:
@@ -210,18 +210,24 @@ def _bg_frame(bg: Image.Image, p: float) -> Image.Image:
 
 
 def _render_frames(opp: dict[str, Any]):
-    layers, bg = _build_layers(opp)
+    # Import local para evitar un ciclo durante la carga del módulo instagram.
+    from app.publisher.instagram import deadline_date_label
+
+    card = Image.open(io.BytesIO(render_story(opp, deadline_date_label(opp)))).convert("RGB")
+    bg = card.resize(
+        (round(SIZE[0] * _OVERSCAN), round(SIZE[1] * _OVERSCAN)),
+        Image.Resampling.LANCZOS,
+    )
     n_frames = int(DURATION * FPS)
-    fade = 0.28  # segundos que tarda cada bloque en aparecer del todo
     for i in range(n_frames):
-        t = i / FPS
-        p = t / DURATION
+        p = i / max(1, n_frames - 1)
         frame = _bg_frame(bg, p)
-        for layer, t_start in layers:
-            factor = (t - t_start) / fade
-            piece = _layer_at_alpha(layer, factor)
-            if piece is not None:
-                frame.alpha_composite(piece)
+        # Entrada corta desde azul marino: elegante y suficiente para que el vídeo no
+        # arranque con un corte seco, sin animar cada texto por separado.
+        fade = min(1.0, i / max(1, round(FPS * 0.45)))
+        if fade < 1:
+            veil = Image.new("RGBA", SIZE, (9, 19, 52, round(255 * (1 - fade))))
+            frame = Image.alpha_composite(frame, veil)
         yield frame.convert("RGB").tobytes()
 
 
