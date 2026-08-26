@@ -555,9 +555,13 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
      botón "Filtros" (edad/fechas/país/urgencia — no solo categoría) tiene que seguir
      accesible: sin esto no había NINGUNA forma de abrir ese panel en móvil. */
   #qfCategories { display: flex; }
-  .quick-filters { position: absolute; top: calc(70px + env(safe-area-inset-top)); left: 12px; right: 12px; transform: none; max-width: none; padding-right:4px; }
+  .quick-filters { position: absolute; top: calc(70px + env(safe-area-inset-top)); left: 12px; right: 12px; transform: none; max-width: none; gap: 4px; padding-right: 0; overflow: visible; }
+  .qf-categories { flex: 1; min-width: 0; gap: 4px; }
+  .quick-filters .qf-chip { flex: 1 1 0; min-width: 0; min-height: 40px; justify-content: center; gap: 5px; padding: 7px 8px; font-size: 12px; }
+  .quick-filters .qf-chip.more { flex: 0 0 auto; padding-inline: 10px; }
+  #qfCategories .badge-count { display: none; }
   body.searching .quick-filters { display: none; }
-  .top-actions { top: calc(12px + env(safe-area-inset-top)); right: 12px; display: flex; }
+  .top-actions { top: calc(18px + env(safe-area-inset-top)); right: 12px; display: flex; }
   .top-actions #contribute, .top-actions #infoBtn, .top-actions #igTopBtn { display: none; }
   .top-actions .pill-btn .label { display: none; }
   .top-actions .pill-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
@@ -582,7 +586,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
   .bottom-dock { display: none; }
   .card { padding: 14px 15px 13px; border-radius: 17px; }
-  .qf-chip{min-height:42px;padding-top:7px;padding-bottom:7px}.sheet-handle{touch-action:none;user-select:none}.corner-btn{min-width:40px;min-height:40px}
+  .sheet-handle{touch-action:none;user-select:none}.corner-btn{min-width:40px;min-height:40px}
   .leaflet-control-zoom { margin-bottom: calc(124px + env(safe-area-inset-bottom)) !important; }
 }
 </style>
@@ -912,9 +916,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   };
 
   var TYPES = {
-    YOUTH_EXCHANGE:  { label: "Youth Exchange",  colorVar: "--ye",  icon: ICON.compass },
-    TRAINING_COURSE: { label: "Training Course", colorVar: "--tc",  icon: ICON.cap },
-    VOLUNTEERING:    { label: "ECS",             colorVar: "--ecs", icon: ICON.heart }
+    YOUTH_EXCHANGE:  { label: "Youth Exchange",  quickLabel: "YE",  colorVar: "--ye",  icon: ICON.compass },
+    TRAINING_COURSE: { label: "Training Course", quickLabel: "TC",  colorVar: "--tc",  icon: ICON.cap },
+    VOLUNTEERING:    { label: "ECS",             quickLabel: "ECS", colorVar: "--ecs", icon: ICON.heart }
   };
   var OTHER = { label: "Otras", colorVar: "--other", icon: ICON.tag };
   var AGE_DEFAULTS = { YOUTH_EXCHANGE: { min: 18, max: 30 }, TRAINING_COURSE: { min: 18, max: null } };
@@ -1301,8 +1305,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   function buildQuickFilters() {
     var box = document.getElementById("qfCategories"), html = "";
     Object.keys(TYPES).forEach(function (k) {
-      html += '<button type="button" class="qf-chip" data-type="' + k + '" aria-pressed="false" style="--c:var(' + TYPES[k].colorVar + ')">' +
-              '<span class="dot">' + TYPES[k].icon + '</span>' + esc(TYPES[k].label) + '<span class="badge-count" data-count-for="' + k + '"></span></button>';
+      html += '<button type="button" class="qf-chip" data-type="' + k + '" aria-pressed="false" aria-label="' + esc(TYPES[k].label) + '" style="--c:var(' + TYPES[k].colorVar + ')">' +
+              '<span class="dot">' + TYPES[k].icon + '</span><span class="quick-label">' + esc(TYPES[k].quickLabel) + '</span><span class="badge-count" data-count-for="' + k + '"></span></button>';
     });
     box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll(".qf-chip"), function (chip) {
