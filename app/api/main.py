@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 from app import geo
 from app import pipeline
+from app.domain.project import clean_contact
 from app.api import auth
 from app.config import cfg
 from app.db import repository as repo
@@ -73,6 +74,10 @@ def _clean(value: Any) -> Any:
 
 def _serialize(row: dict[str, Any]) -> dict[str, Any]:
     out = {k: _clean(row.get(k)) for k in _PUBLIC_FIELDS}
+    # Muchas fichas antiguas guardaron `contact_information` con etiquetas colgando sin
+    # valor ("... E-Mail: Phone: x"); se sanea en cada respuesta para no depender de un
+    # backfill. Las nuevas ya entran limpias por `normalize()`.
+    out["contact_information"] = clean_contact(out.get("contact_information"))
     # Enlace al post original del canal (solo si el canal es público y se guardó el id).
     if cfg.telegram_channel_username and row.get("telegram_message_id"):
         out["channel_url"] = (

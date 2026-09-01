@@ -2,7 +2,8 @@ from datetime import date
 from decimal import Decimal
 
 from app.domain.project import (
-    is_last_minute, is_online_only, make_hash, normalize, parse_date, parse_decimal, parse_int,
+    clean_contact, is_last_minute, is_online_only, make_hash, normalize, parse_date,
+    parse_decimal, parse_int,
 )
 
 
@@ -131,3 +132,34 @@ def test_normalize_flags_online_location():
 def test_normalize_does_not_flag_physical_location():
     f = normalize({"location": "Vilnius, Lithuania"}, date(2026, 7, 22), 5)
     assert f["is_online"] is False
+
+
+def test_clean_contact_quita_etiquetas_colgando_sin_valor():
+    # Caso real de producción: nombre + etiquetas vacías -> no hay forma de contactar.
+    assert clean_contact("Lydia Petera E-Mail: Phone: x") is None
+    assert clean_contact("E-Mail: , Phone:") is None
+    assert clean_contact("Persona de contacto: -") is None
+
+
+def test_clean_contact_conserva_email_o_telefono_y_quita_la_etiqueta():
+    assert clean_contact("Roxanna Scicluna, E-Mail: , Phone: +356 2555 2323") == "Roxanna Scicluna · +356 2555 2323"
+    assert clean_contact("E-Mail: info@ejemplo.eu") == "info@ejemplo.eu"
+    assert clean_contact("info@ejemplo.eu") == "info@ejemplo.eu"
+    assert clean_contact("Contacto: Ana · ana@x.org · Tel: 600123123") == "Ana · ana@x.org · 600123123"
+
+
+def test_clean_contact_placeholders_y_vacios_dan_none():
+    for junk in (None, "", "  ", "-", "N/A", "ver infopack", "Consultar infopack", "TBD"):
+        assert clean_contact(junk) is None
+
+
+def test_clean_contact_solo_nombre_sin_via_de_contacto_da_none():
+    assert clean_contact("María González") is None
+    assert clean_contact("Oficina de juventud del ayuntamiento") is None
+
+
+def test_normalize_sanea_contact_information():
+    f = normalize({"contact_information": "Lydia Petera E-Mail: Phone: x"}, date(2026, 7, 22), 5)
+    assert f["contact_information"] is None
+    f2 = normalize({"contact_information": "Tel: +34 600 111 222"}, date(2026, 7, 22), 5)
+    assert f2["contact_information"] == "+34 600 111 222"

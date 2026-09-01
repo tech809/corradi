@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.config import cfg
-from app.domain.project import is_last_minute
+from app.domain.project import clean_contact, is_last_minute
 
 _MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
           "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
@@ -279,8 +279,9 @@ def format_opportunity(
             lines.append(f"👉 Formulario de inscripción: {app_url}")
         if info_url and not _valid_url(info_url):
             lines.append(f"📄 Infopack: {info_url}")
-    if o.get("contact_information"):
-        lines.append(f"✉️ {o['contact_information']}")
+    contacto = clean_contact(o.get("contact_information"))
+    if contacto:
+        lines.append(f"✉️ {contacto}")
     return "\n".join(lines)
 
 
@@ -370,8 +371,9 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
         lineas.append(f"📄 Info: {_bare_url(short_link)}")
     if o.get("application_url"):
         lineas.append(f"✍️ Form: {_bare_url(o['application_url'])}")
-    if o.get("contact_information"):
-        lineas.append(f"✉️ Contacto: {o['contact_information']}")
+    contacto = clean_contact(o.get("contact_information"))
+    if contacto:
+        lineas.append(f"✉️ Contacto: {contacto}")
     if o.get("application_deadline"):
         lineas.append(
             f"⏳ Fecha límite: {_deadline_short(o['application_deadline'])}{_est(o)} "

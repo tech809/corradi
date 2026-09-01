@@ -65,6 +65,52 @@ def _clean_url(value) -> str | None:
     return None
 
 
+# Etiquetas que el LLM suele dejar en `contact_information`, muchas veces SIN valor
+# ("... E-Mail: Phone: x"). Sirven para (a) borrar las que quedan colgando vacías y
+# (b) quitar la etiqueta cuando sí llevan dato, dejando solo el dato.
+_CONTACT_LABEL = (
+    r"(?:e[-\s]?mail|email|correo(?:\s+electr[oó]nico)?|mail|phone|tel(?:[eé]fono)?|"
+    r"whats\s?app|m[oó]vil|mobile|cell|contact(?:o)?|persona\s+de\s+contacto|nombre|name)"
+)
+_CONTACT_JUNK = {
+    "", "-", "--", "—", "–", ".", "..", "...", "/", "n/a", "na", "none", "null", "nil",
+    "x", "xx", "xxx", "tbd", "tba", "s/n", "sn", "por confirmar", "a confirmar",
+    "sin datos", "no disponible", "ver infopack", "consultar infopack", "en el infopack",
+    "see infopack", "in infopack", "check infopack", "infopack",
+}
+_CONTACT_EMAIL_RE = re.compile(r"[^\s@,;]+@[^\s@,;]+\.[^\s@,;]{2,}")
+_CONTACT_PHONE_RE = re.compile(r"\+?\d[\d\s().\-]{6,}\d")
+
+
+def clean_contact(value) -> str | None:
+    """Sanea `contact_information` extraído por el LLM: quita etiquetas colgando sin valor
+    ('E-Mail: Phone: x'), placeholders ('-', 'x', 'ver infopack') y separadores sueltos.
+    Devuelve None cuando lo que queda no permite contactar de verdad (ni email ni teléfono
+    con pinta real): mejor no enseñar la línea "Contacto" que enseñar ruido."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = " ".join(value.split())
+    junk_alt = "|".join(
+        re.escape(j) for j in sorted(_CONTACT_JUNK, key=len, reverse=True) if j
+    )
+    # 1) etiqueta + valor vacío/junk, hasta la siguiente etiqueta / coma / ; / fin
+    text = re.sub(
+        rf"\b{_CONTACT_LABEL}\s*[:\-]?\s*(?:{junk_alt})?\s*(?=\b{_CONTACT_LABEL}\b|[,;]|$)",
+        " ", text, flags=re.I,
+    )
+    # 2) etiqueta pegada a un valor real: se quita la etiqueta, se deja el valor
+    text = re.sub(rf"\b{_CONTACT_LABEL}\s*[:\-]\s*", " ", text, flags=re.I)
+    # 3) separadores sueltos y bordes
+    text = re.sub(r"\s*[|/]\s*|\s*[,;]\s*|\s+[-–—·]\s+", " · ", text)
+    text = re.sub(r"(?:\s*·\s*){2,}", " · ", text).strip(" ·,;:-")
+    text = " ".join(text.split())
+    if not text or text.lower() in _CONTACT_JUNK:
+        return None
+    if not _CONTACT_EMAIL_RE.search(text) and not _CONTACT_PHONE_RE.search(text):
+        return None
+    return text
+
+
 def parse_int(value) -> int | None:
     try:
         return int(str(value).strip()) if value not in (None, "", "null") else None
@@ -200,6 +246,7 @@ def normalize(
     # fuente (Telegram, WhatsApp, SALTO), no solo a la que lo disparo la primera vez.
     out["infopack_url"] = _clean_url(fields.get("infopack_url"))
     out["application_url"] = _clean_url(fields.get("application_url"))
+    out["contact_information"] = clean_contact(fields.get("contact_information"))
     return out
 
 
