@@ -245,13 +245,12 @@ a.hot-title:hover { color: var(--brand); text-decoration: underline; }
 .cmap-close { border: 0; background: var(--surface-sunk); width: 34px; height: 34px; border-radius: 50%;
   cursor: pointer; font-size: 13px; color: var(--ink-soft); }
 .cmap-close:hover { color: var(--ink); }
-#countryMap { height: min(64vh, 560px); background: var(--surface-sunk); }
+#countryMap { height: min(64vh, 560px); background: #e4ebf1; }
+#countryMap .leaflet-interactive { transition: fill-opacity .12s; }
 .cmap-legend { display: flex; align-items: center; gap: 7px; padding: 12px 22px; font-size: 11.5px; color: var(--ink-faint); flex-wrap: wrap; }
 .cmap-legend .swatch { width: 24px; height: 12px; border-radius: 3px; display: inline-block; }
-.cbadge { display: grid; place-items: center; min-width: 30px; height: 24px; padding: 0 8px; border-radius: 999px;
-  font: 800 12.5px var(--font-display); line-height: 1; letter-spacing: -.01em;
-  box-shadow: 0 3px 9px rgba(11,18,44,.3), 0 0 0 2px #fff; }
-.cbadge:hover { z-index: 999; }
+.cnum { font: 800 13px var(--font-display); letter-spacing: -.02em; text-align: center; white-space: nowrap; line-height: 1;
+  text-shadow: 0 1px 2px rgba(255,255,255,.95), 0 0 4px rgba(255,255,255,.8); pointer-events: none; }
 
 /* ── Archivo ──────────────────────────────────────────────────────────── */
 .archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
@@ -539,9 +538,8 @@ function render(data) {
     podium(data.top_countries, function (c) { return ccFlag(c.country_code) + " " + esc(c.country_name); },
            function (c) { return c.n; });
   var cmoreBtn = document.getElementById("countriesMore");
-  var cGeo = (data.top_countries || []).filter(function (c) { return c.centroid && c.centroid.length === 2; });
-  cmoreBtn.hidden = cGeo.length < 4;
-  cmoreBtn.onclick = function () { openCountryMap(cGeo); };
+  cmoreBtn.hidden = (data.top_countries || []).length < 4;
+  cmoreBtn.onclick = function () { openCountryMap(data.top_countries || []); };
   document.getElementById("countryMapClose").onclick = function () { document.getElementById("countryMapDialog").close(); };
   document.getElementById("countryMapDialog").addEventListener("click", function (e) { if (e.target === this) this.close(); });
 
@@ -766,27 +764,24 @@ function countTextColor(n, max) {
   return Math.pow(Math.min(1, n / Math.max(1, max)), 0.55) < 0.42 ? "#3a2a12" : "#fff";
 }
 
-var countryMapObj = null;
+var countryMapObj = null, euGeoCache = null;
+var EU_BOUNDS = [[34, -11], [68, 33]];   // Península ibérica → nórdicos → Grecia/Chipre
+
 function openCountryMap(countries) {
   var dlg = document.getElementById("countryMapDialog");
   dlg.showModal();
   if (countryMapObj) { setTimeout(function () { countryMapObj.invalidateSize(); }, 40); return; }
-  if (typeof L === "undefined" || !countries.length) return;
+  if (typeof L === "undefined") return;
 
-  var maxN = Math.max.apply(null, countries.map(function (c) { return c.n; }).concat([1]));
-  countryMapObj = L.map("countryMap", { attributionControl: false, worldCopyJump: true }).setView([50, 12], 4);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 10 }).addTo(countryMapObj);
-
+  var counts = {}, maxN = 1;
   countries.forEach(function (c) {
-    var bg = countColor(c.n, maxN), fg = countTextColor(c.n, maxN);
-    L.marker(c.centroid, {
-      icon: L.divIcon({ className: "", iconSize: [40, 24], iconAnchor: [20, 12],
-        html: '<div class="cbadge" style="background:' + bg + ';color:' + fg + '">' + c.n + "</div>" }),
-      keyboard: false,
-    }).bindTooltip(esc(c.country_name) + " · " + c.n + " proyecto" + (c.n === 1 ? "" : "s"),
-      { direction: "top", offset: [0, -12], className: "cmap-tip" }).addTo(countryMapObj);
+    if (!c.country_code) return;
+    counts[c.country_code.toUpperCase()] = c.n;
+    if (c.n > maxN) maxN = c.n;
   });
-  countryMapObj.fitBounds(countries.map(function (c) { return c.centroid; }), { padding: [46, 46], maxZoom: 5 });
+
+  countryMapObj = L.map("countryMap", { attributionControl: false, minZoom: 3, maxZoom: 7 });
+  countryMapObj.fitBounds(EU_BOUNDS);
 
   document.getElementById("countryMapLegend").innerHTML =
     "Menos " +
@@ -795,7 +790,38 @@ function openCountryMap(countries) {
     '<span class="swatch" style="background:' + countColor(maxN * 0.7, maxN) + '"></span>' +
     '<span class="swatch" style="background:' + countColor(maxN, maxN) + '"></span> Más proyectos (histórico)';
 
-  setTimeout(function () { countryMapObj.invalidateSize(); }, 60);
+  (euGeoCache ? Promise.resolve(euGeoCache)
+    : fetch("/assets/europe.geo.json").then(function (r) { return r.json(); }).then(function (g) { euGeoCache = g; return g; })
+  ).then(function (geo) {
+    L.geoJSON(geo, {
+      style: function (f) {
+        var n = counts[f.properties.iso] || 0;
+        return { weight: 0.8, color: "#ffffff",
+                 fillColor: n ? countColor(n, maxN) : "#c7d2dc",
+                 fillOpacity: n ? 0.92 : 0.4 };
+      },
+      onEachFeature: function (f, lyr) {
+        var n = counts[f.properties.iso] || 0;
+        lyr.bindTooltip(esc(f.properties.name || f.properties.iso) +
+          (n ? " · " + n + " proyecto" + (n === 1 ? "" : "s") : " · sin proyectos"),
+          { sticky: true, direction: "top" });
+        lyr.on("mouseover", function () { this.setStyle({ fillOpacity: 1, weight: 1.6 }); });
+        lyr.on("mouseout", function () { this.setStyle({ fillOpacity: n ? 0.92 : 0.4, weight: 0.8 }); });
+      },
+    }).addTo(countryMapObj);
+
+    geo.features.forEach(function (f) {
+      var n = counts[f.properties.iso] || 0;
+      if (!n || f.properties.lat == null) return;
+      L.marker([f.properties.lat, f.properties.lon], {
+        interactive: false, keyboard: false,
+        icon: L.divIcon({ className: "", iconSize: [40, 16], iconAnchor: [20, 8],
+          html: '<div class="cnum" style="color:' + countTextColor(n, maxN) + '">' + n + "</div>" }),
+      }).addTo(countryMapObj);
+    });
+
+    setTimeout(function () { countryMapObj.invalidateSize(); countryMapObj.fitBounds(EU_BOUNDS); }, 60);
+  });
 }
 
 function renderHeatmap(points) {
