@@ -14,21 +14,36 @@ def test_devuelve_el_resultado_si_no_hay_error():
     assert with_retry(lambda: 42) == 42
 
 
-def test_429_no_se_reintenta_y_antepone_el_aviso_de_cuota(monkeypatch):
+def test_429_en_llamada_de_fondo_reintenta_y_luego_avisa(monkeypatch):
+    waits = []
+    monkeypatch.setattr(time, "sleep", lambda s: waits.append(s))
     llamadas = []
-    monkeypatch.setattr(time, "sleep", lambda *_: None)
 
     def fn():
         llamadas.append(1)
         raise gerr.ClientError(429, _QUOTA_JSON)
 
     with pytest.raises(RuntimeError) as exc:
-        with_retry(fn, attempts=4)
-    assert len(llamadas) == 1  # NO se reintenta
+        with_retry(fn, attempts=4)          # llamada de fondo
+    assert len(llamadas) == 3               # 1 + 2 reintentos
+    assert waits == [35, 35]               # espera larga por el cupo por minuto
     msg = str(exc.value)
-    assert msg.startswith("⚠️ Problema de cuota")  # el aviso va al principio
-    assert "menos de 60 s" in msg
-    assert "RESOURCE_EXHAUSTED" in msg  # el error original se conserva detrás
+    assert msg.startswith("Problema de cuota")  # sin emoji: lo pone quien lo enseña
+    assert "RESOURCE_EXHAUSTED" in msg           # el error original se conserva detrás
+
+
+def test_429_en_llamada_interactiva_falla_rapido_sin_esperar(monkeypatch):
+    waits = []
+    monkeypatch.setattr(time, "sleep", lambda s: waits.append(s))
+    llamadas = []
+
+    def fn():
+        llamadas.append(1)
+        raise gerr.ClientError(429, _QUOTA_JSON)
+
+    with pytest.raises(RuntimeError):
+        with_retry(fn, attempts=2)          # el chat pasa attempts=2
+    assert len(llamadas) == 1 and waits == []   # ni reintento ni espera de 35 s
 
 
 def test_otros_errores_de_cliente_se_propagan_tal_cual(monkeypatch):

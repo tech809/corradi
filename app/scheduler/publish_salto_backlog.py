@@ -46,7 +46,8 @@ async def _already_published(fields: dict) -> str | None:
     )
     if existing:
         return existing["identifier"]
-    vec = await asyncio.to_thread(embeddings.embed, fields["raw_message"])
+    vec = fields.get("_embedding") or await asyncio.to_thread(embeddings.embed, fields["raw_message"])
+    fields["_embedding"] = list(vec)   # lo reutiliza commit() -> no re-embeddear
     dup = await repo.find_similar(vec)
     if not dup:
         dup = await repo.find_cross_lang_dup(vec, fields.get("country_code"), fields.get("start_date"))
@@ -63,7 +64,9 @@ async def run() -> None:
             return
 
         published = failed = skipped_dup = 0
-        for item in due:
+        for n, item in enumerate(due):
+            if n:
+                await asyncio.sleep(1)   # no disparar el cupo por minuto del embedding
             try:
                 dup_identifier = await _already_published(item["fields"])
                 if dup_identifier:

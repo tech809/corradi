@@ -287,6 +287,26 @@ async def list_without_coords(only_open: bool = True) -> list[dict[str, Any]]:
             return await cur.fetchall()
 
 
+async def list_without_embedding(only_open: bool = True) -> list[dict[str, Any]]:
+    """Fichas sin vector de deduplicación (p.ej. publicadas mientras Gemini daba 429)."""
+    clause = "AND status = 'open'" if only_open else ""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                f"SELECT id, identifier, title, raw_message FROM projects "
+                f"WHERE embedding IS NULL {clause} ORDER BY created"
+            )
+            return await cur.fetchall()
+
+
+async def set_embedding(project_id, embedding: list[float]) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "UPDATE projects SET embedding = %s, updated = now() WHERE id = %s",
+            (_vec(embedding), project_id),
+        )
+
+
 async def list_without_details(only_open: bool = True) -> list[dict[str, Any]]:
     """Fichas creadas antes de la descripción editorial extensa."""
     clause = "AND status = 'open'" if only_open else ""

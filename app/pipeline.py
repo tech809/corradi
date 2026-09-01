@@ -170,6 +170,9 @@ async def preview(
         dup = await repo.find_similar(vec)
         if not dup:
             dup = await repo.find_cross_lang_dup(vec, fields.get("country_code"), fields.get("start_date"))
+        # Se guarda para que `commit()` NO vuelva a pedir el mismo embedding (misma
+        # llamada, mismo texto) — la mitad de peticiones al modelo y menos 429 de cuota.
+        fields["_embedding"] = list(vec)
     except Exception as e:  # noqa: BLE001
         log.exception("Error en deduplicación (usuario %s)", submitted_by_id)
         await repo.log_submission(submitted_by_id, "error", raw_text=raw_text, reason=str(e))
@@ -239,8 +242,21 @@ async def commit(
     fields["source"] = source
     fields["submitted_by"] = submitted_by
     fields["submitted_by_id"] = submitted_by_id
+    reused_vec = fields.pop("_embedding", None)   # calculado ya en preview()
     try:
-        vec = await asyncio.to_thread(embeddings.embed, fields["raw_message"])
+        if reused_vec is not None:
+            vec = reused_vec
+        else:
+            try:
+                vec = await asyncio.to_thread(embeddings.embed, fields["raw_message"])
+            except Exception:  # noqa: BLE001
+                # El vector de commit SOLO se guarda para deduplicar en el futuro; la
+                # comprobación de duplicados ya se hizo en preview(). Si falla (típico:
+                # cuota 429), se publica sin vector y se rellena luego con
+                # `app.scheduler.backfill_embeddings` — no se tumba el post.
+                log.warning("Sin embedding para %s; se publica sin vector (backfill luego)",
+                            fields.get("title"), exc_info=True)
+                vec = None
         opp = await repo.insert_project(fields, vec)
         await repo.log_submission(submitted_by_id, "created", opp["id"])
     except Exception as e:  # noqa: BLE001
