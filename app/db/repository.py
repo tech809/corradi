@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 import numpy as np
+from psycopg import errors as pg_errors
 from psycopg.rows import dict_row
 
 from app.config import cfg
@@ -364,9 +365,10 @@ async def bump_visit() -> dict[str, int]:
 
 
 _CLICK_KINDS = ("info", "form", "infopack")
+_INTERACTION_KINDS = ("view", *_CLICK_KINDS)
 
 
-async def bump_click(kind: str) -> None:
+async def bump_click(kind: str, identifier: str | None = None) -> None:
     """Contador agregado de clics en los enlaces salientes de cada tarjeta (Más info / Form
     / Infopack) — mismo mecanismo que `bump_visit`, reutilizando `counters` en vez de una
     tabla nueva. Agregado puro: no se guarda a qué oportunidad ni quién hizo clic."""
@@ -378,6 +380,58 @@ async def bump_click(kind: str) -> None:
             "ON CONFLICT (key) DO UPDATE SET value = counters.value + 1",
             (f"click_{kind}",),
         )
+    if identifier:
+        # En su propia conexión y a prueba de fallos: el contador global no debe
+        # depender de que exista `project_interactions` (migración 0017).
+        await bump_project_interaction(identifier, kind)
+
+
+async def bump_project_interaction(identifier: str, kind: str) -> None:
+    """Registra una interacción diaria anónima para el ranking semanal.
+
+    Tolera que la migración 0017 (`project_interactions`) aún no esté aplicada:
+    en ese caso no cuenta nada en vez de romper el beacon."""
+    if kind not in _INTERACTION_KINDS:
+        return
+    try:
+        async with get_pool().connection() as conn:
+            await conn.execute(
+                "INSERT INTO project_interactions (project_id, day, kind, count) "
+                "SELECT id, current_date, %s, 1 FROM projects WHERE identifier = %s "
+                "ON CONFLICT (project_id, day, kind) DO UPDATE "
+                "SET count = project_interactions.count + 1",
+                (kind, identifier),
+            )
+    except pg_errors.UndefinedTable:
+        return
+
+
+async def list_top_projects(days: int = 7, limit: int = 3) -> list[dict[str, Any]]:
+    """Top de abiertas por suma simple de clics salientes durante la ventana indicada.
+
+    Las aperturas de ficha (`view`) se conservan como analítica, pero no influyen aquí:
+    el mismo ranking alimenta web, Telegram y WhatsApp.
+    """
+    days = max(1, min(days, 31))
+    limit = max(1, min(limit, 10))
+    try:
+        async with get_pool().connection() as conn:
+            async with conn.cursor(row_factory=dict_row) as cur:
+                await cur.execute(
+                    "SELECT p.*, SUM(i.count)::int AS interaction_score, "
+                    "SUM(i.count)::int AS interactions "
+                    "FROM projects p JOIN project_interactions i ON i.project_id = p.id "
+                    "WHERE p.status = 'open' "
+                    "AND (p.application_deadline IS NULL OR p.application_deadline >= current_date) "
+                    "AND i.kind IN ('info', 'form', 'infopack') "
+                    "AND i.day >= current_date - %s "
+                    "GROUP BY p.id ORDER BY interaction_score DESC, interactions DESC, p.created DESC LIMIT %s",
+                    (days - 1, limit),
+                )
+                return list(await cur.fetchall())
+    except pg_errors.UndefinedTable:
+        # Migración 0017 pendiente: la portada muestra su estado vacío sin romper.
+        return []
 
 
 async def get_click_counts() -> dict[str, int]:

@@ -486,6 +486,32 @@ def format_weekly_summary(
     return "\n".join(lines)
 
 
+def format_top_projects(opps: list[dict[str, Any]], html: bool = True) -> str:
+    """Top 3 de interacción de los últimos siete días para Telegram o WhatsApp."""
+    def safe(value: Any) -> str:
+        text = str(value or "")
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") if html else text
+
+    head = "🔥 <b>TOP 3 DE LA SEMANA</b>" if html else "🔥 TOP 3 DE LA SEMANA"
+    lines = [head, "", "Los proyectos que más clics han recibido durante los últimos 7 días:"]
+    medals = ("🥇", "🥈", "🥉")
+    base = (cfg.map_public_url or "https://mapa.proactivefuture.eu").rstrip("/")
+    for i, opp in enumerate(opps[:3]):
+        title = safe(opp.get("title") or "Oportunidad Erasmus+")
+        short_id = str(opp.get("identifier") or "").replace(f"{cfg.identifier_prefix}-", "")
+        url = f"{base}/{short_id}" if short_id else base
+        place = safe(opp.get("location") or _PAISES_ES.get(str(opp.get("country_code") or ""), "Destino por confirmar"))
+        summary = " ".join(str(opp.get("summary") or "").split())
+        if len(summary) > 190:
+            summary = summary[:187].rsplit(" ", 1)[0] + "…"
+        if html:
+            lines += ["", f'{medals[i]} <b>{title}</b>', f"📍 {place}", safe(summary), f'🔗 <a href="{url}">Ver proyecto</a>']
+        else:
+            lines += ["", f"{medals[i]} {title}", f"📍 {place}", summary, f"🔗 {url}"]
+    lines += ["", "Una segunda mirada puede ser el comienzo de tu próxima experiencia ✨"]
+    return "\n".join(lines)
+
+
 def _theme_groups_lines(opps: list[dict[str, Any]], max_per_group: int = 20) -> list[str]:
     """Líneas del bloque agrupado por TEMÁTICA similar (`_classify_topic`, no por las 4
     categorías fijas de tipo), con una línea en blanco entre grupos para que respiren. Un

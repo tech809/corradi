@@ -1,4 +1,4 @@
-.PHONY: up down logs build bot api summary weekly-summary backfill-geo backfill-details install dev-db test demo seed
+.PHONY: up down logs build bot api summary weekly-summary top-projects backfill-geo backfill-details install dev-db test demo seed
 
 # ─── Docker (local = EC2: mismo compose) ───────────────────────────────────
 up:        ## Levanta toda la pila (db, api, bot, caddy)
@@ -31,6 +31,9 @@ summary:
 
 weekly-summary:
 	python -m app.scheduler.weekly_summary
+
+top-projects:
+	python -m app.scheduler.top_projects
 
 backfill-geo:  ## Geocodifica las fichas antiguas que aún no tienen coordenadas (mapa)
 	python -m app.scheduler.backfill_geo

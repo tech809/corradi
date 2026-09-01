@@ -14,6 +14,8 @@ desde la migración inicial), así que cada oportunidad se geocodifica UNA vez y
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 
 log = logging.getLogger("corradi.geo")
 
@@ -37,6 +39,34 @@ COUNTRY_CENTROIDS: dict[str, tuple[float, float]] = {
     "GE": (42.31, 43.42), "AM": (40.30, 45.00), "UA": (48.40, 31.20), "MD": (47.20, 28.50),
     "CH": (46.80, 8.22), "GB": (54.00, -2.00), "LI": (47.16, 9.55), "AZ": (40.30, 47.70),
 }
+
+_COUNTRY_LOCATION_NAMES = {
+    "ES": {"espana", "spain"}, "PT": {"portugal"}, "FR": {"france", "francia"},
+    "IT": {"italy", "italia"}, "DE": {"germany", "alemania", "deutschland"},
+    "AT": {"austria"}, "BE": {"belgium", "belgica", "belgique"},
+    "NL": {"netherlands", "paises bajos", "holanda"}, "IE": {"ireland", "irlanda"},
+    "PL": {"poland", "polonia"}, "CZ": {"czech republic", "chequia", "czechia"},
+    "SK": {"slovak republic", "slovakia", "eslovaquia"}, "HU": {"hungary", "hungria"},
+    "RO": {"romania", "rumania"}, "BG": {"bulgaria"}, "GR": {"greece", "grecia"},
+    "HR": {"croatia", "croacia"}, "SI": {"slovenia", "eslovenia"},
+    "EE": {"estonia"}, "LV": {"latvia", "letonia"}, "LT": {"lithuania", "lituania"},
+    "FI": {"finland", "finlandia"}, "SE": {"sweden", "suecia"},
+    "DK": {"denmark", "dinamarca"}, "NO": {"norway", "noruega"},
+    "MT": {"malta"}, "CY": {"cyprus", "chipre"}, "TR": {"turkiye", "turkey", "turquia"},
+    "AL": {"albania"}, "LU": {"luxembourg", "luxemburgo"},
+}
+
+
+def _fold(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z]+", " ", value).strip()
+
+
+def is_country_only_location(location: str | None, country_code: str | None) -> bool:
+    """True cuando `location` solo repite el país, sin una localidad concreta."""
+    if not location or not country_code:
+        return False
+    return _fold(location) in _COUNTRY_LOCATION_NAMES.get(country_code.strip().upper()[:2], set())
 
 
 def country_centroid(country_code: str | None) -> tuple[float, float] | None:
@@ -86,6 +116,19 @@ def _nominatim(query: str, country_code: str | None) -> tuple[float, float] | No
     return _nominatim_request(params, repr(query))
 
 
+def _nominatim_city(city: str, country_code: str | None) -> tuple[float, float] | None:
+    """Busca una ciudad de forma estructurada para evitar coincidencias con calles.
+
+    Por ejemplo, la búsqueda libre ``Lugo, España, ES`` devuelve como primer resultado
+    una *Calle Lugo* de Galapagar. El campo estructurado ``city=Lugo`` devuelve el
+    municipio correcto.
+    """
+    params = {"city": city}
+    if country_code:
+        params["countrycodes"] = country_code.strip().lower()[:2]
+    return _nominatim_request(params, f"ciudad {city!r}")
+
+
 def _nominatim_country(country_code: str) -> tuple[float, float] | None:
     """Busca el país entero (consulta estructurada de Nominatim).
 
@@ -102,7 +145,22 @@ def geocode(location: str | None, country_code: str | None) -> tuple[float, floa
     sale en el mapa (sigue publicándose con normalidad en el canal).
     """
     location = (location or "").strip()
+    if is_country_only_location(location, country_code):
+        centroid = country_centroid(country_code)
+        if centroid:
+            log.info("Ubicación %r solo indica el país: se usa su centro", location)
+            return centroid
     if location:
+        # Si viene como "Ciudad, País" (formato habitual del extractor), probar antes
+        # una consulta estructurada. Una búsqueda libre puede confundir la ciudad con
+        # una calle homónima situada en otra región del mismo país.
+        head = location.split(",")[0].strip()
+        if head and head != location:
+            coords = _nominatim_city(head, country_code)
+            if coords:
+                log.info("Geocodificado como ciudad %r -> %s", head, coords)
+                return coords
+
         query = f"{location}, {country_code}" if country_code else location
         coords = _nominatim(query, country_code)
         if coords:
@@ -110,7 +168,6 @@ def geocode(location: str | None, country_code: str | None) -> tuple[float, floa
             return coords
         # El texto puede ser demasiado específico ("Manjirón, Sierra Norte de Madrid"):
         # se reintenta solo con la primera parte antes de rendirse al centroide.
-        head = location.split(",")[0].strip()
         if head and head != location:
             coords = _nominatim(f"{head}, {country_code}" if country_code else head, country_code)
             if coords:

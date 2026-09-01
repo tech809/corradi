@@ -181,6 +181,15 @@ def enrich_from_infopack(fields: dict) -> dict:
         _usage_queue.put_nowait(_cost_usd(getattr(resp, "usage_metadata", None)))
         enriched = json.loads(_strip_fences(resp.text), strict=False)
         out = dict(fields)
+        # SALTO suele indicar solo el país en la cabecera y el infopack revela el venue
+        # dentro de logística o alojamiento. Solo refinamos ubicaciones genéricas: una
+        # ciudad que ya estaba confirmada nunca se sustituye por otra interpretación.
+        from app import geo
+        enriched_location = enriched.get("location")
+        if (enriched_location
+                and geo.is_country_only_location(out.get("location"), out.get("country_code"))
+                and not geo.is_country_only_location(enriched_location, out.get("country_code"))):
+            out["location"] = enriched_location
         for key in (
             "detailed_description", "programme_details", "learning_outcomes",
             "participant_profile", "accommodation_details", "covered_costs",

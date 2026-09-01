@@ -202,6 +202,19 @@ def test_short_map_link():
     assert pub._short_map_link("algo-sin-prefijo") is None
 
 
+def test_format_top_projects_for_telegram_and_whatsapp():
+    opps = [{**OPP, "title": "Green & Digital", "location": "Lugo, España"}]
+    telegram = pub.format_top_projects(opps, html=True)
+    whatsapp = pub.format_top_projects(opps, html=False)
+    assert "🔥 <b>TOP 3 DE LA SEMANA</b>" in telegram
+    assert "Green &amp; Digital" in telegram
+    assert '<a href="https://mapa.proactivefuture.eu/2026-0001">Ver proyecto</a>' in telegram
+    assert "🔥 TOP 3 DE LA SEMANA" in whatsapp
+    assert "Green & Digital" in whatsapp
+    assert "https://mapa.proactivefuture.eu/2026-0001" in whatsapp
+    assert "<b>" not in whatsapp and "<a " not in whatsapp
+
+
 def test_weekly_topics_summary_groups_similar_themes_not_type():
     """'sostenibilidad' y 'cambio climático, medio ambiente' son temas distintos en texto
     literal y en tipo (YOUTH_EXCHANGE vs VOLUNTEERING) pero deben caer en el MISMO grupo

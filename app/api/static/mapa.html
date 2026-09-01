@@ -986,6 +986,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) { return 0x1f1e6 + c.charCodeAt(0) - 65; }));
   }
   function countryName(cc) { return COUNTRIES[cc] || cc || ""; }
+  function locationName(o) {
+    var loc = o.location || "", country = countryName(o.country_code);
+    var fold = function (v) { return String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); };
+    return loc && country && fold(loc).indexOf(fold(country)) >= 0 ? loc : [loc, country].filter(Boolean).join(", ");
+  }
   function fmtDate(iso) { if (!iso) return ""; var p = iso.split("-"); return Number(p[2]) + " " + MESES[Number(p[1]) - 1]; }
   function fmtRange(o) {
     function p(iso) { var a = iso.split("-"); return { y: +a[0], m: +a[1], d: +a[2] }; }
@@ -1014,7 +1019,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var start = o.application_deadline.replace(/-/g, "");
     var d = new Date(o.application_deadline + "T00:00:00"); d.setDate(d.getDate() + 1);
     var end = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
-    var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
+    var place = locationName(o);
     var details = "Última fecha para inscribirse: \"" + o.title + "\" (Erasmus+, vía Corradi).";
     var link = o.channel_url || o.application_url || o.infopack_url;
     if (link) details += "\n" + link;
@@ -1142,7 +1147,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   // ── Tarjetas ─────────────────────────────────────────────────────
   function cardHTML(o) {
     var t = typeOf(o), dl = deadlineText(o);
-    var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
+    var place = locationName(o);
     var located = hasCoords(o);
     return '<article class="card' + (located ? "" : " unlocated") + '" data-id="' + esc(o.identifier) + '" data-type="' + esc(o.type || "") + '" tabindex="0">' +
       '<div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
@@ -1225,7 +1230,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
   function popupHtml(o) {
     var t = typeOf(o), dl = deadlineText(o);
-    var place = [o.location, countryName(o.country_code)].filter(Boolean).join(", ");
+    var place = locationName(o);
     return '<div class="popup"><div class="popup-photo" style="background-image:url(&quot;' + esc(mapImage(o)) + '&quot;)"></div><div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
       (isNew(o) ? '<span class="new-tag">Nuevo hoy</span>' : "") + "</div>" +
       '</div></div>' +
@@ -1248,10 +1253,13 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
   window.openOpportunityInfo = function (id) {
     var o = all.filter(function (x) { return x.identifier === id; })[0]; if (!o) return;
+    var interactionBody = JSON.stringify({ identifier: id, kind: "view" });
+    if (navigator.sendBeacon) navigator.sendBeacon("/api/interaction", new Blob([interactionBody], { type: "application/json" }));
+    else fetch("/api/interaction", { method: "POST", headers: { "Content-Type": "application/json" }, body: interactionBody, keepalive: true }).catch(function () {});
     var sections = [["Sobre el proyecto",o.detailed_description||o.summary],["Programa y actividades",o.programme_details],["Qué aprenderás",o.learning_outcomes],["A quién buscan",o.participant_profile],["Países participantes",o.eligibility_countries],["Alojamiento y comidas",o.accommodation_details],["Costes y cobertura",o.covered_costs],["Viaje y reembolso",o.travel_details],["Contacto",o.contact_information]].filter(function(x){return x[1]});
     var actions=(o.application_url?'<a class="btn primary" href="'+esc(o.application_url)+'" target="_blank" rel="noopener">Form</a>':"")+(o.infopack_url?'<a class="btn" href="'+esc(o.infopack_url)+'" target="_blank" rel="noopener">Infopack</a>':"");
     document.getElementById("opportunityTitle").textContent=o.title;
-    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div><p><strong>'+flag(o.country_code)+' '+esc([o.location,countryName(o.country_code)].filter(Boolean).join(", "))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
+    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div><p><strong>'+flag(o.country_code)+' '+esc(locationName(o))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
     document.getElementById("opportunityFoot").innerHTML=actions;
     document.getElementById("mapDetailTools").innerHTML=(gcalUrl(o)?'<a href="'+esc(gcalUrl(o))+'" target="_blank" rel="noopener" title="Guardar en calendario" aria-label="Guardar en calendario">'+ICON.calendarPlus+'</a>':"")+'<button id="mapFav" class="'+(favourites.has(id)?"saved":"")+'" title="Guardar en favoritos" aria-label="Guardar en favoritos">'+(favourites.has(id)?"♥":"♡")+'</button><button id="mapShare" title="Compartir" aria-label="Compartir">'+ICON.share+'</button>';
     document.getElementById("mapFav").onclick=function(){favourites.has(id)?favourites.delete(id):favourites.add(id);localStorage.setItem("corradi-favourites",JSON.stringify(Array.from(favourites)));this.classList.toggle("saved",favourites.has(id));this.textContent=favourites.has(id)?"♥":"♡"};document.getElementById("mapShare").onclick=function(){shareOpp(id)};
@@ -1294,11 +1302,19 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     });
     highlight(id);
   }
-  function focusOpportunity(id, fromList) {
+  function focusOpportunity(id, fromList, openInfo) {
     var m = markers[id];
     setActive(id, !fromList);
+    // El diálogo no puede depender del callback de MarkerCluster: ese callback puede no
+    // dispararse si el marcador ya está visible o mientras hay una animación de zoom.
+    // Abrirlo aquí garantiza que un enlace corto siempre muestre la ficha completa; el pin
+    // se centra y abre de forma independiente a continuación.
+    if (openInfo) openOpportunityInfo(id);
     if (!m) return;
-    layer.zoomToShowLayer(m, function () { map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 7), { duration: .6 }); m.openPopup(); });
+    layer.zoomToShowLayer(m, function () {
+      map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 7), { duration: .6 });
+      m.openPopup();
+    });
   }
 
   // ── Filtros rápidos flotantes (categoría) ─────────────────────────
@@ -1536,7 +1552,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   document.addEventListener("click", function (e) {
     var el = e.target.closest("[data-click]");
     if (!el) return;
-    var body = JSON.stringify({ kind: el.dataset.click });
+    var body = JSON.stringify({ kind: el.dataset.click, identifier: activeId });
     if (navigator.sendBeacon) {
       navigator.sendBeacon("/api/click", new Blob([body], { type: "application/json" }));
     } else {
@@ -1818,7 +1834,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         var wanted = params.get("o");
         if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
           setSheet("peek");
-          focusOpportunity(wanted, true);
+          focusOpportunity(wanted, true, true);
         } else if (wanted) {
           // Los enlaces cortos son permanentes. Si la convocatoria ya cerró y por eso no
           // viene en /api/map, recuperamos solo esa ficha para mantener su popup accesible.
@@ -1830,7 +1846,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
               renderList();
               renderMarkers();
               setSheet("peek");
-              focusOpportunity(wanted, true);
+              focusOpportunity(wanted, true, true);
             })
             .catch(function () {});
         }

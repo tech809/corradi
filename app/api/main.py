@@ -232,15 +232,42 @@ async def visit() -> dict[str, int]:
 
 class ClickRequest(BaseModel):
     kind: str
+    identifier: str | None = None
 
 
 @app.post("/api/click")
 async def click(payload: ClickRequest) -> dict[str, str]:
     """Beacon de clic en un enlace saliente de una tarjeta (Más info / Form / Infopack).
-    Agregado puro, igual que /api/visit: no se guarda a qué oportunidad ni quién clicó,
-    solo suma al contador de ese tipo de enlace (repo.bump_click valida `kind`)."""
-    await repo.bump_click(payload.kind)
+    Mantiene el contador global y, si llega un identificador válido, suma la interacción
+    diaria anónima de esa oportunidad. No se guarda quién hizo clic."""
+    await repo.bump_click(payload.kind, payload.identifier)
     return {"ok": "1"}
+
+
+class InteractionRequest(BaseModel):
+    identifier: str
+    kind: str = "view"
+
+
+@app.post("/api/interaction")
+async def interaction(payload: InteractionRequest) -> dict[str, str]:
+    await repo.bump_project_interaction(payload.identifier, payload.kind)
+    return {"ok": "1"}
+
+
+@app.get("/api/top")
+async def top_projects(response: Response) -> dict[str, Any]:
+    """Top 3 por clics totales de los últimos siete días; cero clics no entra."""
+    response.headers["Cache-Control"] = "public, max-age=300"
+    rows = await repo.list_top_projects(days=7, limit=3)
+    results = []
+    for rank, row in enumerate(rows, 1):
+        item = _serialize(row)
+        item["rank"] = rank
+        item["interaction_score"] = row.get("interaction_score", 0)
+        item["interactions"] = row.get("interactions", 0)
+        results.append(item)
+    return {"period_days": 7, "results": results}
 
 
 # ── Chat del mapa (docs/chatbot_mapa.md) ─────────────────────────────────────────────────

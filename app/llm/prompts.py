@@ -105,6 +105,11 @@ RULES:
 - application_deadline = deadline to apply/register, if explicitly mentioned.
 - type must be one of: __TYPES__ (or null if unclear).
 - country_code = ISO 3166-1 alpha-2 of the host country (e.g. ES, IT, RO, PL, LV, LT), or null.
+- location = the MOST PRECISE confirmed physical host place found anywhere in the source:
+  venue/locality and country (e.g. "La Villa Royale, Trakai, Lithuania"), or a confirmed
+  island/region when no city is known. Read logistics, accommodation and travel sections too;
+  they often contain a more precise venue than the heading. Return only the country if the
+  source truly gives nothing more precise. Never use participant/sending countries as location.
 - title = the project name (often in quotes/caps), NOT the urgency banner. Ignore intros like "URGENTE" or jokes.
   Keep the title in its ORIGINAL language (do NOT translate it).
 - summary = 2 neutral sentences describing the opportunity (roughly 150-250 characters total —
@@ -164,6 +169,7 @@ Write in natural Spanish, preserve factual numbers and never invent missing info
 
 Return ONLY JSON with exactly these keys. Use null when the document provides no useful fact:
 {
+  "location": "most precise confirmed venue/locality/region and country",
   "detailed_description": "3-6 short, readable paragraphs; 700-1800 characters",
   "programme_details": "concrete activities and methodology",
   "learning_outcomes": "skills and learning objectives",

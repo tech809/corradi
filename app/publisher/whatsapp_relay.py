@@ -62,6 +62,11 @@ async def send_opportunity(whatsapp_text: str) -> None:
             log.exception("No pude reenviar la oportunidad al chat %s por el bot de difusión", chat_id)
 
 
+async def send_text(text: str) -> None:
+    """Envía un texto editorial ya preparado al circuito manual de WhatsApp."""
+    await send_opportunity(text)
+
+
 async def _send_chunked(bot, chat_id: int, text: str) -> None:
     """Trocea por saltos de línea completos si hace falta (nunca a mitad de línea) — mismo
     criterio que `send_chunked_dm` en telegram_publisher.py."""
