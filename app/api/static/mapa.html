@@ -1832,10 +1832,12 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         buildCountries();
         buildTopics();
         buildMonths();
+        var params = new URLSearchParams(location.search);
         var sharedFiltersRaw=localStorage.getItem("corradi-filters");
         resetFilters();
-        restoreSharedFilters(sharedFiltersRaw);
-        var params = new URLSearchParams(location.search);
+        // ?todo=1 (desde la miniatura de la portada) -> abrir el mapa con TODO, sin
+        // arrastrar los filtros del catálogo.
+        if(!params.get("todo")) restoreSharedFilters(sharedFiltersRaw);
         var wanted = params.get("o");
         if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
           setSheet("peek");
