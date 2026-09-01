@@ -775,7 +775,7 @@ function openCountryMap(countries) {
 
   var maxN = Math.max.apply(null, countries.map(function (c) { return c.n; }).concat([1]));
   countryMapObj = L.map("countryMap", { attributionControl: false, worldCopyJump: true }).setView([50, 12], 4);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { subdomains: "abcd", maxZoom: 10 }).addTo(countryMapObj);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 10 }).addTo(countryMapObj);
 
   countries.forEach(function (c) {
     var bg = countColor(c.n, maxN), fg = countTextColor(c.n, maxN);
