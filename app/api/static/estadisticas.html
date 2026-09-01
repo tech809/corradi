@@ -249,8 +249,7 @@ a.hot-title:hover { color: var(--brand); text-decoration: underline; }
 #countryMap .leaflet-interactive { transition: fill-opacity .12s; }
 .cmap-legend { display: flex; align-items: center; gap: 7px; padding: 12px 22px; font-size: 11.5px; color: var(--ink-faint); flex-wrap: wrap; }
 .cmap-legend .swatch { width: 24px; height: 12px; border-radius: 3px; display: inline-block; }
-.cnum { font: 800 13px var(--font-display); letter-spacing: -.02em; text-align: center; white-space: nowrap; line-height: 1;
-  text-shadow: 0 1px 2px rgba(255,255,255,.95), 0 0 4px rgba(255,255,255,.8); pointer-events: none; }
+.cnum { font: 800 13px var(--font-display); letter-spacing: -.02em; text-align: center; white-space: nowrap; line-height: 1; pointer-events: none; }
 
 /* ── Archivo ──────────────────────────────────────────────────────────── */
 .archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
@@ -753,15 +752,19 @@ function buildHeatBrush(radius) {
   return c;
 }
 
-// Color por número de proyectos: arena claro -> latón intenso, con gamma para que los
-// países con pocos proyectos también se tiñan (si no, todos menos el líder salen casi iguales).
+// Color por número de proyectos: azul claro -> azul marino de marca, con gamma para que
+// los países con pocos proyectos también se tiñan (si no, todos menos el líder salen igual).
+function countT(n, max) { return Math.pow(Math.min(1, n / Math.max(1, max)), 0.55); }
 function countColor(n, max) {
-  var t = Math.pow(Math.min(1, n / Math.max(1, max)), 0.55);
-  var a = [236, 226, 202], b = [120, 72, 16];
+  var t = countT(n, max);
+  var a = [219, 229, 246], b = [13, 29, 78];
   return "rgb(" + a.map(function (v, i) { return Math.round(v + (b[i] - v) * t); }).join(",") + ")";
 }
-function countTextColor(n, max) {
-  return Math.pow(Math.min(1, n / Math.max(1, max)), 0.55) < 0.42 ? "#3a2a12" : "#fff";
+function countTextColor(n, max) { return countT(n, max) < 0.4 ? "#12224e" : "#fff"; }
+function countNumShadow(n, max) {
+  return countT(n, max) < 0.4
+    ? "0 1px 2px rgba(255,255,255,.95), 0 0 4px rgba(255,255,255,.8)"
+    : "0 1px 3px rgba(6,14,40,.55)";
 }
 
 var countryMapObj = null, euGeoCache = null;
@@ -816,7 +819,7 @@ function openCountryMap(countries) {
       L.marker([f.properties.lat, f.properties.lon], {
         interactive: false, keyboard: false,
         icon: L.divIcon({ className: "", iconSize: [40, 16], iconAnchor: [20, 8],
-          html: '<div class="cnum" style="color:' + countTextColor(n, maxN) + '">' + n + "</div>" }),
+          html: '<div class="cnum" style="color:' + countTextColor(n, maxN) + ';text-shadow:' + countNumShadow(n, maxN) + '">' + n + "</div>" }),
       }).addTo(countryMapObj);
     });
 
@@ -831,9 +834,8 @@ function renderHeatmap(points) {
     return;
   }
   var map = L.map(el, { attributionControl: false }).setView([48, 15], 5);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    subdomains: "abcd", maxZoom: 9,
-  }).addTo(map);
+  // OSM en vez de CartoDB light_all: este último pasó a exigir API key (marca de agua).
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 9 }).addTo(map);
 
   var canvas = document.createElement("canvas");
   canvas.className = "heat-canvas";
