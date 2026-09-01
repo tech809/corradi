@@ -257,9 +257,10 @@ async def interaction(payload: InteractionRequest) -> dict[str, str]:
 
 @app.get("/api/top")
 async def top_projects(response: Response) -> dict[str, Any]:
-    """Top 3 por clics totales de los últimos siete días; cero clics no entra."""
+    """Top 3 por clics totales de los últimos 30 días; cero clics no entra.
+    Ventana ancha a propósito: con el tráfico actual, 7 días deja el bloque vacío casi siempre."""
     response.headers["Cache-Control"] = "public, max-age=300"
-    rows = await repo.list_top_projects(days=7, limit=3)
+    rows = await repo.list_top_projects(days=30, limit=3)
     results = []
     for rank, row in enumerate(rows, 1):
         item = _serialize(row)
@@ -267,7 +268,7 @@ async def top_projects(response: Response) -> dict[str, Any]:
         item["interaction_score"] = row.get("interaction_score", 0)
         item["interactions"] = row.get("interactions", 0)
         results.append(item)
-    return {"period_days": 7, "results": results}
+    return {"period_days": 30, "results": results}
 
 
 # ── Chat del mapa (docs/chatbot_mapa.md) ─────────────────────────────────────────────────
