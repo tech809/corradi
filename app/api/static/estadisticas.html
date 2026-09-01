@@ -236,6 +236,23 @@ a.hot-title:hover { color: var(--brand); text-decoration: underline; }
 .more-btn[hidden] { display: none; }
 [data-hidden-extra="true"] { display: none !important; }
 
+/* ── Mapa por país (Ver más) ─────────────────────────────────────────── */
+.cmap-dialog { border: 0; padding: 0; border-radius: 22px; width: min(940px, calc(100vw - 28px)); max-width: none;
+  background: var(--surface); overflow: hidden; box-shadow: 0 40px 90px rgba(11,18,44,.35); }
+.cmap-dialog::backdrop { background: rgba(11,18,44,.5); backdrop-filter: blur(3px); }
+.cmap-head { display: flex; align-items: center; justify-content: space-between; padding: 17px 22px; border-bottom: 1px solid var(--line); }
+.cmap-head h2 { margin: 0; font: 700 18px var(--font-display); letter-spacing: -.025em; }
+.cmap-close { border: 0; background: var(--surface-sunk); width: 34px; height: 34px; border-radius: 50%;
+  cursor: pointer; font-size: 13px; color: var(--ink-soft); }
+.cmap-close:hover { color: var(--ink); }
+#countryMap { height: min(64vh, 560px); background: var(--surface-sunk); }
+.cmap-legend { display: flex; align-items: center; gap: 7px; padding: 12px 22px; font-size: 11.5px; color: var(--ink-faint); flex-wrap: wrap; }
+.cmap-legend .swatch { width: 24px; height: 12px; border-radius: 3px; display: inline-block; }
+.cbadge { display: grid; place-items: center; min-width: 30px; height: 24px; padding: 0 8px; border-radius: 999px;
+  font: 800 12.5px var(--font-display); line-height: 1; letter-spacing: -.01em;
+  box-shadow: 0 3px 9px rgba(11,18,44,.3), 0 0 0 2px #fff; }
+.cbadge:hover { z-index: 999; }
+
 /* ── Archivo ──────────────────────────────────────────────────────────── */
 .archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .arch-card {
@@ -384,6 +401,7 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
         </div>
       </div>
       <div id="countries"></div>
+      <button type="button" class="more-btn" id="countriesMore">Ver mapa por países →</button>
     </section>
   </div>
 
@@ -455,6 +473,15 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
   <footer class="foot">Corradi Erasmus+ · <a href="/mapa">mapa.proactivefuture.eu</a></footer>
 </div>
 
+<dialog id="countryMapDialog" class="cmap-dialog" aria-labelledby="cmapTitle">
+  <div class="cmap-head">
+    <h2 id="cmapTitle">Proyectos por país · histórico</h2>
+    <button type="button" class="cmap-close" id="countryMapClose" aria-label="Cerrar">✕</button>
+  </div>
+  <div id="countryMap"></div>
+  <div class="cmap-legend" id="countryMapLegend"></div>
+</dialog>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
@@ -496,8 +523,8 @@ function render(data) {
   STATE.daily = data.daily_visits || [];
 
   document.getElementById("tiles").innerHTML =
-    tile(data.total_published, "Proyectos publicados (histórico)", "var(--brand)") +
     tile(data.total_open, "Abiertas ahora mismo", "var(--ecs)") +
+    tile(data.total_published, "Proyectos publicados (histórico)", "var(--brand)") +
     tile(data.total_clicks, "Clics a enlaces (info/form/infopack)", "var(--brass)") +
     tile(data.total_visits, "Visitas totales (histórico)", "var(--ye)");
 
@@ -511,6 +538,12 @@ function render(data) {
   document.getElementById("countries").innerHTML =
     podium(data.top_countries, function (c) { return ccFlag(c.country_code) + " " + esc(c.country_name); },
            function (c) { return c.n; });
+  var cmoreBtn = document.getElementById("countriesMore");
+  var cGeo = (data.top_countries || []).filter(function (c) { return c.centroid && c.centroid.length === 2; });
+  cmoreBtn.hidden = cGeo.length < 4;
+  cmoreBtn.onclick = function () { openCountryMap(cGeo); };
+  document.getElementById("countryMapClose").onclick = function () { document.getElementById("countryMapDialog").close(); };
+  document.getElementById("countryMapDialog").addEventListener("click", function (e) { if (e.target === this) this.close(); });
 
   renderInterest(data.interest);
   renderAssociations(data.organisers);
@@ -720,6 +753,49 @@ function buildHeatBrush(radius) {
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(radius, radius, radius, 0, Math.PI * 2); ctx.fill();
   return c;
+}
+
+// Color por número de proyectos: arena claro -> latón intenso, con gamma para que los
+// países con pocos proyectos también se tiñan (si no, todos menos el líder salen casi iguales).
+function countColor(n, max) {
+  var t = Math.pow(Math.min(1, n / Math.max(1, max)), 0.55);
+  var a = [236, 226, 202], b = [120, 72, 16];
+  return "rgb(" + a.map(function (v, i) { return Math.round(v + (b[i] - v) * t); }).join(",") + ")";
+}
+function countTextColor(n, max) {
+  return Math.pow(Math.min(1, n / Math.max(1, max)), 0.55) < 0.42 ? "#3a2a12" : "#fff";
+}
+
+var countryMapObj = null;
+function openCountryMap(countries) {
+  var dlg = document.getElementById("countryMapDialog");
+  dlg.showModal();
+  if (countryMapObj) { setTimeout(function () { countryMapObj.invalidateSize(); }, 40); return; }
+  if (typeof L === "undefined" || !countries.length) return;
+
+  var maxN = Math.max.apply(null, countries.map(function (c) { return c.n; }).concat([1]));
+  countryMapObj = L.map("countryMap", { attributionControl: false, worldCopyJump: true }).setView([50, 12], 4);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { subdomains: "abcd", maxZoom: 10 }).addTo(countryMapObj);
+
+  countries.forEach(function (c) {
+    var bg = countColor(c.n, maxN), fg = countTextColor(c.n, maxN);
+    L.marker(c.centroid, {
+      icon: L.divIcon({ className: "", iconSize: [40, 24], iconAnchor: [20, 12],
+        html: '<div class="cbadge" style="background:' + bg + ';color:' + fg + '">' + c.n + "</div>" }),
+      keyboard: false,
+    }).bindTooltip(esc(c.country_name) + " · " + c.n + " proyecto" + (c.n === 1 ? "" : "s"),
+      { direction: "top", offset: [0, -12], className: "cmap-tip" }).addTo(countryMapObj);
+  });
+  countryMapObj.fitBounds(countries.map(function (c) { return c.centroid; }), { padding: [46, 46], maxZoom: 5 });
+
+  document.getElementById("countryMapLegend").innerHTML =
+    "Menos " +
+    '<span class="swatch" style="background:' + countColor(1, maxN) + '"></span>' +
+    '<span class="swatch" style="background:' + countColor(maxN * 0.35, maxN) + '"></span>' +
+    '<span class="swatch" style="background:' + countColor(maxN * 0.7, maxN) + '"></span>' +
+    '<span class="swatch" style="background:' + countColor(maxN, maxN) + '"></span> Más proyectos (histórico)';
+
+  setTimeout(function () { countryMapObj.invalidateSize(); }, 60);
 }
 
 function renderHeatmap(points) {
