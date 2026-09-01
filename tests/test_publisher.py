@@ -37,13 +37,13 @@ def test_format_opportunity_whatsapp_bold():
 def test_format_opportunity_whatsapp_incluye_bandera_y_categoria():
     """Sin foto (el canal de difusión de WhatsApp es solo texto), así que la bandera y la
     categoría -- que en Telegram van en la imagen del post, no en el pie -- tienen que
-    escribirse aquí o se pierden por completo en la copia. Categoría y tema van en líneas
-    separadas (no como antes, pegados con ' · ')."""
+    escribirse aquí o se pierden por completo en la copia. Categoría y temática van
+    juntas en una sola línea, sin la etiqueta '🏷️ Temática:'."""
     t = pub.format_opportunity_whatsapp(OPP)
     lineas = t.split("\n")
     assert "🇪🇸 *Green Roots*" in lineas  # bandera de España, no el 🌍 genérico
-    assert "🎒 Youth Exchange" in lineas  # categoría en su propia línea
-    assert "🏷️ Temática: sostenibilidad" in lineas
+    assert "🎒 Youth Exchange: sostenibilidad" in lineas  # categoría + tema en una línea
+    assert "🏷️" not in t
 
 
 def test_format_opportunity_whatsapp_categoria_sin_tema():
@@ -66,7 +66,7 @@ def test_format_opportunity_whatsapp_cuenta_dias_para_el_limite():
     explícito aquí), así que solo se comprueba la forma, no el número exacto de días."""
     t = pub.format_opportunity_whatsapp(OPP)
     linea = next(l for l in t.split("\n") if l.startswith("⏳"))
-    assert linea.startswith("⏳ Fecha límite: 2026-08-25")
+    assert linea.startswith("⏳ Fecha límite: 25 ago")  # fecha compacta sin año, no ISO
     assert "*" not in linea  # sin negrita en el pie, a diferencia del título
     assert linea.strip().endswith(")") and "(" in linea  # "(quedan N días)" / "(cierra ...)"
 
@@ -118,33 +118,34 @@ def test_cap_summary_texto_corto_no_se_toca():
     assert pub._cap_summary("Resumen breve.") == "Resumen breve."
 
 
-def test_format_opportunity_whatsapp_campos_de_contacto_solo_si_existen():
-    """Cada campo (Infopack/Form/Contacto/Mapa) es una línea aparte y SOLO sale si hay
-    dato -- nunca una línea vacía o "Infopack: -" para rellenar a mano."""
+def test_format_opportunity_whatsapp_bloque_de_enlaces():
+    """📄 Info es el enlace corto de Corradi (abre la ficha en el mapa); NO se repite la
+    URL cruda del infopack. Cada línea solo sale si hay dato y todas las URLs van sin
+    'https://' ni 'www.'."""
     completa = {
         **OPP,
         "infopack_url": "https://salto-youth.net/tools/toy/infopack.pdf",
-        "application_url": "https://forms.gle/x",
+        "application_url": "https://www.forms.gle/x",
         "contact_information": "info@ejemplo.eu",
     }
     t = pub.format_opportunity_whatsapp(completa)
-    assert "Infopack: https://salto-youth.net/tools/toy/infopack.pdf" in t
-    assert "Form: https://forms.gle/x" in t
-    assert "Contacto: info@ejemplo.eu" in t
-    assert "Mapa: https://mapa.proactivefuture.eu/2026-0001" in t
+    assert "📄 Info: mapa.proactivefuture.eu/2026-0001" in t
+    assert "✍️ Form: forms.gle/x" in t          # sin https:// ni www.
+    assert "✉️ Contacto: info@ejemplo.eu" in t
+    assert "https://" not in t and "salto-youth.net" not in t  # infopack crudo fuera
 
     solo_form = {**OPP, "infopack_url": None, "contact_information": None}
     t2 = pub.format_opportunity_whatsapp(solo_form)
-    assert "Infopack:" not in t2
-    assert "Form: https://forms.gle/x" in t2
-    assert "Contacto:" not in t2
-    assert "Mapa: https://mapa.proactivefuture.eu/2026-0001" in t2  # el mapa sale siempre que hay identifier
+    assert "📄 Info: mapa.proactivefuture.eu/2026-0001" in t2  # el enlace corto sale siempre que hay identifier
+    assert "✍️ Form: forms.gle/x" in t2
+    assert "✉️ Contacto:" not in t2
 
 
-def test_format_opportunity_whatsapp_sin_ningun_contacto_ni_mapa():
-    sin_nada = {k: v for k, v in OPP.items() if k not in ("identifier", "application_url")}
-    t = pub.format_opportunity_whatsapp(sin_nada)
-    assert "Infopack:" not in t and "Form:" not in t and "Contacto:" not in t and "Mapa:" not in t
+def test_format_opportunity_whatsapp_sin_enlaces_conserva_fecha_limite():
+    sin_enlaces = {k: v for k, v in OPP.items() if k not in ("identifier", "application_url")}
+    t = pub.format_opportunity_whatsapp(sin_enlaces)
+    assert "📄 Info:" not in t and "✍️ Form:" not in t and "✉️ Contacto:" not in t
+    assert "⏳ Fecha límite: 25 ago" in t  # la fecha límite sí sigue saliendo
 
 
 def test_daily_summary_empty():
@@ -206,10 +207,10 @@ def test_format_top_projects_for_telegram_and_whatsapp():
     opps = [{**OPP, "title": "Green & Digital", "location": "Lugo, España"}]
     telegram = pub.format_top_projects(opps, html=True)
     whatsapp = pub.format_top_projects(opps, html=False)
-    assert "🔥 <b>TOP 3 DE LA SEMANA</b>" in telegram
+    assert "🔥 <b>TOP 3 · LO MÁS VISTO</b>" in telegram
     assert "Green &amp; Digital" in telegram
     assert '<a href="https://mapa.proactivefuture.eu/2026-0001">Ver proyecto</a>' in telegram
-    assert "🔥 TOP 3 DE LA SEMANA" in whatsapp
+    assert "🔥 TOP 3 · LO MÁS VISTO" in whatsapp
     assert "Green & Digital" in whatsapp
     assert "https://mapa.proactivefuture.eu/2026-0001" in whatsapp
     assert "<b>" not in whatsapp and "<a " not in whatsapp

@@ -210,6 +210,18 @@ def _compact_dates(o: dict[str, Any]) -> str:
     return "fechas por confirmar"
 
 
+def _deadline_short(iso: str | date) -> str:
+    """Fecha límite compacta, sin año: '2026-10-01' -> '1 oct' (mismo estilo que _compact_dates)."""
+    p = str(iso).split("-")
+    return f"{int(p[2])} {_MES_ABBR[int(p[1]) - 1]}"
+
+
+def _bare_url(u: str) -> str:
+    """URL sin 'https://'/'http://' ni 'www.' — más limpia en el mensaje. WhatsApp y
+    Telegram detectan igual `dominio.tld/ruta` y la hacen tocable."""
+    return re.sub(r"^https?://(www\.)?", "", str(u).strip(), flags=re.I)
+
+
 def _place(o: dict[str, Any]) -> str:
     """Ubicación, simplificada a como máximo "Ciudad/Región, País": una localización con
     más de 2 segmentos separados por coma (p.ej. "Campotenese, Parque Nacional del
@@ -331,13 +343,14 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
     Telegram van en la imagen del post (ver `opportunity_card.py`) y no se repiten en el
     pie, aquí SÍ hay que escribirlas -- si no, se pierden por completo en la copia.
 
-    Cada campo de contacto (Infopack/Form/Contacto/Mapa) es una línea aparte y SOLO
-    aparece si hay dato -- si una oportunidad no tiene infopack, por ejemplo, esa línea
-    no sale (nunca "Infopack: -" ni nada a rellenar a mano)."""
+    Bloque final: 📄 Info (enlace corto a la ficha en el mapa), ✍️ Form, ✉️ Contacto y
+    ⏳ Fecha límite. Cada línea SOLO aparece si hay dato (nunca "Form: -" a rellenar a
+    mano). URLs sin esquema (`https://`/`www.`), que se hacen tocables igual."""
     flag = _flag(o.get("country_code")) or "🌍"
-    cabecera = [f"{flag} *{o['title']}*", _CATEGORIA_WHATSAPP.get(o.get("type"), _OTRAS_CATEGORIA)]
+    categoria = _CATEGORIA_WHATSAPP.get(o.get("type"), _OTRAS_CATEGORIA)
     if o.get("topic"):
-        cabecera.append(f"🏷️ Temática: {o['topic']}")
+        categoria = f"{categoria}: {o['topic']}"
+    cabecera = [f"{flag} *{o['title']}*", categoria]
     if _place(o):
         cabecera.append(f"📍 {_place(o)}")
     cabecera.append(f"🗓️ {_compact_dates(o)}")
@@ -347,24 +360,25 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
     if o.get("summary"):
         bloques.append(_cap_summary(o["summary"]))
 
-    contacto = []
-    if o.get("infopack_url"):
-        contacto.append(f"Infopack: {o['infopack_url']}")
-    if o.get("application_url"):
-        contacto.append(f"Form: {o['application_url']}")
-    if o.get("contact_information"):
-        contacto.append(f"Contacto: {o['contact_information']}")
+    # Enlaces + fecha límite, todo en un bloque. "Info" es el enlace corto de Corradi:
+    # abre la ficha completa del proyecto en el mapa (con el infopack dentro), así que no
+    # se repite aquí la URL cruda del infopack. URLs sin esquema: quedan más limpias y
+    # WhatsApp/Telegram las hacen tocables igual.
+    lineas = []
     short_link = _short_map_link(o.get("identifier"))
     if short_link:
-        contacto.append(f"Mapa: {short_link}")
-    if contacto:
-        bloques.append("\n".join(contacto))
-
+        lineas.append(f"📄 Info: {_bare_url(short_link)}")
+    if o.get("application_url"):
+        lineas.append(f"✍️ Form: {_bare_url(o['application_url'])}")
+    if o.get("contact_information"):
+        lineas.append(f"✉️ Contacto: {o['contact_information']}")
     if o.get("application_deadline"):
-        bloques.append(
-            f"⏳ Fecha límite: {o['application_deadline']}{_est(o)} "
+        lineas.append(
+            f"⏳ Fecha límite: {_deadline_short(o['application_deadline'])}{_est(o)} "
             f"({_days_left(o['application_deadline'])})"
         )
+    if lineas:
+        bloques.append("\n".join(lineas))
 
     return "\n\n".join(bloques)
 
@@ -487,19 +501,20 @@ def format_weekly_summary(
 
 
 def format_top_projects(opps: list[dict[str, Any]], html: bool = True) -> str:
-    """Top 3 de interacción de los últimos siete días para Telegram o WhatsApp."""
+    """Top 3 por clics de las últimas semanas para Telegram o WhatsApp."""
     def safe(value: Any) -> str:
         text = str(value or "")
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") if html else text
 
-    head = "🔥 <b>TOP 3 DE LA SEMANA</b>" if html else "🔥 TOP 3 DE LA SEMANA"
-    lines = [head, "", "Los proyectos que más clics han recibido durante los últimos 7 días:"]
+    head = "🔥 <b>TOP 3 · LO MÁS VISTO</b>" if html else "🔥 TOP 3 · LO MÁS VISTO"
+    lines = [head, "", "Los proyectos con más clics en sus enlaces durante las últimas semanas:"]
     medals = ("🥇", "🥈", "🥉")
     base = (cfg.map_public_url or "https://mapa.proactivefuture.eu").rstrip("/")
     for i, opp in enumerate(opps[:3]):
         title = safe(opp.get("title") or "Oportunidad Erasmus+")
-        short_id = str(opp.get("identifier") or "").replace(f"{cfg.identifier_prefix}-", "")
-        url = f"{base}/{short_id}" if short_id else base
+        # Mismo enlace corto que el pie de WhatsApp: origen + /{id}, sin el path de
+        # cfg.map_public_url (que a veces lleva /corradi-erasmus y daba un 404).
+        url = _short_map_link(opp.get("identifier")) or base
         place = safe(opp.get("location") or _PAISES_ES.get(str(opp.get("country_code") or ""), "Destino por confirmar"))
         summary = " ".join(str(opp.get("summary") or "").split())
         if len(summary) > 190:

@@ -1,4 +1,4 @@
-"""Publica el Top 3 de interacción de los últimos siete días, martes y viernes por cron."""
+"""Publica el Top 3 de interacción de las últimas semanas, martes y viernes por cron."""
 from __future__ import annotations
 
 import asyncio
@@ -16,7 +16,7 @@ log = logging.getLogger("corradi.top_projects")
 async def run() -> None:
     await open_pool()
     try:
-        top = await repo.list_top_projects(days=7, limit=3)
+        top = await repo.list_top_projects(days=30, limit=3)
         if not top:
             log.info("No hay oportunidades abiertas para construir el Top 3.")
             return
