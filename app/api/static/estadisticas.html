@@ -362,6 +362,27 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
     </section>
   </div>
 
+  <section class="card" id="interestCard" hidden>
+    <div class="card-head">
+      <div>
+        <h2>Qué está funcionando</h2>
+        <p class="hint">Interés real (clics a enlaces y aperturas de ficha) en los últimos <span id="interestDays">30</span> días.</p>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-bottom:14px">
+      <div>
+        <p class="hint" style="margin:0 0 8px">Por tipo</p>
+        <div class="rank-list" id="interestType"></div>
+      </div>
+      <div>
+        <p class="hint" style="margin:0 0 8px">Por país</p>
+        <div class="rank-list" id="interestCountry"></div>
+      </div>
+    </div>
+    <p class="hint" style="margin:6px 0 8px">Proyectos con más interés</p>
+    <div class="rank-list" id="interestTop"></div>
+  </section>
+
   <section class="card">
     <div class="card-head">
       <div>
@@ -469,6 +490,7 @@ function render(data) {
       '<div class="bar-wrap"><div class="fill" style="width:' + pct + '%"></div></div></div>';
   }).join("") || '<p class="empty">Sin datos todavía.</p>';
 
+  renderInterest(data.interest);
   renderAssociations(data.organisers);
   renderArchive(data.closed);
   renderHeatmap(data.heatmap_points || []);
@@ -476,6 +498,43 @@ function render(data) {
 
   wireRangeSeg();
   renderChart();
+}
+
+function ccFlag(cc) {
+  if (!cc || cc.length !== 2) return "🌍";
+  return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) { return 127397 + c.charCodeAt(0); }));
+}
+
+function interestRows(items, labelFn) {
+  var max = Math.max.apply(null, items.map(function (x) { return x.clicks || 0; }).concat([1]));
+  return items.map(function (x, i) {
+    var pct = Math.round(((x.clicks || 0) / max) * 100);
+    var sub = (x.views ? x.views + " vistas de ficha" : "");
+    return '<div class="rank-row"><span class="pos">' + (i + 1) + '</span>' +
+      '<span class="name">' + labelFn(x) + (sub ? ' <span style="color:var(--ink-faint);font-weight:500">· ' + sub + '</span>' : '') + '</span>' +
+      '<span class="n">' + (x.clicks || 0) + '</span>' +
+      '<div class="bar-wrap"><div class="fill" style="width:' + pct + '%"></div></div></div>';
+  }).join("");
+}
+
+function renderInterest(it) {
+  var card = document.getElementById("interestCard");
+  if (!it || !it.by_type || (!it.by_type.length && !it.top_projects.length)) { card.hidden = true; return; }
+  card.hidden = false;
+  document.getElementById("interestDays").textContent = it.period_days;
+  document.getElementById("interestType").innerHTML =
+    interestRows(it.by_type, function (x) { return esc(x.type_name || x.type); }) || '<p class="empty">Sin datos todavía.</p>';
+  document.getElementById("interestCountry").innerHTML =
+    interestRows(it.by_country, function (x) { return ccFlag(x.country_code) + " " + esc(x.country_name || x.country_code); }) || '<p class="empty">Sin datos todavía.</p>';
+  document.getElementById("interestTop").innerHTML = it.top_projects.map(function (p, i) {
+    var name = p.open
+      ? '<a href="/' + esc(p.short_id) + '" style="color:inherit">' + esc(p.title) + '</a>'
+      : esc(p.title) + ' <span style="color:var(--ink-faint);font-weight:500">· cerrada</span>';
+    return '<div class="rank-row"><span class="pos">' + (i + 1) + '</span>' +
+      '<span class="name">' + name + ' <span style="color:var(--ink-faint);font-weight:500">· ' + ccFlag(p.country_code) + ' ' + esc(p.type_name || "") + '</span></span>' +
+      '<span class="n">' + (p.clicks || 0) + '</span>' +
+      '<div class="bar-wrap"><div class="fill" style="width:' + Math.round(((p.clicks || 0) / Math.max.apply(null, it.top_projects.map(function (q) { return q.clicks || 0; }).concat([1])) ) * 100) + '%"></div></div></div>';
+  }).join("") || '<p class="empty">Sin datos todavía.</p>';
 }
 
 function projRowHtml(p) {

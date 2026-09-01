@@ -454,6 +454,48 @@ async def list_top_projects(days: int = 7, limit: int = 3) -> list[dict[str, Any
         return []
 
 
+async def interest_breakdown(days: int = 30) -> dict[str, Any]:
+    """Para /estadisticas ('qué está funcionando'): clics salientes (info/form/infopack)
+    y vistas de ficha, agregados por TIPO y por PAÍS en los últimos `days` días, más el
+    ranking de proyectos. Solo recuentos agregados; nada identifica a nadie."""
+    days = max(7, min(days, 90))
+    empty: dict[str, Any] = {"period_days": days, "by_type": [], "by_country": [], "top_projects": []}
+    clicks = "i.kind IN ('info', 'form', 'infopack')"
+    frm = ("FROM project_interactions i JOIN projects p ON p.id = i.project_id "
+           "WHERE i.day >= current_date - %s")
+    try:
+        async with get_pool().connection() as conn:
+            async with conn.cursor(row_factory=dict_row) as cur:
+                await cur.execute(
+                    f"SELECT p.type, SUM(i.count) FILTER (WHERE {clicks})::int AS clicks, "
+                    f"SUM(i.count) FILTER (WHERE i.kind = 'view')::int AS views "
+                    f"{frm} AND p.type IS NOT NULL GROUP BY p.type ORDER BY clicks DESC NULLS LAST",
+                    (days - 1,),
+                )
+                by_type = list(await cur.fetchall())
+                await cur.execute(
+                    f"SELECT p.country_code, SUM(i.count) FILTER (WHERE {clicks})::int AS clicks, "
+                    f"SUM(i.count) FILTER (WHERE i.kind = 'view')::int AS views "
+                    f"{frm} AND p.country_code IS NOT NULL GROUP BY p.country_code "
+                    f"ORDER BY clicks DESC NULLS LAST LIMIT 12",
+                    (days - 1,),
+                )
+                by_country = list(await cur.fetchall())
+                await cur.execute(
+                    f"SELECT p.identifier, p.title, p.type, p.country_code, p.status, "
+                    f"p.application_deadline, "
+                    f"SUM(i.count) FILTER (WHERE {clicks})::int AS clicks, "
+                    f"SUM(i.count) FILTER (WHERE i.kind = 'view')::int AS views "
+                    f"{frm} GROUP BY p.id "
+                    f"ORDER BY clicks DESC NULLS LAST, views DESC NULLS LAST LIMIT 10",
+                    (days - 1,),
+                )
+                top = list(await cur.fetchall())
+        return {"period_days": days, "by_type": by_type, "by_country": by_country, "top_projects": top}
+    except pg_errors.UndefinedTable:
+        return empty
+
+
 async def get_click_counts() -> dict[str, int]:
     async with get_pool().connection() as conn:
         cur = await conn.execute(
