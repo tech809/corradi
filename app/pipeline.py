@@ -19,7 +19,7 @@ from app.domain.project import canonicalize_organiser, make_hash
 from app.llm import embeddings, extractor
 from app.publisher import handoff
 from app.publisher import instagram
-from app.publisher import opportunity_card
+from app.publisher import card_v2
 from app.publisher import telegram_publisher as pub
 
 log = logging.getLogger("corradi.pipeline")
@@ -260,7 +260,7 @@ async def commit(
     # el resto en el pie) + handoff (WhatsApp)
     try:
         caption = pub.format_opportunity(opp, buttons=True, show_title=False, show_type=False)
-        image = await asyncio.to_thread(opportunity_card.render, opp)
+        image = await asyncio.to_thread(card_v2.render, opp)
         message_id = await pub.publish_photo_to_channel(
             image, caption, reply_markup=pub.opportunity_keyboard(opp)
         )

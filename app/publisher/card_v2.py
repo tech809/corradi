@@ -1,24 +1,30 @@
-"""Prototipo v2 del banner de oportunidad para el canal de Telegram.
+"""Banner v2 de oportunidad para el canal de Telegram (lo usa `pipeline.commit`).
 
-Diferencias con `opportunity_card.py` (v1, banner plano de color):
-  - usa la FOTO de la oportunidad (image_url de Pexels, o el pool de reserva) de fondo
+Diferencias con el v1 (`opportunity_card.py`, banner plano de color):
+  - usa la FOTO de la oportunidad (image_url de Pexels/subida, o el pool de reserva) de fondo
   - el texto (categoría + título) va superpuesto sobre la foto, con degradado para leerse
   - formato un poco más horizontal
   - marco de color según el tipo de evento (azul YE · amarillo TC · verde ECS)
 
-Es solo un prototipo para validar por Telegram; no está enganchado al pipeline todavía.
-Ejecutar dentro del contenedor `bot`:
-    docker compose run --rm --no-deps bot python -m app.publisher.card_v2
+`render(opp)` es drop-in de `opportunity_card.render`: baja la foto por su cuenta y nunca
+lanza (una foto rota cae al pool y luego a un degradado del color del tipo).
+
+Previsualizar por Telegram (manda al primer ADMIN_TELEGRAM_IDS):
+    docker compose run --rm --no-deps bot python -m app.publisher.card_v2 [CORRADI-2026-0123 ...]
 """
 from __future__ import annotations
 
 import io
+import logging
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFilter, ImageOps
+from PIL import Image, ImageDraw, ImageOps
 
+from app.config import cfg
 from app.publisher.opportunity_card import CAT_COLORS, CAT_LABELS, _flag
+
+log = logging.getLogger("corradi.card_v2")
 
 _FONT_DIR = Path(__file__).resolve().parent.parent / "api" / "static" / "fonts"
 _POOL_DIR = Path(__file__).resolve().parent.parent / "api" / "static" / "pool"
@@ -86,7 +92,32 @@ def _fit_title(d, title: str, max_w: int) -> tuple[list[str], Any]:
     return lines, f
 
 
-def render(opp: dict[str, Any], photo_bytes: bytes | None) -> bytes:
+def _fetch_photo(opp: dict[str, Any]) -> bytes | None:
+    """Bytes de la foto de fondo. Orden: image_url (http o /media local) → pool de reserva.
+    Nunca lanza: si algo falla, devuelve None y `_render` usa el degradado del tipo."""
+    url = (opp.get("image_url") or "").strip()
+    try:
+        if url.startswith("http"):
+            import httpx
+            r = httpx.get(url, timeout=15, follow_redirects=True,
+                          headers={"User-Agent": "corradi-bot"})
+            r.raise_for_status()
+            return r.content
+        if url.startswith("/media/opportunities/"):
+            p = Path(cfg.media_dir) / "opportunities" / url.rsplit("/", 1)[-1]
+            if p.is_file():
+                return p.read_bytes()
+    except Exception:  # noqa: BLE001 — una foto nunca bloquea la publicación
+        log.warning("card_v2: no pude cargar %s, uso el pool", url, exc_info=True)
+    return pool_photo(opp.get("identifier"))
+
+
+def render(opp: dict[str, Any]) -> bytes:
+    """Drop-in de `opportunity_card.render`: baja la foto y dibuja el banner."""
+    return _render(opp, _fetch_photo(opp))
+
+
+def _render(opp: dict[str, Any], photo_bytes: bytes | None) -> bytes:
     otype = opp.get("type") or "YOUTH_EXCHANGE"
     color = CAT_COLORS.get(otype, CAT_COLORS["YOUTH_EXCHANGE"])
 
@@ -150,7 +181,6 @@ def render(opp: dict[str, Any], photo_bytes: bytes | None) -> bytes:
         d.text((FRAME + 40, ty), ln, font=title_f, fill=WHITE)
         ty += line_h
 
-    card = card.filter(ImageFilter.SMOOTH_MORE) if False else card
     buf = io.BytesIO()
     card.save(buf, "PNG", optimize=True)
     return buf.getvalue()
@@ -160,22 +190,8 @@ def render(opp: dict[str, Any], photo_bytes: bytes | None) -> bytes:
 if __name__ == "__main__":
     import asyncio
 
-    from app.config import cfg
     from app.db import repository as repo
     from app.db.pool import close_pool, open_pool
-
-    async def _photo_for(opp: dict) -> bytes | None:
-        url = opp.get("image_url")
-        if url:
-            try:
-                import httpx
-                async with httpx.AsyncClient(follow_redirects=True, timeout=20) as c:
-                    r = await c.get(url)
-                    r.raise_for_status()
-                    return r.content
-            except Exception as e:  # noqa: BLE001
-                print("  (no pude bajar image_url:", e, ")")
-        return pool_photo(opp.get("identifier"))
 
     async def main() -> None:
         import sys
@@ -205,8 +221,7 @@ if __name__ == "__main__":
             bot = Bot(cfg.telegram_bot_token)
             chat_id = cfg.admin_telegram_ids[0]
             for r in picks:
-                photo = await _photo_for(r)
-                png = render(r, photo)
+                png = await asyncio.to_thread(render, r)
                 # Mensaje EXACTO como saldría en el canal: imagen v2 + pie real + botones.
                 caption = pub.format_opportunity(r, buttons=True, show_title=False, show_type=False)
                 await bot.send_photo(
