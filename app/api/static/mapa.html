@@ -1224,9 +1224,14 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       blocks.map(function (x) { return '<h4>' + esc(x[0]) + '</h4><p>' + esc(x[1]) + '</p>'; }).join("") +
       '</div></details>';
   }
+  // Reserva (propuesta 4): 40 fotos curadas en /assets/pool/, elegidas de forma
+  // determinista por identificador. Solo cuando la oportunidad no trae image_url propia.
+  var IMAGE_POOL = [];
+  for (var _p = 1; _p <= 40; _p++) IMAGE_POOL.push("/assets/pool/" + (_p < 10 ? "0" + _p : _p) + ".jpg");
+  function _hashId(s) { var h = 0; s = String(s || ""); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
   function mapImage(o) {
-    return o.image_url || (o.type === "TRAINING_COURSE"
-      ? "/assets/category-training-course.jpg" : "/assets/category-youth-exchange.jpg");
+    if (o.image_url) return o.image_url;
+    return IMAGE_POOL[_hashId(o.identifier || o.title) % IMAGE_POOL.length];
   }
   function popupHtml(o) {
     var t = typeOf(o), dl = deadlineText(o);
