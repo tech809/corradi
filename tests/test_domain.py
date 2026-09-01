@@ -156,6 +156,20 @@ def test_clean_contact_placeholders_y_vacios_dan_none():
 def test_clean_contact_solo_nombre_sin_via_de_contacto_da_none():
     assert clean_contact("María González") is None
     assert clean_contact("Oficina de juventud del ayuntamiento") is None
+    assert clean_contact("Escribir para más información") is None
+    assert clean_contact("Spazio Etneo - E-Mail: , Phone: 39") is None  # "39" no es un teléfono
+
+
+def test_clean_contact_conserva_enlaces_y_handles():
+    assert clean_contact("https://www.instagram.com/innovation_horizons?igsh=x") == "https://www.instagram.com/innovation_horizons?igsh=x"
+    assert clean_contact("IG @asociacionelnexo") == "IG @asociacionelnexo"
+    # Los '/' de una URL no se convierten en separadores.
+    r = clean_contact("youthimpact.esp@gmail.com, Instagram: https://www.instagram.com/youth_impact_spain")
+    assert r == "youthimpact.esp@gmail.com · Instagram: https://www.instagram.com/youth_impact_spain"
+
+
+def test_clean_contact_pone_separador_entre_nombre_y_telefono():
+    assert clean_contact("Veronica E-Mail: Phone: +49 15737879287") == "Veronica · +49 15737879287"
 
 
 def test_normalize_sanea_contact_information():
