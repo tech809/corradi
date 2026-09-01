@@ -68,7 +68,7 @@ def _build_layers(opp: dict[str, Any]) -> tuple[list[tuple[Image.Image, float]],
     W, H = SIZE
     otype = opp.get("type") or "YOUTH_EXCHANGE"
     color = CAT_COLORS.get(otype, CAT_COLORS["YOUTH_EXCHANGE"])
-    scale = 1.3  # misma escala que la story (mismo tamaño de lienzo)
+    scale = 1.56  # story ×1.2 (texto +20% para que se lea en el móvil)
 
     bg_size = (round(W * _OVERSCAN), round(H * _OVERSCAN))
     bg = _gradient_bg(bg_size, color)

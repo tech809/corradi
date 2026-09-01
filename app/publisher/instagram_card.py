@@ -378,16 +378,16 @@ def _compose(
 
 
 def render_feed(opp: dict[str, Any], pill_label: str) -> bytes:
-    return _compose(opp, FEED_SIZE, pill_label, scale=1.0, pill_icon="calendar")
+    return _compose(opp, FEED_SIZE, pill_label, scale=1.2, pill_icon="calendar")
 
 
 def render_story(opp: dict[str, Any], pill_label: str) -> bytes:
-    return _compose(opp, STORY_SIZE, pill_label, scale=1.3, pill_icon="clock")
+    return _compose(opp, STORY_SIZE, pill_label, scale=1.56, pill_icon="clock")
 
 
 def render_share(opp: dict[str, Any], pill_label: str) -> bytes:
     """Story compartible desde web/móvil, sin la referencia exclusiva a Instagram."""
     return _compose(
-        opp, STORY_SIZE, pill_label, scale=1.3, pill_icon="clock",
+        opp, STORY_SIZE, pill_label, scale=1.56, pill_icon="clock",
         cta_text="DESCUBRE EL PROYECTO EN CORRADI",
     )
