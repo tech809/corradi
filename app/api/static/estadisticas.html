@@ -136,11 +136,37 @@ header.top {
 .chart-note { color: var(--ink-faint); font-size: 12px; margin-top: 14px; }
 
 /* ── Barras mensuales ─────────────────────────────────────────────────── */
-.timeline { display: flex; align-items: flex-end; gap: 5px; height: 130px; }
-.tl-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; }
-.tl-bar .bar { width: 100%; background: color-mix(in srgb, var(--brass) 85%, var(--surface)); border-radius: 5px 5px 2px 2px; min-height: 2px; }
+.timeline { display: flex; align-items: flex-end; gap: 5px; height: 156px; }
+.tl-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; }
+.tl-bar .bar { width: 100%; background: color-mix(in srgb, var(--brass) 85%, var(--surface)); border-radius: 5px 5px 2px 2px; }
 .tl-bar .m { font-size: 10px; color: var(--ink-faint); white-space: nowrap; }
 .tl-bar .v { font-size: 10.5px; font-weight: 700; color: var(--ink-soft); }
+
+/* ── Podio compacto (top 3): países, tipos… ──────────────────────────── */
+.podium { display: flex; flex-direction: column; gap: 8px; }
+.podium-row { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 10px;
+  padding: 10px 13px; border-radius: 13px; background: var(--surface-sunk); }
+.podium-row.p1 { background: color-mix(in srgb, var(--brass) 16%, var(--surface)); }
+.podium-row.p2 { background: color-mix(in srgb, var(--brass) 8%, var(--surface)); }
+.podium-medal { font-size: 17px; line-height: 1; }
+.podium-row .name { font-weight: 650; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podium-row .n { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 15px; }
+.podium-row .n small { font-size: 10px; font-weight: 600; color: var(--ink-faint); }
+
+/* ── Proyectos con más interés: lista limpia, sin barras ─────────────── */
+.hot-list { list-style: none; margin: 0; padding: 0; }
+.hot-row { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 12px;
+  padding: 11px 2px; border-bottom: 1px solid var(--line); }
+.hot-row:last-child { border-bottom: 0; }
+.hot-rank { font: 800 13px var(--font-display); color: var(--ink-faint); text-align: center; }
+.hot-main { min-width: 0; }
+.hot-title { display: block; font-weight: 650; font-size: 14px; color: var(--ink); text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.hot-title:hover { color: var(--brand); text-decoration: underline; }
+.hot-title.closed { color: var(--ink-faint); }
+.hot-meta { font-size: 11.5px; color: var(--ink-faint); }
+.hot-count { font: 800 16px var(--font-display); color: var(--brand); font-variant-numeric: tabular-nums; }
+.hot-count small { font-size: 10px; font-weight: 600; color: var(--ink-faint); }
 
 /* ── Ranking de países ────────────────────────────────────────────────── */
 .rank-list { display: flex; flex-direction: column; gap: 13px; }
@@ -329,7 +355,6 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
       <div class="seg" id="rangeSeg" role="tablist" aria-label="Rango de tiempo">
         <button type="button" data-range="week" aria-pressed="false">Semana</button>
         <button type="button" data-range="month" aria-pressed="true">Mes</button>
-        <button type="button" data-range="quarter" aria-pressed="false">Trimestre</button>
         <button type="button" data-range="year" aria-pressed="false">Año</button>
       </div>
     </div>
@@ -355,10 +380,10 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
       <div class="card-head">
         <div>
           <h2>Países con más oportunidades</h2>
-          <p class="hint">Histórico completo.</p>
+          <p class="hint">Top 3 · histórico completo.</p>
         </div>
       </div>
-      <div class="rank-list" id="countries"></div>
+      <div id="countries"></div>
     </section>
   </div>
 
@@ -372,15 +397,15 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
     <div class="grid-2" style="margin-bottom:14px">
       <div>
         <p class="hint" style="margin:0 0 8px">Por tipo</p>
-        <div class="rank-list" id="interestType"></div>
+        <div id="interestType"></div>
       </div>
       <div>
         <p class="hint" style="margin:0 0 8px">Por país</p>
-        <div class="rank-list" id="interestCountry"></div>
+        <div id="interestCountry"></div>
       </div>
     </div>
     <p class="hint" style="margin:6px 0 8px">Proyectos con más interés</p>
-    <div class="rank-list" id="interestTop"></div>
+    <div id="interestTop"></div>
   </section>
 
   <section class="card">
@@ -476,19 +501,16 @@ function render(data) {
     tile(data.total_clicks, "Clics a enlaces (info/form/infopack)", "var(--brass)") +
     tile(data.total_visits, "Visitas totales (histórico)", "var(--ye)");
 
+  var BAR_MAX_PX = 112;
   var maxMonth = Math.max.apply(null, data.monthly.map(function (m) { return m.n; }).concat([1]));
   document.getElementById("timeline").innerHTML = data.monthly.map(function (m) {
-    var h = Math.round((m.n / maxMonth) * 100);
-    return '<div class="tl-bar"><div class="v">' + m.n + '</div><div class="bar" style="height:' + Math.max(h, 2) + '%"></div><div class="m">' + monthLabel(m.month) + '</div></div>';
+    var px = Math.max(4, Math.round((m.n / maxMonth) * BAR_MAX_PX));
+    return '<div class="tl-bar"><div class="v">' + m.n + '</div><div class="bar" style="height:' + px + 'px"></div><div class="m">' + monthLabel(m.month) + '</div></div>';
   }).join("") || '<p class="empty">Sin datos todavía.</p>';
 
-  var top10 = data.top_countries.slice(0, 10);
-  var maxCountry = Math.max.apply(null, top10.map(function (c) { return c.n; }).concat([1]));
-  document.getElementById("countries").innerHTML = top10.map(function (c, i) {
-    var pct = Math.round((c.n / maxCountry) * 100);
-    return '<div class="rank-row"><span class="pos">' + (i + 1) + '</span><span class="name">' + esc(c.country_name) + '</span><span class="n">' + c.n + '</span>' +
-      '<div class="bar-wrap"><div class="fill" style="width:' + pct + '%"></div></div></div>';
-  }).join("") || '<p class="empty">Sin datos todavía.</p>';
+  document.getElementById("countries").innerHTML =
+    podium(data.top_countries, function (c) { return ccFlag(c.country_code) + " " + esc(c.country_name); },
+           function (c) { return c.n; });
 
   renderInterest(data.interest);
   renderAssociations(data.organisers);
@@ -505,16 +527,18 @@ function ccFlag(cc) {
   return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) { return 127397 + c.charCodeAt(0); }));
 }
 
-function interestRows(items, labelFn) {
-  var max = Math.max.apply(null, items.map(function (x) { return x.clicks || 0; }).concat([1]));
-  return items.map(function (x, i) {
-    var pct = Math.round(((x.clicks || 0) / max) * 100);
-    var sub = (x.views ? x.views + " vistas de ficha" : "");
-    return '<div class="rank-row"><span class="pos">' + (i + 1) + '</span>' +
-      '<span class="name">' + labelFn(x) + (sub ? ' <span style="color:var(--ink-faint);font-weight:500">· ' + sub + '</span>' : '') + '</span>' +
-      '<span class="n">' + (x.clicks || 0) + '</span>' +
-      '<div class="bar-wrap"><div class="fill" style="width:' + pct + '%"></div></div></div>';
-  }).join("");
+var MEDALS = ["🥇", "🥈", "🥉"];
+
+// Podio compacto top-3, alineado a la izquierda. `valFn` da el número; `unit` opcional.
+function podium(items, labelFn, valFn, unit) {
+  var top = (items || []).slice(0, 3);
+  if (!top.length) return '<p class="empty">Sin datos todavía.</p>';
+  return '<div class="podium">' + top.map(function (x, i) {
+    return '<div class="podium-row p' + (i + 1) + '">' +
+      '<span class="podium-medal">' + MEDALS[i] + '</span>' +
+      '<span class="name">' + labelFn(x) + '</span>' +
+      '<span class="n">' + (valFn(x) || 0) + (unit ? ' <small>' + unit + '</small>' : '') + '</span></div>';
+  }).join("") + '</div>';
 }
 
 function renderInterest(it) {
@@ -522,19 +546,26 @@ function renderInterest(it) {
   if (!it || !it.by_type || (!it.by_type.length && !it.top_projects.length)) { card.hidden = true; return; }
   card.hidden = false;
   document.getElementById("interestDays").textContent = it.period_days;
+  var clicksOf = function (x) { return x.clicks || 0; };
+
   document.getElementById("interestType").innerHTML =
-    interestRows(it.by_type, function (x) { return esc(x.type_name || x.type); }) || '<p class="empty">Sin datos todavía.</p>';
+    podium(it.by_type, function (x) { return esc(x.type_name || x.type); }, clicksOf, "clics");
   document.getElementById("interestCountry").innerHTML =
-    interestRows(it.by_country, function (x) { return ccFlag(x.country_code) + " " + esc(x.country_name || x.country_code); }) || '<p class="empty">Sin datos todavía.</p>';
-  document.getElementById("interestTop").innerHTML = it.top_projects.map(function (p, i) {
-    var name = p.open
-      ? '<a href="/' + esc(p.short_id) + '" style="color:inherit">' + esc(p.title) + '</a>'
-      : esc(p.title) + ' <span style="color:var(--ink-faint);font-weight:500">· cerrada</span>';
-    return '<div class="rank-row"><span class="pos">' + (i + 1) + '</span>' +
-      '<span class="name">' + name + ' <span style="color:var(--ink-faint);font-weight:500">· ' + ccFlag(p.country_code) + ' ' + esc(p.type_name || "") + '</span></span>' +
-      '<span class="n">' + (p.clicks || 0) + '</span>' +
-      '<div class="bar-wrap"><div class="fill" style="width:' + Math.round(((p.clicks || 0) / Math.max.apply(null, it.top_projects.map(function (q) { return q.clicks || 0; }).concat([1])) ) * 100) + '%"></div></div></div>';
-  }).join("") || '<p class="empty">Sin datos todavía.</p>';
+    podium(it.by_country, function (x) { return ccFlag(x.country_code) + " " + esc(x.country_name || x.country_code); }, clicksOf, "clics");
+
+  var top = (it.top_projects || []).slice(0, 5);
+  document.getElementById("interestTop").innerHTML = top.length
+    ? '<ol class="hot-list">' + top.map(function (p, i) {
+        var title = p.open
+          ? '<a class="hot-title" href="/' + esc(p.short_id) + '">' + esc(p.title) + '</a>'
+          : '<span class="hot-title closed">' + esc(p.title) + '</span>';
+        var meta = ccFlag(p.country_code) + " " + esc(p.country_name || "") + " · " + esc(p.type_name || "")
+          + (p.open ? "" : " · cerrada");
+        return '<li class="hot-row"><span class="hot-rank">' + (i + 1) + '</span>' +
+          '<span class="hot-main">' + title + '<span class="hot-meta">' + meta + '</span></span>' +
+          '<span class="hot-count">' + (p.clicks || 0) + ' <small>clics</small></span></li>';
+      }).join("") + '</ol>'
+    : '<p class="empty">Sin datos todavía.</p>';
 }
 
 function projRowHtml(p) {
@@ -765,9 +796,8 @@ function windowFor(range) {
   var cfg = {
     week:    { n: 7,   bucket: 1,  label: "semana" },
     month:   { n: 30,  bucket: 1,  label: "mes" },
-    quarter: { n: 90,  bucket: 7,  label: "trimestre" },
     year:    { n: 365, bucket: 30, label: "año" },
-  }[range];
+  }[range] || { n: 30, bucket: 1, label: "mes" };
   var current = days.slice(Math.max(0, days.length - cfg.n));
   var prevStart = Math.max(0, days.length - cfg.n * 2);
   var previous = days.slice(prevStart, Math.max(0, days.length - cfg.n));
@@ -789,7 +819,6 @@ function labelFor(day, range) {
   var d = parseDay(day);
   if (range === "week") return DIAS[d.getDay()];
   if (range === "month") return String(d.getDate());
-  if (range === "quarter") return String(d.getDate()) + " " + MESES[d.getMonth()];
   return MESES[d.getMonth()];
 }
 
