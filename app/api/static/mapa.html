@@ -1284,21 +1284,18 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     layer.addLayers(batch);
     fit();
   }
-  var _didInitialView = false;
   function fit() {
     var bounds = [];
     for (var id in markers) bounds.push(markers[id].getLatLng());
     if (!bounds.length) return;
     map.invalidateSize({ animate: false });
-    // Al cargar la página (sin filtro ni ?o=): vista fija centrada en Europa continental,
-    // no un fitBounds a todos los pines (que salía casi de continente entero, muy lejos).
-    if (!_didInitialView) {
-      _didInitialView = true;
-      var _p = new URLSearchParams(location.search);
-      if (!_p.get("o") && !_p.get("todo")) {   // ?o= abre una ficha; ?todo=1 quiere ver todo
-        map.setView([48.6, 12], 5, { animate: false });
-        return;
-      }
+    // Sin ningún filtro activo (se ven TODAS): vista fija centrada en Europa continental
+    // en vez de un fitBounds a todos los pines (que salía casi de continente entero).
+    // ?o= abre una ficha concreta y ?todo=1 pide ver todo -> esos sí encajan a los pines.
+    var _p = new URLSearchParams(location.search);
+    if (shown.length === all.length && !_p.get("o") && !_p.get("todo")) {
+      map.setView([48.6, 12], 5, { animate: false });
+      return;
     }
     if (bounds.length === 1) map.setView(bounds[0], 7, { animate: false });
     else {
@@ -1730,9 +1727,12 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   };
 
   function paintTiles() {
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: "abcd", maxZoom: 19
+    // OSM en vez de CartoDB light_all: este último pasó a exigir API key (marca de agua
+    // "API KEY REQUIRED" sobre el mapa). El filtro CSS de .leaflet-tile-pane ya lo deja
+    // en tono claro y desaturado, parecido al look anterior.
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19
     }).addTo(map);
   }
   function initMap() {
