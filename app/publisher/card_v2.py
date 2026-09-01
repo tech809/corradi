@@ -178,18 +178,28 @@ if __name__ == "__main__":
         return pool_photo(opp.get("identifier"))
 
     async def main() -> None:
+        import sys
+
+        from app.publisher import telegram_publisher as pub
         await open_pool()
         try:
             rows = await repo.list_open()
-            picks, seen = [], set()
-            for r in rows:                       # una de cada tipo, con foto propia si hay
-                t = r.get("type")
-                if t in seen:
-                    continue
-                seen.add(t)
-                picks.append(r)
-                if len(picks) >= 3:
-                    break
+            wanted = [a for a in sys.argv[1:] if a.startswith("CORRADI-") or a[:4].isdigit()]
+            wanted = {a if a.startswith("CORRADI-") else f"CORRADI-{a}" for a in wanted}
+            if wanted:
+                picks = [r for r in rows if r["identifier"] in wanted]
+            else:
+                # una de cada tipo, priorizando las que tienen foto propia y resumen
+                rows.sort(key=lambda r: (not r.get("image_url"), not r.get("summary")))
+                picks, seen = [], set()
+                for r in rows:
+                    if r.get("type") in seen:
+                        continue
+                    seen.add(r.get("type"))
+                    picks.append(r)
+                    if len(picks) >= 3:
+                        break
+
             from telegram import Bot
             from telegram.constants import ParseMode
             bot = Bot(cfg.telegram_bot_token)
@@ -197,10 +207,14 @@ if __name__ == "__main__":
             for r in picks:
                 photo = await _photo_for(r)
                 png = render(r, photo)
-                cap = (f"🧪 <b>Prueba diseño v2</b>\n{CAT_LABELS.get(r.get('type'), r.get('type'))} · "
-                       f"{r.get('title')}\n<i>foto: {'image_url' if r.get('image_url') else 'pool'}</i>")
-                await bot.send_photo(chat_id=chat_id, photo=png, caption=cap, parse_mode=ParseMode.HTML)
-                print("  enviada:", r.get("identifier"), r.get("title")[:50])
+                # Mensaje EXACTO como saldría en el canal: imagen v2 + pie real + botones.
+                caption = pub.format_opportunity(r, buttons=True, show_title=False, show_type=False)
+                await bot.send_photo(
+                    chat_id=chat_id, photo=png, caption=caption, parse_mode=ParseMode.HTML,
+                    reply_markup=pub.opportunity_keyboard(r),
+                )
+                print("  enviada:", r.get("identifier"), (r.get("title") or "")[:50],
+                      "| foto:", "image_url" if r.get("image_url") else "pool")
         finally:
             await close_pool()
 
