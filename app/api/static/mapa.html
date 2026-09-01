@@ -1284,11 +1284,22 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     layer.addLayers(batch);
     fit();
   }
+  var _didInitialView = false;
   function fit() {
     var bounds = [];
     for (var id in markers) bounds.push(markers[id].getLatLng());
     if (!bounds.length) return;
     map.invalidateSize({ animate: false });
+    // Al cargar la página (sin filtro ni ?o=): vista fija centrada en Europa continental,
+    // no un fitBounds a todos los pines (que salía casi de continente entero, muy lejos).
+    if (!_didInitialView) {
+      _didInitialView = true;
+      var _p = new URLSearchParams(location.search);
+      if (!_p.get("o") && !_p.get("todo")) {   // ?o= abre una ficha; ?todo=1 quiere ver todo
+        map.setView([48.6, 12], 5, { animate: false });
+        return;
+      }
+    }
     if (bounds.length === 1) map.setView(bounds[0], 7, { animate: false });
     else {
       map.fitBounds(L.latLngBounds(bounds), { animate: false, maxZoom: 9, padding: [64, 64] });
@@ -1725,7 +1736,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     }).addTo(map);
   }
   function initMap() {
-    map = L.map("map", { zoomControl: false, scrollWheelZoom: true, attributionControl: true }).setView([50, 12], 4);
+    // Vista inicial: centro de Europa continental y un punto más de zoom que antes ([50,12],4).
+    map = L.map("map", { zoomControl: false, scrollWheelZoom: true, attributionControl: true }).setView([48.6, 12], 5);
     L.control.zoom({ position: "bottomleft" }).addTo(map);
     paintTiles();
     layer = L.markerClusterGroup({
