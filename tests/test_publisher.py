@@ -119,25 +119,26 @@ def test_cap_summary_texto_corto_no_se_toca():
 
 
 def test_format_opportunity_whatsapp_bloque_de_enlaces():
-    """📄 Info es el enlace corto de Corradi (abre la ficha en el mapa); NO se repite la
-    URL cruda del infopack. Cada línea solo sale si hay dato y todas las URLs van sin
-    'https://' ni 'www.'."""
+    """📄 Info es el enlace corto de Corradi en crudo (abre la ficha en el mapa) y NO se
+    repite la URL cruda del infopack. El Form SÍ conserva https:// (si no, WhatsApp no lo
+    hace tocable). Cada línea solo sale si hay dato."""
     completa = {
         **OPP,
         "infopack_url": "https://salto-youth.net/tools/toy/infopack.pdf",
-        "application_url": "https://www.forms.gle/x",
+        "application_url": "https://forms.gle/xyz",
         "contact_information": "info@ejemplo.eu",
     }
     t = pub.format_opportunity_whatsapp(completa)
-    assert "📄 Info: mapa.proactivefuture.eu/2026-0001" in t
-    assert "✍️ Form: forms.gle/x" in t          # sin https:// ni www.
+    assert "📄 Info: mapa.proactivefuture.eu/2026-0001" in t   # sin esquema
+    assert "✍️ Form: https://forms.gle/xyz" in t              # CON esquema
     assert "✉️ Contacto: info@ejemplo.eu" in t
-    assert "https://" not in t and "salto-youth.net" not in t  # infopack crudo fuera
+    assert "salto-youth.net" not in t                          # infopack crudo fuera
+    assert "Info: https://" not in t                           # la línea Info sigue sin esquema
 
     solo_form = {**OPP, "infopack_url": None, "contact_information": None}
     t2 = pub.format_opportunity_whatsapp(solo_form)
     assert "📄 Info: mapa.proactivefuture.eu/2026-0001" in t2  # el enlace corto sale siempre que hay identifier
-    assert "✍️ Form: forms.gle/x" in t2
+    assert "✍️ Form: https://forms.gle/x" in t2                # OPP trae application_url = https://forms.gle/x
     assert "✉️ Contacto:" not in t2
 
 

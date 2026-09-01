@@ -370,7 +370,9 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
     if short_link:
         lineas.append(f"📄 Info: {_bare_url(short_link)}")
     if o.get("application_url"):
-        lineas.append(f"✍️ Form: {_bare_url(o['application_url'])}")
+        # El Form SÍ lleva https:// — sin esquema, WhatsApp no lo hace tocable con URLs
+        # de forms.gle o con query/#fragmento. El resto (Info) sí van en crudo.
+        lineas.append(f"✍️ Form: {o['application_url']}")
     contacto = clean_contact(o.get("contact_information"))
     if contacto:
         lineas.append(f"✉️ Contacto: {contacto}")
