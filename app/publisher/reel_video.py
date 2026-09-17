@@ -1,8 +1,8 @@
 """Genera un Reel 1080×1920 a partir de la misma tarjeta editorial que la story.
 
-La composición se mantiene idéntica —foto, temática, países, destino y color de categoría—
-y el vídeo añade solo un movimiento de cámara suave y música. Así feed, story y reel no
-divergen visualmente cada vez que se mejora la plantilla principal.
+El reel tiene tres actos muy cortos: un hook relacionado con el destino, la oportunidad
+completa y un cierre que invita a guardar/compartir. La tarjeta sigue siendo la fuente de
+verdad visual, pero el vídeo ya no es una imagen estática con un zoom casi imperceptible.
 """
 from __future__ import annotations
 
@@ -16,27 +16,25 @@ from typing import Any
 from PIL import Image, ImageDraw
 
 from app.publisher.instagram_card import (
-    CAT_COLORS,
     CAT_LABELS,
+    INK,
+    PAPER,
     WHITE,
-    _calendar_icon,
-    _dot,
-    _flag,
     _font,
-    _gradient_bg,
-    _watermark,
     _wrap,
     render_story,
 )
 from app.publisher.reel_audio import synth_wav_bytes
-from app.publisher.telegram_publisher import _compact_dates
 
 log = logging.getLogger("corradi.reel")
 
 SIZE = (1080, 1920)
 FPS = 24
-DURATION = 6.0
-_OVERSCAN = 1.06  # zoom muy sutil: la tarjeta nunca sale de la zona segura
+DURATION = 8.0
+HOOK_END = 1.65
+CTA_START = 5.75
+COVER_TIME = 3.2  # portada: ficha completa, no hook ni CTA
+_OVERSCAN = 1.085  # margen para un movimiento visible sin descubrir bordes
 
 
 def _layer_at_alpha(layer: Image.Image, factor: float) -> Image.Image | None:
@@ -52,154 +50,111 @@ def _layer_at_alpha(layer: Image.Image, factor: float) -> Image.Image | None:
     return Image.merge("RGBA", (r, g, b, a))
 
 
-def _ease_in(p: float) -> float:
-    """0-1 con salida suave (cubic ease-out) — más agradable que lineal para fades/zoom."""
+def _ease_out(p: float) -> float:
+    """0-1 con salida suave (cubic ease-out)."""
     p = max(0.0, min(1.0, p))
     return 1 - (1 - p) ** 3
 
 
-def _build_layers(opp: dict[str, Any]) -> tuple[list[tuple[Image.Image, float]], Image.Image]:
-    """Devuelve ([(layer_rgba, t_inicio_aparicion), ...], fondo_sobredimensionado).
+def _smoothstep(p: float) -> float:
+    p = max(0.0, min(1.0, p))
+    return p * p * (3 - 2 * p)
 
-    Mismo cálculo de posiciones que `instagram_card._compose` (medir todo primero, centrar
-    el bloque conjunto en el hueco bajo la bandera) pero cada elemento se dibuja en su
-    propia capa transparente en vez de sobre un único lienzo — así se puede hacer aparecer
-    cada uno en un instante distinto."""
-    W, H = SIZE
-    otype = opp.get("type") or "YOUTH_EXCHANGE"
-    color = CAT_COLORS.get(otype, CAT_COLORS["YOUTH_EXCHANGE"])
-    scale = 1.56  # story ×1.2 (texto +20% para que se lea en el móvil)
 
-    bg_size = (round(W * _OVERSCAN), round(H * _OVERSCAN))
-    bg = _gradient_bg(bg_size, color)
-    bg = _watermark(bg, otype, color)
+def _hook_copy(opp: dict[str, Any]) -> str:
+    """Hook corto y siempre respaldado por los datos de la oportunidad."""
+    location = str(opp.get("location") or "").strip()
+    parts = [part.strip() for part in location.split(",") if part.strip()]
+    destination = parts[0] if parts else ""
+    # Una ciudad larga genera tres líneas torpes. Si hay país y es más breve, funciona
+    # mejor como hook sin inventar ni traducir ningún dato.
+    if len(destination) > 20 and len(parts) > 1 and len(parts[-1]) <= 20:
+        destination = parts[-1]
+    if destination:
+        if len(destination) > 28:
+            destination = destination[:27].rstrip() + "…"
+        return f"¿TE IRÍAS A {destination.upper()}?"
+    return "¿BUSCAS TU PRÓXIMA AVENTURA ERASMUS+?"
 
-    def s(px: float) -> int:
-        return round(px * scale)
 
-    x0 = s(76)
-    max_w = W - x0 - s(60)
-    meas = Image.new("RGBA", SIZE, (0, 0, 0, 0))
-    d = ImageDraw.Draw(meas)
+def _text_layer(text: str, font_size: int, max_width: int, y: int) -> Image.Image:
+    """Texto centrado y envuelto, listo para desplazar/fundirse como una sola pieza."""
+    layer = Image.new("RGBA", SIZE, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    font = _font("DejaVuSans-Bold.ttf", font_size)
+    lines = _wrap(d, text, font, max_width)
+    while len(lines) > 3 and font.size > 54:
+        font = _font("DejaVuSans-Bold.ttf", font.size - 4)
+        lines = _wrap(d, text, font, max_width)
+    line_h = round(font.size * 1.08)
+    for line in lines[:3]:
+        width = d.textlength(line, font=font)
+        d.text(((SIZE[0] - width) / 2, y), line, font=font, fill=WHITE)
+        y += line_h
+    return layer
 
-    fw, fh = s(140), s(92)
-    flag_bottom = s(70) + fh
 
-    cat_f = _font("DejaVuSans.ttf", s(36))
-    cat_h = int(cat_f.size * 1.3)
+def _build_reel_assets(opp: dict[str, Any]) -> tuple[Image.Image, Image.Image, Image.Image]:
+    """Renderiza una sola vez las tres piezas reutilizadas por todos los fotogramas."""
+    from app.publisher.instagram import deadline_date_label
 
-    title = opp.get("title") or ""
-    title_f = _font("DejaVuSans-Bold.ttf", s(96))
-    lines = _wrap(d, title, title_f, max_w)
-    while len(lines) > 3 and title_f.size > s(52):
-        title_f = _font("DejaVuSans-Bold.ttf", title_f.size - s(6))
-        lines = _wrap(d, title, title_f, max_w)
-    title_line_h = int(title_f.size * 1.2)
-    title_h = title_line_h * len(lines)
-
-    meta_f = _font("DejaVuSans.ttf", s(40))
-    location = opp.get("location") or ""
-    parts = [p.strip() for p in location.split(",") if p.strip()]
-    if len(parts) > 2:
-        location = f"{parts[0]}, {parts[-1]}"
-    dates = _compact_dates(opp)
-    if dates == "fechas por confirmar":
-        dates = ""
-    meta_row_h = s(60)
-    meta_rows = int(bool(location)) + int(bool(dates))
-    meta_h = meta_row_h * meta_rows
-
-    pill_f = _font("DejaVuSans-Bold.ttf", s(38))
-    pill_h = s(76)
-    pill_label = "quedan pocos días" if opp.get("application_deadline") else "inscripción abierta"
-
-    cta_f = _font("DejaVuSans-Bold.ttf", s(32))
-    cta = "TODA LA INFO EN EL LINK DE LA BIO"
-    cta_lines = _wrap(d, cta, cta_f, max_w)
-    cta_line_h = s(40)
-    cta_h = cta_line_h * len(cta_lines)
-
-    gap_cat_title, gap_title_meta, gap_meta_pill, gap_pill_cta = s(40), s(50), s(70), s(50)
-    total_h = (
-        cat_h + gap_cat_title + title_h + gap_title_meta + meta_h
-        + (gap_meta_pill if meta_h else gap_title_meta) + pill_h + gap_pill_cta + cta_h
+    card = Image.open(io.BytesIO(render_story(opp, deadline_date_label(opp)))).convert("RGB")
+    bg = card.resize(
+        (round(SIZE[0] * _OVERSCAN), round(SIZE[1] * _OVERSCAN)),
+        Image.Resampling.LANCZOS,
     )
-    area_top = flag_bottom + s(20)
-    area_bottom = H - s(60)
-    top = area_top + max(0, (area_bottom - area_top - total_h) // 2)
-    cursor = top
 
-    layers: list[tuple[Image.Image, float]] = []
+    hook = _text_layer(_hook_copy(opp), 92, 900, 690)
+    hd = ImageDraw.Draw(hook)
+    otype = opp.get("type") or "YOUTH_EXCHANGE"
+    category = CAT_LABELS.get(otype, otype)
+    label_font = _font("DejaVuSans-Bold.ttf", 28)
+    label = f"CORRADI  ·  {category}"
+    label_w = hd.textlength(label, font=label_font)
+    label_x = (SIZE[0] - label_w) / 2
+    hd.rounded_rectangle(
+        [label_x - 28, 570, label_x + label_w + 28, 630], radius=30, fill=(255, 255, 255, 42),
+    )
+    hd.text((label_x, 584), label, font=label_font, fill=WHITE)
+    hint_font = _font("DejaVuSans.ttf", 32)
+    hint = "Mira la oportunidad en 8 segundos"
+    hint_w = hd.textlength(hint, font=hint_font)
+    hd.text(((SIZE[0] - hint_w) / 2, 1010), hint, font=hint_font, fill=(255, 255, 255, 225))
 
-    def new_layer() -> tuple[Image.Image, ImageDraw.ImageDraw]:
-        im = Image.new("RGBA", SIZE, (0, 0, 0, 0))
-        return im, ImageDraw.Draw(im)
-
-    # Bandera: aparece la primera, casi con el fondo.
-    flag_layer, _ = new_layer()
-    _flag(flag_layer, W - x0 - fw, s(70), fw, fh, opp.get("country_code"))
-    layers.append((flag_layer, 0.15))
-
-    cat_layer, dd = new_layer()
-    dd.text((x0, cursor), CAT_LABELS.get(otype, otype), font=cat_f, fill=WHITE)
-    layers.append((cat_layer, 0.45))
-    cursor += cat_h + gap_cat_title
-
-    title_layer, dd = new_layer()
-    ty = cursor
-    for ln in lines:
-        dd.text((x0, ty), ln, font=title_f, fill=WHITE)
-        ty += title_line_h
-    layers.append((title_layer, 0.75))
-    cursor += title_h + gap_title_meta
-
-    meta_layer, dd = new_layer()
-    my = cursor
-    if location:
-        _dot(dd, x0 + s(7), my + s(20), s(7), WHITE)
-        dd.text((x0 + s(28), my), location, font=meta_f, fill=WHITE)
-        my += meta_row_h
-    if dates:
-        _calendar_icon(dd, x0 + s(4), my + s(8), s(26), WHITE)
-        dd.text((x0 + s(42), my), dates, font=meta_f, fill=WHITE)
-        my += meta_row_h
-    layers.append((meta_layer, 1.15))
-    cursor += meta_h + (gap_meta_pill if meta_h else 0)
-
-    pill_layer, dd = new_layer()
-    pill_text = pill_label.upper()
-    tw = dd.textlength(pill_text, font=pill_f)
-    dd.rounded_rectangle([x0, cursor, x0 + tw + s(100), cursor + pill_h], radius=pill_h // 2, fill=WHITE)
-    _calendar_icon(dd, x0 + s(30), cursor + pill_h // 2 - s(12), s(26), color, width=max(2, s(3)))
-    dd.text((x0 + s(76), cursor + s(19)), pill_text, font=pill_f, fill=color)
-    layers.append((pill_layer, 1.55))
-    cursor += pill_h + gap_pill_cta
-
-    cta_layer, dd = new_layer()
-    cy = cursor
-    for ln in cta_lines:
-        dd.text((x0, cy), ln, font=cta_f, fill=WHITE)
-        cy += cta_line_h
-    layers.append((cta_layer, 1.9))
-
-    return layers, bg
+    cta = Image.new("RGBA", SIZE, (0, 0, 0, 0))
+    cd = ImageDraw.Draw(cta)
+    panel = (64, 530, 1016, 1370)
+    cd.rounded_rectangle(panel, radius=54, fill=PAPER)
+    eyebrow_font = _font("DejaVuSans-Bold.ttf", 29)
+    cd.text((126, 618), "NO LA PIERDAS", font=eyebrow_font, fill="#66708f")
+    title_font = _font("DejaVuSans-Bold.ttf", 78)
+    cy = 690
+    for line in _wrap(cd, "¿CON QUIÉN TE IRÍAS?", title_font, 820):
+        cd.text((126, cy), line, font=title_font, fill=INK)
+        cy += 88
+    cd.line((126, 935, 954, 935), fill="#d4cfc3", width=3)
+    action_font = _font("DejaVuSans-Bold.ttf", 35)
+    cd.text((126, 1000), "ETIQUETA A TU +1  ·  GUÁRDALO", font=action_font, fill=INK)
+    info_font = _font("DejaVuSans.ttf", 34)
+    cd.text((126, 1080), "Toda la info en el link de la bio", font=info_font, fill=INK)
+    cd.rounded_rectangle((126, 1185, 455, 1260), radius=38, fill=INK)
+    cd.text((173, 1203), "VER PROYECTO", font=eyebrow_font, fill=WHITE)
+    return bg, hook, cta
 
 
 def _bg_frame(bg: Image.Image, p: float) -> Image.Image:
-    """Recorte del fondo sobredimensionado para el instante `p` (0-1 con ease-out): empieza
-    con zoom (recorte pequeño, centrado con un ligerísimo desplazamiento) y termina
-    mostrando la composición completa — un "zoom-out" lento que coincide con la aparición
-    del contenido, así el vídeo no se queda quieto de fondo."""
+    """Movimiento Ken Burns visible pero seguro dentro del margen sobredimensionado."""
     W, H = SIZE
     bw, bh = bg.size
-    ep = _ease_in(p)
-    # Interpola el tamaño del recorte de W×H (máx. zoom) a bw×bh (fondo completo, sin zoom).
-    crop_w = W + (bw - W) * ep
-    crop_h = H + (bh - H) * ep
-    # Deriva ligera del centro: arranca un poco a la izquierda/arriba de al centro real.
-    drift = 0.04 * (1 - ep)
-    cx = bw / 2 - bw * drift
-    cy = bh / 2 - bh * drift * 0.6
+    ep = _ease_out(p)
+    # Sale de un zoom del 8,5% y respira ligeramente al entrar el CTA.
+    breathe = 0.025 * _smoothstep((p - 0.70) / 0.30)
+    crop_w = W + (bw - W) * max(0.0, ep - breathe)
+    crop_h = H + (bh - H) * max(0.0, ep - breathe)
+    # Paneo diagonal: suficiente para que la foto se sienta viva, sin mover la tarjeta
+    # fuera de la zona segura de Reels.
+    cx = bw / 2 + (ep - 0.5) * (bw - W) * 0.65
+    cy = bh / 2 + (0.5 - ep) * (bh - H) * 0.38
     left = max(0, min(bw - crop_w, cx - crop_w / 2))
     top = max(0, min(bh - crop_h, cy - crop_h / 2))
     box = (round(left), round(top), round(left + crop_w), round(top + crop_h))
@@ -209,25 +164,61 @@ def _bg_frame(bg: Image.Image, p: float) -> Image.Image:
     return frame.convert("RGBA")
 
 
-def _render_frames(opp: dict[str, Any]):
-    # Import local para evitar un ciclo durante la carga del módulo instagram.
-    from app.publisher.instagram import deadline_date_label
+def _composite_shifted(base: Image.Image, layer: Image.Image, alpha: float, y_shift: int = 0) -> Image.Image:
+    faded = _layer_at_alpha(layer, alpha)
+    if faded is not None:
+        base.alpha_composite(faded, (0, y_shift))
+    return base
 
-    card = Image.open(io.BytesIO(render_story(opp, deadline_date_label(opp)))).convert("RGB")
-    bg = card.resize(
-        (round(SIZE[0] * _OVERSCAN), round(SIZE[1] * _OVERSCAN)),
-        Image.Resampling.LANCZOS,
-    )
+
+def _compose_frame(
+    bg: Image.Image, hook: Image.Image, cta: Image.Image, t: float,
+) -> Image.Image:
+    """Compone un instante. Separarlo hace comprobables los tres actos sin generar MP4."""
+    p = max(0.0, min(1.0, t / DURATION))
+    frame = _bg_frame(bg, p)
+
+    # Acto 1: la pregunta entra rápido y se retira antes de dos segundos. El velo oculta
+    # suficiente información como para crear curiosidad sin perder la foto/contexto.
+    # Debe estar ya visible en el primer frame: en autoplay no podemos gastar el instante
+    # que decide si alguien sigue deslizando en un fundido desde la ficha normal.
+    hook_in = 1.0
+    hook_out = _smoothstep((t - (HOOK_END - 0.40)) / 0.40)
+    hook_alpha = hook_in * (1 - hook_out)
+    if hook_alpha > 0:
+        veil_alpha = round(188 * hook_alpha)
+        frame = Image.alpha_composite(frame, Image.new("RGBA", SIZE, (9, 19, 52, veil_alpha)))
+        y_shift = round(-35 * hook_out)
+        _composite_shifted(frame, hook, hook_alpha, y_shift)
+
+    # Acto 3: cierre grande, legible y accionable. Entra desde abajo y permanece hasta el
+    # final; eso también hace que el loop vuelva al hook sin un flash blanco brusco.
+    cta_in = _smoothstep((t - CTA_START) / 0.48)
+    if cta_in > 0:
+        frame = Image.alpha_composite(
+            frame, Image.new("RGBA", SIZE, (9, 19, 52, round(142 * cta_in))),
+        )
+        _composite_shifted(frame, cta, cta_in, round(105 * (1 - cta_in)))
+
+    # Indicador de progreso: mantiene ritmo incluso durante los segundos de lectura y hace
+    # evidente que la pieza es corta. Se coloca bajo la interfaz superior de Instagram.
+    progress = Image.new("RGBA", SIZE, (0, 0, 0, 0))
+    pd = ImageDraw.Draw(progress)
+    x1, x2, y = 70, SIZE[0] - 70, 164
+    pd.rounded_rectangle((x1, y, x2, y + 8), radius=4, fill=(255, 255, 255, 70))
+    progress_x = x1 + round((x2 - x1) * p)
+    if progress_x > x1:
+        pd.rounded_rectangle((x1, y, progress_x, y + 8), radius=4, fill=WHITE)
+    return Image.alpha_composite(frame, progress)
+
+
+def _render_frames(opp: dict[str, Any]):
+    bg, hook, cta = _build_reel_assets(opp)
+
     n_frames = int(DURATION * FPS)
     for i in range(n_frames):
-        p = i / max(1, n_frames - 1)
-        frame = _bg_frame(bg, p)
-        # Entrada corta desde azul marino: elegante y suficiente para que el vídeo no
-        # arranque con un corte seco, sin animar cada texto por separado.
-        fade = min(1.0, i / max(1, round(FPS * 0.45)))
-        if fade < 1:
-            veil = Image.new("RGBA", SIZE, (9, 19, 52, round(255 * (1 - fade))))
-            frame = Image.alpha_composite(frame, veil)
+        t = i / FPS
+        frame = _compose_frame(bg, hook, cta, t)
         yield frame.convert("RGB").tobytes()
 
 

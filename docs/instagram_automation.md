@@ -43,8 +43,10 @@ Corradi sí lo tiene (EC2 24/7, Postgres, API con dominio público), así que aq
    hashtags por categoría.
 5. Además del feed+story, en cuanto esos dos se publican bien se lanza en segundo plano
    (sin bloquear la respuesta) la generación y publicación de un **Reel** (2026-07-28):
-   mismo fondo/diseño que el post, pero animado (zoom-out + aparición escalonada de cada
-   bloque de texto) con un fondo musical — ver `app/publisher/reel_video.py` (fotogramas
+   mismo fondo/diseño que la story, organizado en 8 segundos con tres actos: hook del
+   destino, ficha completa y CTA para guardar/compartir. Incluye movimiento de cámara,
+   barra de progreso y una banda musical con pulso sincronizado — ver
+   `app/publisher/reel_video.py` (fotogramas
    con Pillow + codificación con `ffmpeg`, necesita el paquete `ffmpeg` instalado en el
    contenedor `bot`) y `app/publisher/reel_audio.py` (la música es **100% sintetizada en
    Python puro**, no descargada de ningún sitio — así no hay ninguna duda de derechos de

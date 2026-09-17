@@ -103,6 +103,18 @@ def build_caption(opp: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def build_reel_caption(opp: dict[str, Any]) -> str:
+    """El Reel abre conversación; el feed conserva su caption puramente informativo."""
+    location = str(opp.get("location") or "").strip()
+    destination = next((part.strip() for part in location.split(",") if part.strip()), "")
+    question = (
+        f"¿Con quién te irías a {destination}? Etiquétale en comentarios 👇"
+        if destination
+        else "¿Con quién vivirías esta experiencia? Etiquétale en comentarios 👇"
+    )
+    return f"{question}\nGuárdalo para volver cuando prepares tu solicitud.\n\n{build_caption(opp)}"
+
+
 async def _post(path: str, data: dict) -> dict:
     import httpx
 
@@ -193,7 +205,7 @@ async def publish_reel(opp: dict[str, Any]) -> str:
     out_path = Path(cfg.media_dir) / "reels" / f"{opp['identifier']}.mp4"
     await asyncio.to_thread(reel_video.render_reel_mp4, opp, out_path)
 
-    caption = build_caption(opp)
+    caption = build_reel_caption(opp)
     create = await _post(
         f"{cfg.instagram_business_id}/media",
         {
@@ -202,11 +214,9 @@ async def publish_reel(opp: dict[str, Any]) -> str:
             # de imagen que ya sale ahí — a petición expresa: el feed es solo para el post,
             # el Reel se queda en su propia pestaña.
             "share_to_feed": "false",
-            # Portada = último fotograma, no el primero: con la aparición escalonada del
-            # texto, el primer fotograma va casi vacío (solo el fondo). En milisegundos,
-            # cerca del final de reel_video.DURATION para que ya esté todo el texto y el
-            # zoom-out completo.
-            "thumb_offset": str(round(reel_video.DURATION * 1000) - 200),
+            # Portada = acto central: se ve el proyecto completo. El inicio es un hook y
+            # el final un CTA genérico, ninguno identifica tan bien la oportunidad.
+            "thumb_offset": str(round(reel_video.COVER_TIME * 1000)),
         },
     )
     creation_id = create["id"]
