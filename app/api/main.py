@@ -30,6 +30,7 @@ from app.domain.project import clean_contact
 from app.api import auth
 from app.config import cfg
 from app.db import repository as repo
+from app.db import world_repository as world_repo
 from app.db.pool import close_pool, open_pool
 from app.publisher import instagram, instagram_card
 
@@ -93,6 +94,26 @@ def _serialize(row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+_WORLD_PUBLIC_FIELDS = _PUBLIC_FIELDS + (
+    "source_url", "eligibility_country_codes", "eligibility_scope", "last_checked_at",
+)
+
+
+def _serialize_world(row: dict[str, Any], residence: str | None = None) -> dict[str, Any]:
+    out = {key: _clean(row.get(key)) for key in _WORLD_PUBLIC_FIELDS}
+    out["contact_information"] = clean_contact(out.get("contact_information"))
+    codes = row.get("eligibility_country_codes") or []
+    residence = (residence or "").upper()
+    out["eligibility_match"] = (
+        "unknown" if not codes else "eligible" if residence and residence in codes
+        else "not_eligible" if residence else None
+    )
+    out["approx_location"] = geo.is_country_level(
+        row.get("latitude"), row.get("longitude"), row.get("country_code")
+    )
+    return out
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await open_pool()
@@ -143,6 +164,42 @@ async def discover(request: Request) -> Response:
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
     return FileResponse(path, media_type="text/html", headers=headers)
+
+
+@app.get("/world", include_in_schema=False)
+@app.get("/world/", include_in_schema=False)
+async def world(request: Request) -> Response:
+    """Edición inglesa aislada del catálogo y las rutas españolas."""
+    path = _STATIC / "world.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
+
+
+@app.get("/world/api/opportunities")
+async def world_opportunities(
+    response: Response,
+    residence: str | None = Query(None, min_length=2, max_length=2),
+) -> dict[str, Any]:
+    response.headers["Cache-Control"] = "public, max-age=60"
+    rows = await world_repo.list_open(residence=residence)
+    return {
+        "count": len(rows),
+        "generated": datetime.now().date().isoformat(),
+        "results": [_serialize_world(row, residence) for row in rows],
+    }
+
+
+@app.get("/world/api/opportunities/{identifier}")
+async def world_opportunity(identifier: str) -> dict[str, Any]:
+    if not re.fullmatch(r"WORLD-\d{4}-\d{4}", identifier):
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    row = await world_repo.get_by_identifier(identifier)
+    if not row:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    return _serialize_world(row)
 
 
 @app.get("/mapa", include_in_schema=False)
@@ -747,6 +804,7 @@ async def sitemap_xml() -> Response:
     urls = [
         f"  <url><loc>{origin}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>",
         f"  <url><loc>{origin}/mapa</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>",
+        f"  <url><loc>{origin}/world</loc><changefreq>daily</changefreq><priority>0.8</priority></url>",
     ]
     for r in rows:
         short_id = str(r["identifier"]).removeprefix("CORRADI-")

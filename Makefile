@@ -1,4 +1,4 @@
-.PHONY: up down logs build bot api summary weekly-summary top-projects backfill-geo backfill-details backfill-contacts backfill-embeddings install dev-db test demo seed
+.PHONY: up down logs build bot api summary weekly-summary top-projects scrape-salto-world backfill-geo backfill-details backfill-contacts backfill-embeddings install dev-db test demo seed
 
 # ─── Docker (local = EC2: mismo compose) ───────────────────────────────────
 up:        ## Levanta toda la pila (db, api, bot, caddy)
@@ -49,6 +49,9 @@ backfill-embeddings:  ## Rellena el vector de dedup de fichas publicadas sin él
 
 scrape-salto:  ## Busca oportunidades nuevas de Training Course en SALTO-YOUTH y avisa por DM
 	python -m app.scheduler.scrape_salto
+
+scrape-salto-world:  ## Guarda un lote SALTO global solo en el catálogo inglés /world
+	python -m app.scheduler.scrape_salto_world
 
 # ─── Pruebas / demo sin claves ─────────────────────────────────────────────
 test:      ## Ejecuta los tests (no necesitan BD ni claves)

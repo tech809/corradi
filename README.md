@@ -202,6 +202,54 @@ corradi/
 
 ## Puesta en marcha
 
+### Corradi World (piloto inglés)
+
+La edición internacional vive en `GET /world` y está aislada de la española:
+
+- `world_projects`, `world_salto_ids` y `world_salto_scan_cursor` son tablas propias.
+- `GET /world/api/opportunities` es su API de solo lectura; acepta `?residence=RO`.
+- El scraper no llama a `pipeline.commit()`, por lo que no publica en Telegram, Instagram,
+  WhatsApp ni inserta en `projects`.
+- Solo ingiere **Training Courses** de SALTO. Guarda países residentes elegibles como
+  códigos ISO para que `/world` pueda filtrarlos sin guardar el país elegido por la persona.
+
+En una base ya existente, aplicar primero la migración:
+
+```bash
+docker exec -i corradi-db psql -U corradi -d corradi < db/migrations/0018_world_catalog.sql
+```
+
+El backfill es incremental y respetuoso con la fuente (75 IDs por defecto, con pausa):
+
+```bash
+make scrape-salto-world
+# prueba pequeña:
+python -m app.scheduler.scrape_salto_world --limit 5
+```
+
+Para mantenerlo actualizado en producción puede ejecutarse por cron una vez al día. Al
+alcanzar el final vuelve a comprobar el pequeño borde de IDs inexistentes y continúa cuando
+SALTO publica nuevas fichas.
+
+```cron
+# 11:15 UTC cada día; el cursor hace que solo procese el siguiente lote/nuevas fichas
+15 11 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.scrape_salto_world >> /tmp/corradi_world_salto.log 2>&1
+```
+
+La edición tiene dos bots propios, ambos apagados por defecto mediante el perfil Docker
+`world`:
+
+- `world_discovery_bot`: `/latest` y `/country RO` sobre `world_projects`, solo lectura.
+- `world_submission_bot`: ingesta manual inglesa con preview y confirmación; durante el
+  piloto solo acepta los IDs de `ADMIN_TELEGRAM_IDS`. Si hay canal inglés configurado,
+  publica ahí después de guardar.
+
+```bash
+# configurar WORLD_TELEGRAM_BOT_TOKEN, WORLD_SUBMISSION_BOT_TOKEN y opcionalmente
+# WORLD_TELEGRAM_CHANNEL_ID / WORLD_TELEGRAM_CHANNEL_USERNAME en .env
+docker compose --profile world up -d --build world-discovery-bot world-submission-bot
+```
+
 ### Todo en Docker (igual en local y en EC2)
 
 ```bash

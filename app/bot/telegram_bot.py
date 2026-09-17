@@ -477,6 +477,10 @@ def build_application() -> Application:
 
 def run() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # Telegram autentica mediante un token incluido en la ruta. El logger INFO de
+    # httpx imprime la URL completa y, por tanto, no es seguro en producción.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     if not cfg.telegram_bot_token:
         raise SystemExit("Falta TELEGRAM_BOT_TOKEN en el entorno (.env).")
     # callback_query hace falta para los botones Enviar/Modificar/Cancelar y Editar.

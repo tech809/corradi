@@ -78,6 +78,36 @@ services:
       db:
         condition: service_healthy
 
+  # Bots ingleses aislados. El perfil `world` evita arrancarlos hasta que sus dos tokens
+  # estén configurados: `docker compose --profile world up -d --build`.
+  world-discovery-bot:
+    profiles: ["world"]
+    build:
+      context: .
+      dockerfile: docker/bot.Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-corradi}:${POSTGRES_PASSWORD:-corradi}@db:5432/${POSTGRES_DB:-corradi}
+    command: ["python", "-m", "app.bot.world_discovery_bot"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  world-submission-bot:
+    profiles: ["world"]
+    build:
+      context: .
+      dockerfile: docker/bot.Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-corradi}:${POSTGRES_PASSWORD:-corradi}@db:5432/${POSTGRES_DB:-corradi}
+    command: ["python", "-m", "app.bot.world_submission_bot"]
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   db_data:
   caddy_data:

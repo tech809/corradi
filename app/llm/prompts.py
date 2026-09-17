@@ -154,6 +154,45 @@ __CORRECTIONS__
 Respond only with the JSON:""".replace("__TYPES__", _TYPES)
 
 
+WORLD_EXTRACTION_PROMPT = """You extract ONE international youth mobility opportunity for
+Corradi World. Today's date is __TODAY__. The source is usually a public SALTO-YOUTH page.
+
+Accept only a genuine TRAINING COURSE with an application route. Do not reject it because
+of participant nationality: Corradi World stores calls for every country. Reject seminars,
+conferences, study visits, partnership-building activities, webinars and closed calls.
+
+Return only JSON with exactly these keys:
+{
+  "is_opportunity": true, "reason": null, "title": null, "summary": null,
+  "type": "TRAINING_COURSE", "topic": null, "organiser_name": null,
+  "country_code": null, "location": null, "start_date": null, "end_date": null,
+  "application_deadline": null, "infopack_url": null, "application_url": null,
+  "max_participants": null, "participant_min_age": null, "participant_max_age": null,
+  "cost": null, "contact_information": null, "detailed_description": null,
+  "programme_details": null, "learning_outcomes": null, "participant_profile": null,
+  "accommodation_details": null, "covered_costs": null, "travel_details": null,
+  "eligibility_countries": null
+}
+
+Rules:
+- Write summary, topic and all editorial fields in clear natural ENGLISH.
+- Keep the official project title unchanged.
+- Dates use DD/MM/YYYY. Never move an explicitly past date into the future.
+- country_code is the ISO alpha-2 code of the HOST country, never a participant country.
+- location is the most precise confirmed host place and country.
+- summary is two factual, useful sentences, roughly 160-300 characters.
+- topic is a short comma-separated list ordered by importance.
+- detailed_description is 2-5 short factual paragraphs. Never invent details.
+- Extract age, participant profile, costs, accommodation and reimbursement caveats exactly.
+- eligibility_countries reproduces the explicit participant countries or broad SALTO region
+  in clean English. Do not infer additional eligible countries.
+- Use null whenever the source does not provide the fact.
+
+SOURCE:
+\"\"\"__MESSAGE__\"\"\"
+Respond only with JSON:"""
+
+
 # Bloque que se inyecta (en __CORRECTIONS__) cuando el coordinador revisa la ficha y pide
 # cambios. Las correcciones MANDAN sobre lo que diga el mensaje original.
 CORRECTIONS_TEMPLATE = """

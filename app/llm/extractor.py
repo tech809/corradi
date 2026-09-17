@@ -8,7 +8,12 @@ from datetime import date
 
 from app.config import cfg
 from app.domain.project import normalize
-from app.llm.prompts import CORRECTIONS_TEMPLATE, EXTRACTION_PROMPT, INFOPACK_ENRICHMENT_PROMPT
+from app.llm.prompts import (
+    CORRECTIONS_TEMPLATE,
+    EXTRACTION_PROMPT,
+    INFOPACK_ENRICHMENT_PROMPT,
+    WORLD_EXTRACTION_PROMPT,
+)
 
 log = logging.getLogger("corradi.extractor")
 
@@ -151,6 +156,43 @@ def extract(raw_text: str, ref_day: date | None = None, corrections: list[str] |
     )
     fields["is_opportunity"] = True
     fields["raw_message"] = raw_text.strip()   # limpio, sin las correcciones
+    return fields
+
+
+def extract_world(raw_text: str, ref_day: date | None = None) -> dict:
+    """Extracción inglesa y sin el filtro de residencia española para `/world`."""
+    if cfg.llm_provider == "fake":
+        from app.llm import fake
+        return fake.extract(raw_text, ref_day)
+
+    from google.genai import types
+    from app.llm.retry import with_retry
+
+    ref_day = ref_day or date.today()
+    prompt = (
+        WORLD_EXTRACTION_PROMPT
+        .replace("__TODAY__", ref_day.isoformat())
+        .replace("__MESSAGE__", raw_text.strip())
+    )
+    resp = with_retry(lambda: _gemini_client().models.generate_content(
+        model=cfg.llm_model,
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1),
+    ))
+    _usage_queue.put_nowait(_cost_usd(getattr(resp, "usage_metadata", None)))
+    fields = json.loads(_strip_fences(resp.text), strict=False)
+    if not isinstance(fields, dict) or not fields.get("is_opportunity"):
+        return {
+            "is_opportunity": False,
+            "reason": fields.get("reason") if isinstance(fields, dict) else "Invalid extraction",
+        }
+    fields = normalize(
+        fields, ref_day, cfg.default_deadline_days, raw_text=raw_text,
+        last_minute_deadline_days=cfg.last_minute_deadline_days,
+        max_deadline_months=cfg.max_deadline_months,
+    )
+    fields["is_opportunity"] = True
+    fields["raw_message"] = raw_text.strip()
     return fields
 
 

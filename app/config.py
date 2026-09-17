@@ -141,5 +141,15 @@ class Config:
     # ver 3 Training Course publicarse de golpe el mismo día (2026-07-28).
     salto_scrape_daily_cap: int = int(os.getenv("SALTO_SCRAPE_DAILY_CAP", "2"))
 
+    # Edición internacional (/world). Su ingesta SALTO usa cursor y tablas propios: no
+    # publica en Telegram/Instagram ni escribe en `projects`.
+    world_salto_start_id: int = int(os.getenv("WORLD_SALTO_START_ID", "14500"))
+    world_salto_scan_batch: int = int(os.getenv("WORLD_SALTO_SCAN_BATCH", "75"))
+    world_salto_request_delay: float = float(os.getenv("WORLD_SALTO_REQUEST_DELAY", "0.35"))
+    world_telegram_bot_token: str = os.getenv("WORLD_TELEGRAM_BOT_TOKEN", "")
+    world_submission_bot_token: str = os.getenv("WORLD_SUBMISSION_BOT_TOKEN", "")
+    world_telegram_channel_id: str = os.getenv("WORLD_TELEGRAM_CHANNEL_ID", "")
+    world_telegram_channel_username: str = os.getenv("WORLD_TELEGRAM_CHANNEL_USERNAME", "")
+
 
 cfg = Config()
