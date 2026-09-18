@@ -26,7 +26,9 @@ def test_home_has_compact_flow_and_mobile_navigation():
     html = (STATIC / "discover.html").read_text(encoding="utf-8")
     assert 'class="mobile-bottom-nav"' in html
     assert 'href="/organizaciones"' in html
-    assert 'id="installApp"' in html
+    assert 'id="productMatches"' in html
+    assert 'class="product-edit-btn"' in html
+    assert 'id="installApp"' not in html
     assert 'class="wrap weekly-top"' not in html
     assert 'id="rowSoon"' in html
     assert 'id="rowYE"' in html
@@ -76,6 +78,17 @@ def test_compatibility_profile_only_persists_relevant_fields():
     assert "productLanguages" not in profile_block
     assert "productExperience" not in profile_block
     assert "productStrengths" not in profile_block
+
+
+def test_secondary_pages_share_the_same_back_navigation():
+    for name in ("guia.html", "organizaciones.html"):
+        html = (STATIC / name).read_text(encoding="utf-8")
+        assert 'href="/"' in html
+        assert 'href="/mapa"' in html
+        assert "Mi compatibilidad" not in html
+    estadisticas = (STATIC / "estadisticas.html").read_text(encoding="utf-8")
+    assert 'href="/"' in estadisticas
+    assert 'href="/mapa"' in estadisticas
 
 
 def test_catalog_and_map_can_sort_by_affinity():

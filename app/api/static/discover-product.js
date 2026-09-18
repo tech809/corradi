@@ -93,6 +93,22 @@
     const cNode = document.getElementById("compareSummary");
     if (cNode) cNode.textContent = compare.length + (compare.length === 1 ? " seleccionada" : " seleccionadas");
     updateChangeCount();
+    renderTopMatches();
+  }
+
+  function renderTopMatches() {
+    const holder = document.getElementById("productMatches");
+    if (!holder) return;
+    const p = profile();
+    if (!p.age || !p.residence) { holder.innerHTML = '<div class="matches-empty">Configura tu perfil para ver aquí tus mejores oportunidades.</div>'; return; }
+    const top = catalog.map(project => ({project, result: eligibility(project, p)}))
+      .filter(x => x.result.score != null && x.result.state !== "no")
+      .sort((a, b) => b.result.score - a.result.score)
+      .slice(0, 3);
+    if (!top.length) { holder.innerHTML = '<div class="matches-empty">Añade prioridades a tu perfil para ver aquí tus mejores oportunidades.</div>'; return; }
+    holder.innerHTML = '<span class="matches-title">Tus mejores oportunidades ahora mismo</span>' + top.map(({project, result}) =>
+      '<a class="product-match" href="' + projectUrl(project) + '"><span class="product-match-score">' + result.score + '%</span><span class="product-match-title">' + esc(project.title) + '</span></a>'
+    ).join("");
   }
 
   function enhanceCards() {
