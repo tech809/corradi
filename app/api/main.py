@@ -22,12 +22,13 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app import geo
 from app import pipeline
 from app.domain.project import clean_contact
 from app.api import auth
+from app.api import landing
 from app.config import cfg
 from app.db import repository as repo
 from app.db import world_repository as world_repo
@@ -48,7 +49,7 @@ _PUBLIC_FIELDS = (
     "participant_profile", "accommodation_details", "covered_costs", "travel_details",
     "eligibility_countries", "infopack_enriched",
     "image_url", "image_credit", "image_source_url", "image_origin",
-    "status", "telegram_message_id", "created",
+    "status", "telegram_message_id", "created", "updated",
 )
 
 
@@ -235,6 +236,19 @@ async def project_page(identifier: str, request: Request) -> Response:
     return FileResponse(path, media_type="text/html", headers=headers)
 
 
+@app.get("/oportunidades/{country_slug}", include_in_schema=False)
+@app.get("/oportunidades/{country_slug}/{type_slug}", include_in_schema=False)
+async def opportunity_landing(
+    country_slug: str, type_slug: str | None = None,
+) -> HTMLResponse:
+    """Landing indexable por destino y, opcionalmente, tipo de oportunidad."""
+    try:
+        content = landing.build(_STATIC, country_slug, type_slug)
+    except KeyError:
+        raise HTTPException(status_code=404)
+    return HTMLResponse(content, headers={"Cache-Control": "public, max-age=300"})
+
+
 @app.get("/og.png", include_in_schema=False)
 async def og_image() -> FileResponse:
     """Imagen de previsualización al compartir el enlace. Cambia muy de vez en cuando,
@@ -368,6 +382,16 @@ class ChatRequest(BaseModel):
     pregunta: str
 
 
+class ApplicationAssistRequest(BaseModel):
+    identifier: str = Field(max_length=32)
+    task: str = Field(default="motivation", max_length=32)
+    draft: str = Field(default="", max_length=5000)
+    motivation: str = Field(default="", max_length=2000)
+    experience: str = Field(default="", max_length=2000)
+    strengths: str = Field(default="", max_length=1500)
+    languages: str = Field(default="", max_length=500)
+
+
 @app.get("/api/chat/status")
 async def chat_status() -> dict[str, Any]:
     """El front lo consulta al ABRIR el diálogo del chat (no solo al fallar un envío), para
@@ -392,6 +416,29 @@ async def chat(payload: ChatRequest, request: Request) -> dict[str, Any]:
     if not pregunta:
         raise HTTPException(status_code=400, detail="Falta 'pregunta'")
     return await chat_llm.ask(pregunta)
+
+
+@app.post("/api/application-assistant")
+async def application_assistant(
+    payload: ApplicationAssistRequest, request: Request,
+) -> dict[str, Any]:
+    """Ayuda a redactar una candidatura sin inventar datos de la persona.
+
+    El perfil vive en el navegador; solo se envían los campos que la persona decide usar
+    en esta petición. El resultado es un borrador y se recuerda expresamente que debe
+    revisarlo antes de enviarlo.
+    """
+    if not re.fullmatch(r"CORRADI-\d{4}-\d{4}", payload.identifier):
+        raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
+    if payload.task not in {"motivation", "why_me", "experience", "review"}:
+        raise HTTPException(status_code=400, detail="Tipo de ayuda no válido")
+    if _chat_rate_limited(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Demasiadas solicitudes seguidas")
+    row = await repo.get_by_identifier(payload.identifier)
+    if not row or row.get("status") != "open":
+        raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
+    from app.llm import application as application_llm
+    return await application_llm.assist(row, payload.model_dump())
 
 
 # ── Panel de publicación (/publicar) ─────────────────────────────────────────────────────
@@ -811,6 +858,22 @@ async def sitemap_xml() -> Response:
         if not _SHORT_ID_RE.fullmatch(short_id):
             continue
         urls.append(f"  <url><loc>{origin}/{short_id}</loc><changefreq>daily</changefreq></url>")
+    by_code = {value[0]: slug for slug, value in landing.COUNTRIES.items()}
+    type_slug = {value[0]: slug for slug, value in landing.TYPES.items()}
+    seen_landings: set[str] = set()
+    for row in rows:
+        country = by_code.get((row.get("country_code") or "").upper())
+        if not country:
+            continue
+        paths = [f"/oportunidades/{country}"]
+        kind = type_slug.get(row.get("type"))
+        if kind:
+            paths.append(f"/oportunidades/{country}/{kind}")
+        for path in paths:
+            if path in seen_landings:
+                continue
+            seen_landings.add(path)
+            urls.append(f"  <url><loc>{origin}{path}</loc><changefreq>daily</changefreq></url>")
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'

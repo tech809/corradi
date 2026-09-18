@@ -385,7 +385,9 @@ async def bump_visit() -> dict[str, int]:
 
 
 _CLICK_KINDS = ("info", "form", "infopack")
-_INTERACTION_KINDS = ("view", *_CLICK_KINDS)
+_INTERACTION_KINDS = (
+    "view", *_CLICK_KINDS, "save", "compare", "calendar", "application", "assistant",
+)
 
 
 async def bump_click(kind: str, identifier: str | None = None) -> None:
@@ -422,7 +424,7 @@ async def bump_project_interaction(identifier: str, kind: str) -> None:
                 "SET count = project_interactions.count + 1",
                 (kind, identifier),
             )
-    except pg_errors.UndefinedTable:
+    except (pg_errors.UndefinedTable, pg_errors.CheckViolation):
         return
 
 
