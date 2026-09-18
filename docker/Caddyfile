@@ -9,10 +9,17 @@
 {$MAP_DOMAIN::80} {
 	encode zstd gzip
 
+	# La edición internacional permanece en desarrollo. Se bloquea también el HTML
+	# estático para que /assets/world.html no sea una puerta lateral.
+	@world_oculto path /world /world/* /assets/world.html
+	handle @world_oculto {
+		respond "No encontrado" 404
+	}
+
 	# Superficie pública mínima: solo el mapa y sus datos de lectura.
 	# Todo lo demás (webhooks, docs de la API) se corta aquí como segunda barrera,
 	# además de no estar montado en la app.
-	@publico path / /mapa /corradi-erasmus /proyecto/* /oportunidades/* /world /world/ /world/api/opportunities /world/api/opportunities/* /og.png /assets/* /media/opportunities/* /api/map /api/top /api/visit /api/click /api/interaction /api/chat /api/chat/status /api/application-assistant /api/stats /health /opportunities /opportunities/* /ig/* /share/* /fonts/* /robots.txt /sitemap.xml /estadisticas
+	@publico path / /mapa /corradi-erasmus /organizaciones /guia /proyecto/* /oportunidades/* /manifest.webmanifest /sw.js /og.png /assets/* /media/opportunities/* /api/map /api/top /api/visit /api/click /api/interaction /api/chat /api/chat/status /api/application-assistant /api/sending-organisations /api/stats /health /opportunities /opportunities/* /ig/* /share/* /fonts/* /robots.txt /sitemap.xml /estadisticas
 	handle @publico {
 		reverse_proxy api:8000
 	}

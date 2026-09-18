@@ -27,6 +27,7 @@ _INSERT_COLS = [
     "detailed_description", "programme_details", "learning_outcomes",
     "participant_profile", "accommodation_details", "covered_costs", "travel_details",
     "eligibility_countries", "infopack_enriched",
+    "eligibility_country_codes", "eligibility_scope",
     "image_url", "image_credit", "image_source_url", "image_origin",
     "status", "source", "submitted_by", "submitted_by_id", "embedding",
 ]
@@ -79,6 +80,8 @@ async def insert_project(fields: dict[str, Any], embedding: list[float] | None) 
                 "covered_costs": fields.get("covered_costs"),
                 "travel_details": fields.get("travel_details"),
                 "eligibility_countries": fields.get("eligibility_countries"),
+                "eligibility_country_codes": fields.get("eligibility_country_codes", []),
+                "eligibility_scope": fields.get("eligibility_scope", "unknown"),
                 "infopack_enriched": fields.get("infopack_enriched", False),
                 "image_url": fields.get("image_url"),
                 "image_credit": fields.get("image_credit"),
@@ -223,7 +226,12 @@ _EDITABLE_COLS = [
 async def update_project(identifier: str, fields: dict[str, Any]) -> dict[str, Any] | None:
     """Actualiza los campos editables de una oportunidad ya publicada (edición por el
     coordinador). Solo cambia lo que aparezca en `fields`; devuelve la fila actualizada."""
-    cols = [c for c in _EDITABLE_COLS if c in fields]
+    if "eligibility_countries" in fields:
+        from app.eligibility import parse_eligibility_label
+        codes, scope = parse_eligibility_label(fields.get("eligibility_countries"))
+        fields = {**fields, "eligibility_country_codes": codes, "eligibility_scope": scope}
+    allowed = _EDITABLE_COLS + ["eligibility_country_codes", "eligibility_scope"]
+    cols = [c for c in allowed if c in fields]
     if not cols:
         return await get_by_identifier(identifier)
     row = {c: fields[c] for c in cols}

@@ -1,0 +1,21 @@
+{
+  "name": "Corradi · Oportunidades Erasmus+",
+  "short_name": "Corradi",
+  "description": "Oportunidades Erasmus+ verificadas para residentes en España.",
+  "lang": "es",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f2ed",
+  "theme_color": "#0c183e",
+  "icons": [
+    {"src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Buscar oportunidades", "short_name": "Buscar", "url": "/#explorar"},
+    {"name": "Abrir el mapa", "short_name": "Mapa", "url": "/mapa"},
+    {"name": "Guía Erasmus+", "short_name": "Guía", "url": "/guia"},
+    {"name": "Organizaciones", "short_name": "Organizaciones", "url": "/organizaciones"}
+  ]
+}

@@ -7,6 +7,7 @@ una columna a `projects`, no se filtra sola. Los datos de quien envía la oportu
 """
 from __future__ import annotations
 
+import csv
 import html
 import json
 import re
@@ -27,6 +28,7 @@ from pydantic import BaseModel, Field
 from app import geo
 from app import pipeline
 from app.domain.project import clean_contact
+from app.eligibility import parse_eligibility_label
 from app.api import auth
 from app.api import landing
 from app.config import cfg
@@ -36,6 +38,7 @@ from app.db.pool import close_pool, open_pool
 from app.publisher import instagram, instagram_card
 
 _STATIC = Path(__file__).parent / "static"
+_DIRECTORY_CSV = Path(__file__).parents[2] / "docs" / "asociaciones_erasmus_juventud_contactos.csv"
 
 # Únicos campos que salen al exterior. Todo lo demás (raw_message, embedding, hash,
 # submitted_by, submitted_by_id, source...) se queda dentro.
@@ -47,7 +50,7 @@ _PUBLIC_FIELDS = (
     "participant_min_age", "participant_max_age", "cost", "contact_information",
     "detailed_description", "programme_details", "learning_outcomes",
     "participant_profile", "accommodation_details", "covered_costs", "travel_details",
-    "eligibility_countries", "infopack_enriched",
+    "eligibility_countries", "eligibility_country_codes", "eligibility_scope", "infopack_enriched",
     "image_url", "image_credit", "image_source_url", "image_origin",
     "status", "telegram_message_id", "created", "updated",
 )
@@ -81,6 +84,11 @@ def _serialize(row: dict[str, Any]) -> dict[str, Any]:
     # valor ("... E-Mail: Phone: x"); se sanea en cada respuesta para no depender de un
     # backfill. Las nuevas ya entran limpias por `normalize()`.
     out["contact_information"] = clean_contact(out.get("contact_information"))
+    # Compatibilidad con fichas anteriores a la migración: la respuesta queda estructurada
+    # desde el primer despliegue aunque el backfill aún no haya recorrido toda la tabla.
+    if not out.get("eligibility_country_codes"):
+        codes, scope = parse_eligibility_label(out.get("eligibility_countries"))
+        out["eligibility_country_codes"], out["eligibility_scope"] = codes, scope
     # Enlace al post original del canal (solo si el canal es público y se guardó el id).
     if cfg.telegram_channel_username and row.get("telegram_message_id"):
         out["channel_url"] = (
@@ -128,6 +136,16 @@ app = FastAPI(
     description="Catálogo público de oportunidades Erasmus+ de Corradi.",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def hide_unpublished_world_asset(request: Request, call_next):
+    """Evita que el HTML en desarrollo sea accesible a través del montaje /assets."""
+    if not cfg.world_public_enabled and request.url.path in {"/assets/world.html", "/assets/world.css"}:
+        return Response(content="No encontrado", status_code=404, media_type="text/plain")
+    return await call_next(request)
+
+
 # El webhook de WhatsApp SOLO se monta si WhatsApp está activo. Con la API expuesta a
 # internet y `TWILIO_VALIDATE_SIGNATURE=false` por defecto, dejarlo montado permitiría a
 # cualquiera hacer POST y colar oportunidades en el canal. Hoy HANDOFF_MODE=none, así que
@@ -167,10 +185,73 @@ async def discover(request: Request) -> Response:
     return FileResponse(path, media_type="text/html", headers=headers)
 
 
+@app.get("/organizaciones", include_in_schema=False)
+async def organisations(request: Request) -> Response:
+    path = _STATIC / "organizaciones.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
+
+
+@app.get("/guia", include_in_schema=False)
+async def guide(request: Request) -> Response:
+    path = _STATIC / "guia.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
+
+
+@app.get("/api/sending-organisations")
+async def sending_organisations(response: Response) -> dict[str, Any]:
+    """Directorio de contacto; no presupone que cada entidad acepte enviar a cualquiera."""
+    if not _DIRECTORY_CSV.exists():
+        raise HTTPException(status_code=503, detail="Directory unavailable")
+    rows: list[dict[str, Any]] = []
+    with _DIRECTORY_CSV.open(encoding="utf-8-sig", newline="") as handle:
+        for index, row in enumerate(csv.DictReader(handle), start=1):
+            email = (row.get("email") or "").strip()
+            rows.append({
+                "id": index,
+                "name": (row.get("nombre") or "").strip(),
+                "location": (row.get("ciudad_provincia") or "").strip(),
+                "actions": (row.get("accion_erasmus") or "").strip(),
+                "email": email if "@" in email else None,
+                "source_url": (row.get("fuente_nombre") or "").strip() or None,
+                "contact_url": (row.get("fuente_email") or "").strip()
+                if (row.get("fuente_email") or "").startswith("http") else None,
+            })
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return {"count": len(rows), "results": rows}
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+async def web_manifest() -> Response:
+    return FileResponse(
+        _STATIC / "manifest.webmanifest",
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker() -> Response:
+    return FileResponse(
+        _STATIC / "sw.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+    )
+
+
 @app.get("/world", include_in_schema=False)
 @app.get("/world/", include_in_schema=False)
 async def world(request: Request) -> Response:
     """Edición inglesa aislada del catálogo y las rutas españolas."""
+    if not cfg.world_public_enabled:
+        raise HTTPException(status_code=404)
     path = _STATIC / "world.html"
     etag = _file_etag(path)
     headers = {"Cache-Control": "no-cache", "ETag": etag}
@@ -184,6 +265,8 @@ async def world_opportunities(
     response: Response,
     residence: str | None = Query(None, min_length=2, max_length=2),
 ) -> dict[str, Any]:
+    if not cfg.world_public_enabled:
+        raise HTTPException(status_code=404)
     response.headers["Cache-Control"] = "public, max-age=60"
     rows = await world_repo.list_open(residence=residence)
     return {
@@ -195,6 +278,8 @@ async def world_opportunities(
 
 @app.get("/world/api/opportunities/{identifier}")
 async def world_opportunity(identifier: str) -> dict[str, Any]:
+    if not cfg.world_public_enabled:
+        raise HTTPException(status_code=404)
     if not re.fullmatch(r"WORLD-\d{4}-\d{4}", identifier):
         raise HTTPException(status_code=404, detail="Opportunity not found")
     row = await world_repo.get_by_identifier(identifier)
@@ -851,7 +936,8 @@ async def sitemap_xml() -> Response:
     urls = [
         f"  <url><loc>{origin}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>",
         f"  <url><loc>{origin}/mapa</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>",
-        f"  <url><loc>{origin}/world</loc><changefreq>daily</changefreq><priority>0.8</priority></url>",
+        f"  <url><loc>{origin}/organizaciones</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>",
+        f"  <url><loc>{origin}/guia</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>",
     ]
     for r in rows:
         short_id = str(r["identifier"]).removeprefix("CORRADI-")
@@ -909,6 +995,7 @@ body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.6 Manrope
 .brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font:800 17px Sora,sans-serif;letter-spacing:-.02em}
 .brand .g{width:36px;height:36px;border-radius:11px;background:var(--navy);color:#fff;display:grid;place-items:center;font:800 15px Sora,sans-serif}
 .brand small{display:block;color:var(--muted);font:700 8.5px Manrope,sans-serif;letter-spacing:.1em}
+.short-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.short-nav{display:flex;gap:8px}.short-nav a{padding:8px 10px;border-radius:9px;color:var(--navy);font-size:11px;font-weight:700;text-decoration:none}.short-nav a:last-child{background:#e8edda}
 article{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;margin-top:20px;box-shadow:0 20px 60px rgba(16,22,39,.08)}
 .photo{height:min(46vw,320px);background:#dfe4dc center/cover no-repeat}
 .body{padding:26px 28px}
@@ -929,6 +1016,13 @@ h2{font:700 15px Sora,sans-serif;margin:26px 0 8px}
 .back{margin-top:26px;font-size:14px}
 .back a{color:var(--navy);font-weight:700;text-decoration:none}
 footer{max-width:760px;margin:0 auto;padding:0 22px 40px;color:var(--muted);font-size:12.5px}
+.compat{margin-left:auto;border-radius:999px;padding:6px 11px;background:#ececef;color:#535966;font-size:11px;font-weight:700}
+.compat.yes{background:#e5f1e8;color:#2f6545}.compat.warn{background:#f7eedb;color:#805b23}.compat.no{background:#f5e7e4;color:#983d38}
+.map-section{max-width:1000px;margin:24px auto 0;padding:0 22px 60px}
+.map-copy{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:13px}.map-copy h2{margin:0;font:700 20px Sora,sans-serif}.map-copy p{margin:4px 0 0;color:var(--muted);font-size:13px}.map-copy a{color:var(--navy);font-weight:700;text-decoration:none;white-space:nowrap}
+#opportunityMap{height:390px;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#dfe4dc;box-shadow:0 18px 50px rgba(16,22,39,.08)}
+.short-pin{width:28px;height:28px;border:3px solid #fff;border-radius:50% 50% 50% 0;background:var(--navy);transform:rotate(-45deg);box-shadow:0 4px 14px rgba(13,29,78,.3)}.short-pin.current{width:34px;height:34px;background:#c6df57;box-shadow:0 0 0 5px rgba(216,238,120,.35),0 4px 14px rgba(13,29,78,.3)}
+@media(max-width:640px){.body{padding:22px 19px}.short-nav a:first-child{display:none}.short-nav a{font-size:10px}.map-copy{align-items:start;flex-direction:column}#opportunityMap{height:330px}}
 """
 
 
@@ -1018,6 +1112,7 @@ def _short_link_page(row: dict[str, Any], origin: str) -> str:
         offer["validThrough"] = deadline.isoformat()
     ld["offers"] = offer
     ld_json = json.dumps(ld, ensure_ascii=False)
+    opportunity_json = json.dumps(_serialize(row), ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
     detail_html = "".join(f"<p>{e(p.strip())}</p>" for p in re.split(r"\n{2,}", detail) if p.strip()) if detail else (f"<p class=\"lead\">{e(summary)}</p>" if summary else "")
 
@@ -1038,16 +1133,17 @@ def _short_link_page(row: dict[str, Any], origin: str) -> str:
 <meta property="og:image" content="{e(og_image)}">
 <meta property="og:locale" content="es_ES">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynhtPKq30aZTi6MZbYVz1n9WgCig=" crossorigin="">
 <script type="application/ld+json">{ld_json}</script>
 <style>{_SHORT_PAGE_CSS}</style>
 </head>
 <body>
 <div class="wrap">
-<a class="brand" href="/"><span class="g">C</span><span>Corradi<small>OPORTUNIDADES ERASMUS+</small></span></a>
+<header class="short-head"><a class="brand" href="/"><span class="g">C</span><span>Corradi<small>OPORTUNIDADES ERASMUS+</small></span></a><nav class="short-nav" aria-label="Navegación"><a href="/guia">Guía</a><a href="/?profile=1">Mi compatibilidad</a></nav></header>
 <article>
 <div class="photo"{f' style="background-image:url(&quot;{e(img)}&quot;)"' if img else ''}></div>
 <div class="body">
-<div class="badges"><span class="badge">{e(tipo)}</span><span>{_flag_emoji(cc)} {e(lugar or pais)}</span></div>
+<div class="badges"><span class="badge">{e(tipo)}</span><span>{_flag_emoji(cc)} {e(lugar or pais)}</span><span class="compat" id="shortCompatibility">Configura tu perfil</span></div>
 <h1>{e(title)}</h1>
 <div class="facts">{facts_html}</div>
 {detail_html}
@@ -1058,7 +1154,32 @@ def _short_link_page(row: dict[str, Any], origin: str) -> str:
 </div>
 </article>
 </div>
+<section class="map-section" aria-labelledby="nearbyTitle">
+<div class="map-copy"><div><h2 id="nearbyTitle">Esta oportunidad en el mapa</h2><p>Aleja el zoom para descubrir otras convocatorias abiertas.</p></div><a href="/mapa?o={e(identifier)}">Abrir el mapa completo →</a></div>
+<div id="opportunityMap" role="region" aria-label="Mapa de oportunidades Erasmus+"></div>
+</section>
 <footer>Corradi reúne convocatorias Erasmus+ (intercambios juveniles, training courses y ESC) con inscripción abierta, verificadas y explicadas con claridad, para personas residentes en España.</footer>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/assets/compatibility.js"></script>
+<script>
+(function(){{
+  var current={opportunity_json}, badge=document.getElementById("shortCompatibility");
+  if(window.CorradiCompatibility){{var result=window.CorradiCompatibility.evaluate(current);badge.textContent=result.label;badge.className="compat "+result.state;badge.title=result.reasons.join(" · ");badge.onclick=function(){{if(result.score==null)location.href="/?profile=1"}};}}
+  if(!window.L)return;
+  var hasCurrent=Number.isFinite(Number(current.latitude))&&Number.isFinite(Number(current.longitude));
+  var centre=hasCurrent?[Number(current.latitude),Number(current.longitude)]:[46.4,8.8];
+  var map=L.map("opportunityMap",{{scrollWheelZoom:false}}).setView(centre,hasCurrent?7:4);
+  L.tileLayer("https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png",{{maxZoom:18,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}}).addTo(map);
+  function icon(isCurrent){{return L.divIcon({{className:"",html:'<div class="short-pin'+(isCurrent?' current':'')+'"></div>',iconSize:isCurrent?[34,34]:[28,28],iconAnchor:isCurrent?[17,30]:[14,25]}})}}
+  fetch("/api/map").then(function(r){{return r.ok?r.json():Promise.reject()}}).then(function(data){{(data.results||[]).forEach(function(o){{
+    if(!Number.isFinite(Number(o.latitude))||!Number.isFinite(Number(o.longitude)))return;
+    var selected=o.identifier===current.identifier, marker=L.marker([Number(o.latitude),Number(o.longitude)],{{icon:icon(selected),zIndexOffset:selected?1000:0}}).addTo(map);
+    marker.bindTooltip(o.title||"Oportunidad Erasmus+",{{direction:"top",offset:[0,-20]}});
+    marker.on("click",function(){{location.href="/mapa?o="+encodeURIComponent(o.identifier)}});
+    if(selected)marker.openTooltip();
+  }})}}).catch(function(){{if(hasCurrent)L.marker(centre,{{icon:icon(true)}}).addTo(map).on("click",function(){{location.href="/mapa?o="+encodeURIComponent(current.identifier)}})}});
+}})();
+</script>
 </body>
 </html>"""
 

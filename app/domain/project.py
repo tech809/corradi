@@ -8,6 +8,8 @@ import unicodedata
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
+from app.eligibility import parse_eligibility_label
+
 
 def _add_months(d: date, months: int) -> date:
     """Suma meses a una fecha sin depender de dateutil (recorta el día si el mes es más corto)."""
@@ -253,6 +255,9 @@ def normalize(
     out["infopack_url"] = _clean_url(fields.get("infopack_url"))
     out["application_url"] = _clean_url(fields.get("application_url"))
     out["contact_information"] = clean_contact(fields.get("contact_information"))
+    codes, scope = parse_eligibility_label(fields.get("eligibility_countries"))
+    out["eligibility_country_codes"] = codes
+    out["eligibility_scope"] = scope
     return out
 
 

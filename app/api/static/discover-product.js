@@ -6,6 +6,8 @@
     applications: "corradi-applications-v1",
     compare: "corradi-compare-v1",
     documents: "corradi-documents-v1",
+    snapshots: "corradi-opportunity-snapshots-v1",
+    changes: "corradi-opportunity-changes-v1",
   };
   const TYPES = {YOUTH_EXCHANGE: "Youth Exchange", TRAINING_COURSE: "Training Course", VOLUNTEERING: "ESC", ESC: "ESC"};
   const COUNTRIES = {ES:"España",IT:"Italia",RO:"Rumanía",GR:"Grecia",PL:"Polonia",DE:"Alemania",PT:"Portugal",FR:"Francia",HR:"Croacia",BG:"Bulgaria",HU:"Hungría",LT:"Lituania",LV:"Letonia",SK:"Eslovaquia",SI:"Eslovenia",EE:"Estonia",NL:"Países Bajos",BE:"Bélgica",CZ:"Chequia",AT:"Austria",SE:"Suecia",FI:"Finlandia",DK:"Dinamarca",MT:"Malta",IE:"Irlanda",CY:"Chipre",TR:"Turquía",MK:"Macedonia del Norte",RS:"Serbia",BA:"Bosnia y Herzegovina",AL:"Albania",ME:"Montenegro",GE:"Georgia",NO:"Noruega",IS:"Islandia",UA:"Ucrania",GB:"Reino Unido"};
@@ -23,11 +25,10 @@
   }
   function write(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
   function esc(value) { const node = document.createElement("div"); node.textContent = value == null ? "" : String(value); return node.innerHTML; }
-  function norm(value) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
   function fmt(value) { return value ? new Intl.DateTimeFormat("es", {day:"numeric", month:"short", year:"numeric"}).format(new Date(value + "T12:00:00")) : "Por confirmar"; }
   function projectUrl(project) { return "/proyecto/" + encodeURIComponent(project.identifier); }
   function byId(identifier) { return catalog.find(project => project.identifier === identifier); }
-  function profile() { return read(KEYS.profile, {}); }
+  function profile() { return window.CorradiCompatibility ? window.CorradiCompatibility.readProfile() : read(KEYS.profile, {}); }
   function applications() { return read(KEYS.applications, {}); }
   function compareIds() { return read(KEYS.compare, []); }
   function documents() { return read(KEYS.documents, {}); }
@@ -45,47 +46,53 @@
   }
 
   function eligibility(project, data) {
-    data = data || profile();
-    let score = 45, known = 0, reasons = [], hardFail = false;
-    const age = Number(data.age || 0);
-    if (age) {
-      known++;
-      if ((project.participant_min_age && age < project.participant_min_age) || (project.participant_max_age && age > project.participant_max_age)) {
-        hardFail = true; reasons.push("Tu edad no entra en el rango indicado");
-      } else { score += 25; reasons.push("Tu edad encaja"); }
-    } else reasons.push("Añade tu edad para comprobar el rango");
-    if (data.residence) {
-      known++;
-      if (data.residence !== "ES") { hardFail = true; reasons.push("Este catálogo está validado para residentes en España"); }
-      else { score += 20; reasons.push("Residencia compatible con esta edición"); }
-    } else reasons.push("Añade tu residencia para verificar elegibilidad");
-    if (data.type) {
-      known++;
-      if (data.type === project.type || (data.type === "VOLUNTEERING" && project.type === "ESC")) { score += 10; reasons.push("Es el tipo de proyecto que buscas"); }
-      else score -= 5;
-    }
-    const interests = norm(data.interests).split(/[,;]+|\s+/).filter(word => word.length > 3);
-    if (interests.length) {
-      known++;
-      const text = norm([project.title, project.topic, project.summary].join(" "));
-      const matches = interests.filter(word => text.includes(word));
-      if (matches.length) { score += Math.min(15, matches.length * 5); reasons.push("Coincide con " + matches.slice(0, 3).join(", ")); }
-    }
-    score = Math.max(0, Math.min(100, hardFail ? Math.min(score, 35) : score));
-    if (!known) return {score:null, state:"unknown", label:"Completa tu perfil", reasons};
-    if (hardFail) return {score, state:"no", label:"Revisa requisitos", reasons};
-    if (score >= 80) return {score, state:"yes", label:score + "% compatible", reasons};
-    return {score, state:"warn", label:score + "% compatible", reasons};
+    return window.CorradiCompatibility.evaluate(project, data || profile());
+  }
+
+  const SNAPSHOT_FIELDS = {application_deadline:"Fecha límite",start_date:"Fecha de inicio",end_date:"Fecha final",application_url:"Formulario",infopack_url:"Infopack",participant_min_age:"Edad mínima",participant_max_age:"Edad máxima",eligibility_country_codes:"Países admitidos",status:"Disponibilidad"};
+  function snapshot(project) {
+    const out = {title:project.title || project.identifier};
+    Object.keys(SNAPSHOT_FIELDS).forEach(key => { const value = project[key]; out[key] = Array.isArray(value) ? value.slice().sort().join(",") : (value == null ? "" : String(value)); });
+    return out;
+  }
+  function trackedIds() {
+    const favourites = read("corradi-favourites", []);
+    return new Set([...Object.keys(applications()), ...compareIds(), ...favourites]);
+  }
+  function detectChanges() {
+    const previous = read(KEYS.snapshots, {}), next = {}, tracked = trackedIds(), changes = read(KEYS.changes, {});
+    catalog.forEach(project => {
+      const current = snapshot(project), before = previous[project.identifier]; next[project.identifier] = current;
+      if (!before || !tracked.has(project.identifier)) return;
+      const labels = Object.keys(SNAPSHOT_FIELDS).filter(key => String(before[key] || "") !== String(current[key] || "")).map(key => SNAPSHOT_FIELDS[key]);
+      if (labels.length) changes[project.identifier] = {title:current.title, labels, detectedAt:new Date().toISOString(), seen:false};
+    });
+    tracked.forEach(id => {
+      if (previous[id] && !next[id]) {
+        next[id] = previous[id];
+        if (!changes[id] || !changes[id].labels.includes("Ya no aparece entre las oportunidades abiertas")) {
+          changes[id] = {title:previous[id].title || id, labels:["Ya no aparece entre las oportunidades abiertas"], detectedAt:new Date().toISOString(), seen:false};
+        }
+      }
+    });
+    write(KEYS.snapshots, next); write(KEYS.changes, changes); updateChangeCount();
+  }
+  function updateChangeCount() {
+    const count = Object.values(read(KEYS.changes, {})).filter(change => !change.seen).length;
+    const node = document.getElementById("mobileChangeCount"); if (node) { node.textContent = count; node.hidden = !count; }
+    const summary = document.getElementById("applicationSummary");
+    if (summary && count) summary.textContent = count + (count === 1 ? " cambio detectado" : " cambios detectados");
   }
 
   function updateSummaries() {
     const p = profile(), apps = applications(), compare = compareIds();
     const pNode = document.getElementById("profileSummary");
-    if (pNode) pNode.textContent = p.age || p.residence || p.interests ? "Perfil configurado" : "Calcula tu compatibilidad";
+    if (pNode) pNode.textContent = Object.values(p).some(Boolean) ? "Guardado en este dispositivo" : "Comprueba requisitos sin registrarte";
     const aNode = document.getElementById("applicationSummary");
     if (aNode) aNode.textContent = Object.keys(apps).length ? Object.keys(apps).length + " en seguimiento" : "Organiza tu progreso";
     const cNode = document.getElementById("compareSummary");
     if (cNode) cNode.textContent = compare.length + (compare.length === 1 ? " seleccionada" : " seleccionadas");
+    updateChangeCount();
   }
 
   function enhanceCards() {
@@ -98,20 +105,15 @@
         chip.className = "eligibility-chip " + result.state;
         chip.textContent = result.state === "yes" ? "✓ " + result.label : result.label;
         chip.title = result.reasons.join(" · ");
-        card.appendChild(chip);
+        const deadline = card.querySelector(".overlay-deadline,.deadline");
+        const host = card.querySelector(".prototype-copy") || card;
+        if (deadline) host.insertBefore(chip, deadline); else host.appendChild(chip);
       } else {
         const chip = card.querySelector(".eligibility-chip"), label = result.state === "yes" ? "✓ " + result.label : result.label;
         chip.className = "eligibility-chip " + result.state;
         if (chip.textContent !== label) chip.textContent = label;
+        chip.title = result.reasons.join(" · ");
       }
-      if (card.closest("#allCards") && !card.querySelector(".card-product-actions")) {
-        const actions = document.createElement("div"); actions.className = "card-product-actions";
-        actions.innerHTML = '<a href="' + projectUrl(project) + '">Ficha completa</a><button type="button" data-product-action="compare" data-id="' + esc(project.identifier) + '">Comparar</button>';
-        const deadline = card.querySelector(".overlay-deadline"), host = card.querySelector(".prototype-copy") || card;
-        if (deadline) host.insertBefore(actions, deadline); else host.appendChild(actions);
-      }
-      const compareButton = card.querySelector('[data-product-action="compare"]');
-      if (compareButton) compareButton.classList.toggle("compare-on", compareIds().includes(project.identifier));
     });
   }
 
@@ -126,7 +128,7 @@
     if (head) head.insertAdjacentHTML("afterend", '<div class="project-eligibility ' + result.state + '"><strong>' + esc(result.label) + '</strong><br>' + esc(result.reasons.slice(0, 2).join(" · ")) + '</div>');
     const actions = detail.querySelector(".detail-actions");
     const bar = document.createElement("div"); bar.className = "detail-product-bar";
-    bar.innerHTML = '<a href="' + projectUrl(project) + '">Abrir ficha completa</a><button class="strong" type="button" data-product-action="application" data-id="' + esc(project.identifier) + '">Preparar solicitud</button><button type="button" data-product-action="compare" data-id="' + esc(project.identifier) + '">Comparar</button><button type="button" data-product-action="documents" data-id="' + esc(project.identifier) + '">Documentos</button>';
+    bar.innerHTML = '<a class="strong" href="' + projectUrl(project) + '">Abrir ficha completa</a><button type="button" data-product-open="profile">Ajustar mi compatibilidad</button>';
     if (actions) actions.before(bar); else detail.appendChild(bar);
     const trace = document.createElement("div"); trace.className = "trace-note";
     trace.innerHTML = "<i></i><span>" + esc(project.infopack_enriched ? "Datos ampliados desde el infopack oficial" : "Ficha estructurada y revisada por Corradi") + " · Actualizada " + esc(fmt((project.updated || project.created || "").slice(0, 10))) + "</span>";
@@ -160,10 +162,10 @@
   function openProfile() {
     const p = profile();
     const countryOptions = Object.keys(COUNTRIES).sort((a,b) => COUNTRIES[a].localeCompare(COUNTRIES[b], "es")).map(code => '<option value="' + code + '"' + (p.residence === code ? " selected" : "") + '>' + esc(COUNTRIES[code]) + '</option>').join("");
-    const body = '<p class="product-intro">Usamos estos datos para explicar qué encaja y qué requisito debes revisar. No salen de este navegador.</p><form id="profileForm"><div class="product-grid"><div class="product-field"><label for="productAge">Edad</label><input id="productAge" type="number" min="13" max="99" value="' + esc(p.age || "") + '" required></div><div class="product-field"><label for="productResidence">País de residencia</label><select id="productResidence" required><option value="">Selecciona</option>' + countryOptions + '</select></div><div class="product-field"><label for="productType">Tipo preferido</label><select id="productType"><option value="">Cualquiera</option>' + Object.keys(TYPES).filter(x => x !== "ESC").map(type => '<option value="' + type + '"' + (p.type === type ? " selected" : "") + '>' + TYPES[type] + '</option>').join("") + '</select></div><div class="product-field"><label for="productLanguages">Idiomas</label><input id="productLanguages" maxlength="120" value="' + esc(p.languages || "") + '" placeholder="Español, inglés B1…"></div><div class="product-field full"><label for="productInterests">Intereses</label><input id="productInterests" maxlength="180" value="' + esc(p.interests || "") + '" placeholder="Inclusión, fotografía, medio ambiente…"></div><div class="product-field full"><label for="productExperience">Experiencia que quieres destacar</label><textarea id="productExperience" maxlength="1000" placeholder="Voluntariado, estudios, proyectos personales…">' + esc(p.experience || "") + '</textarea></div><div class="product-field full"><label for="productStrengths">Qué puedes aportar a un grupo</label><textarea id="productStrengths" maxlength="700" placeholder="Escucha, creatividad, organización…">' + esc(p.strengths || "") + '</textarea></div></div><div class="privacy-note"><b>Privacidad:</b><span>El perfil se almacena en localStorage. Solo se enviará al asistente el texto que tú decidas usar.</span></div><div class="product-form-actions"><button class="product-button danger" id="clearProfile" type="button">Borrar perfil</button><button class="product-button primary" type="submit">Guardar perfil</button></div></form>';
-    const modal = modalShell("profile", "Compatibilidad", "Mi perfil", body);
+    const body = '<p class="product-intro">Sin registro y sin cuenta. Usamos únicamente estos cuatro datos para comprobar requisitos y ordenar mejor las oportunidades.</p><div class="profile-explainer"><div><b>Requisitos</b><span>Edad y residencia determinan si cumples las condiciones publicadas.</span></div><div><b>Preferencias</b><span>Tipo e intereses mejoran la afinidad, pero nunca deciden tu elegibilidad.</span></div></div><form id="profileForm"><div class="product-grid"><div class="product-field"><label for="productAge">Edad · requisito</label><input id="productAge" type="number" min="13" max="99" value="' + esc(p.age || "") + '" required></div><div class="product-field"><label for="productResidence">País de residencia · requisito</label><select id="productResidence" required><option value="">Selecciona</option>' + countryOptions + '</select></div><div class="product-field"><label for="productType">Tipo preferido · opcional</label><select id="productType"><option value="">Cualquiera</option>' + Object.keys(TYPES).filter(x => x !== "ESC").map(type => '<option value="' + type + '"' + (p.type === type ? " selected" : "") + '>' + TYPES[type] + '</option>').join("") + '</select></div><div class="product-field"><label for="productInterests">Intereses · opcional</label><input id="productInterests" maxlength="180" value="' + esc(p.interests || "") + '" placeholder="Inclusión, fotografía, medio ambiente…"></div></div><div class="privacy-note"><b>Guardado local:</b><span>Permanece solo en este navegador y dispositivo. No se envía al servidor para calcular la compatibilidad. Se borra al limpiar los datos del navegador o al pulsar “Borrar”; hazlo al terminar si compartes el dispositivo.</span></div><div class="product-form-actions"><button class="product-button danger" id="clearProfile" type="button">Borrar datos</button><button class="product-button primary" type="submit">Guardar en este dispositivo</button></div></form>';
+    const modal = modalShell("profile", "Compatibilidad sin registro", "Mi compatibilidad", body);
     modal.querySelector("#profileForm").onsubmit = event => {
-      event.preventDefault(); const next = {age:modal.querySelector("#productAge").value,residence:modal.querySelector("#productResidence").value,type:modal.querySelector("#productType").value,languages:modal.querySelector("#productLanguages").value.trim(),interests:modal.querySelector("#productInterests").value.trim(),experience:modal.querySelector("#productExperience").value.trim(),strengths:modal.querySelector("#productStrengths").value.trim()};
+      event.preventDefault(); const next = {age:modal.querySelector("#productAge").value,residence:modal.querySelector("#productResidence").value,type:modal.querySelector("#productType").value,interests:modal.querySelector("#productInterests").value.trim()};
       write(KEYS.profile, next); const age = document.getElementById("age"); if (age && next.age) { age.value = next.age; age.dispatchEvent(new Event("input", {bubbles:true})); } updateSummaries(); enhanceCards(); modal.close(); toast("Perfil guardado en este dispositivo");
     };
     modal.querySelector("#clearProfile").onclick = () => { localStorage.removeItem(KEYS.profile); updateSummaries(); enhanceCards(); modal.close(); toast("Perfil eliminado"); };
@@ -171,13 +173,14 @@
 
   function addApplication(project) {
     const data = applications();
-    if (!data[project.identifier]) data[project.identifier] = {status:"preparing", updated:new Date().toISOString(), note:""};
+    if (!data[project.identifier]) data[project.identifier] = {status:"preparing", updated:new Date().toISOString(), note:"", title:project.title};
     write(KEYS.applications, data); beacon(project.identifier, "application"); updateSummaries(); toast("Añadida a Mis solicitudes");
   }
   function openApplications() {
-    const data = applications(), ids = Object.keys(data);
-    const rows = ids.map(id => { const project = byId(id); if (!project) return ""; const item = data[id]; return '<div class="application-row"><div><h3><a href="' + projectUrl(project) + '">' + esc(project.title) + '</a></h3><p>' + esc(COUNTRIES[project.country_code] || project.country_code || "") + ' · Límite ' + esc(fmt(project.application_deadline)) + '</p></div><select data-application-status="' + esc(id) + '" aria-label="Estado de ' + esc(project.title) + '">' + Object.keys(STATUS).map(value => '<option value="' + value + '"' + (item.status === value ? " selected" : "") + '>' + STATUS[value] + '</option>').join("") + '</select><button type="button" data-application-remove="' + esc(id) + '" aria-label="Quitar">×</button></div>'; }).join("");
-    const modal = modalShell("applications", "Seguimiento", "Mis solicitudes", '<p class="product-intro">Actualiza el estado de cada candidatura. Este tablero es privado y permanece en este dispositivo.</p><div class="product-list">' + (rows || '<div class="product-empty">Todavía no sigues ninguna solicitud. Abre una oportunidad y pulsa “Preparar solicitud”.</div>') + '</div>');
+    const data = applications(), ids = Object.keys(data), changes = read(KEYS.changes, {}), old = read(KEYS.snapshots, {});
+    const rows = ids.map(id => { const project = byId(id), item = data[id], change = changes[id], title = project ? project.title : item.title || (old[id] && old[id].title) || id; return '<div class="application-row"><div><h3>' + (project ? '<a href="' + projectUrl(project) + '">' + esc(title) + '</a>' : esc(title)) + '</h3><p>' + (project ? esc(COUNTRIES[project.country_code] || project.country_code || "") + ' · Límite ' + esc(fmt(project.application_deadline)) : 'No aparece ahora en el catálogo abierto') + '</p>' + (change ? '<div class="change-alert">Cambio: ' + esc(change.labels.join(" · ")) + '</div>' : '') + '</div><select data-application-status="' + esc(id) + '" aria-label="Estado de ' + esc(title) + '">' + Object.keys(STATUS).map(value => '<option value="' + value + '"' + (item.status === value ? " selected" : "") + '>' + STATUS[value] + '</option>').join("") + '</select><button type="button" data-application-remove="' + esc(id) + '" aria-label="Quitar">×</button></div>'; }).join("");
+    const modal = modalShell("applications", "Seguimiento y alertas", "Mis solicitudes", '<p class="product-intro">Corradi compara fechas, enlaces, edad y países publicados desde tu última visita. Todo permanece en este dispositivo.</p><div class="product-list">' + (rows || '<div class="product-empty">Todavía no sigues ninguna solicitud. Abre una oportunidad y pulsa “Preparar solicitud”.</div>') + '</div>');
+    Object.keys(changes).forEach(id => { changes[id].seen = true; }); write(KEYS.changes, changes); updateChangeCount();
     modal.querySelectorAll("[data-application-status]").forEach(select => select.onchange = () => { const next = applications(); next[select.dataset.applicationStatus].status = select.value; next[select.dataset.applicationStatus].updated = new Date().toISOString(); write(KEYS.applications, next); updateSummaries(); toast("Estado actualizado"); });
     modal.querySelectorAll("[data-application-remove]").forEach(button => button.onclick = () => { const next = applications(); delete next[button.dataset.applicationRemove]; write(KEYS.applications, next); updateSummaries(); openApplications(); });
   }
@@ -238,10 +241,10 @@
   }
 
   function openAssistant(identifier) {
-    const project = byId(identifier) || catalog[0]; if (!project) return toast("No hay oportunidades disponibles"); const p = profile();
-    const body = '<p class="product-intro">El asistente organiza únicamente los hechos que tú aportes. No debe inventar experiencia ni sustituir tu voz.</p><form id="assistantForm"><div class="product-grid"><div class="product-field full"><label for="assistantProject">Oportunidad</label><select id="assistantProject">' + projectOptions(project.identifier) + '</select></div><div class="product-field"><label for="assistantTask">Qué necesitas</label><select id="assistantTask"><option value="motivation">Explicar mi motivación</option><option value="why_me">Qué puedo aportar</option><option value="experience">Presentar mi experiencia</option><option value="review">Revisar mi borrador</option></select></div><div class="product-field"><label for="assistantMotivation">Motivación real</label><textarea id="assistantMotivation" placeholder="¿Por qué te interesa de verdad?"></textarea></div><div class="product-field full"><label for="assistantDraft">Borrador existente (opcional)</label><textarea id="assistantDraft" placeholder="Pega aquí la pregunta o tu texto"></textarea></div></div><div class="product-form-actions"><button class="product-button primary" id="assistantSubmit" type="submit">Crear borrador responsable</button></div></form><div id="assistantResult"></div>';
+    const project = byId(identifier) || catalog[0]; if (!project) return toast("No hay oportunidades disponibles");
+    const body = '<p class="product-intro">El asistente organiza únicamente lo que escribas aquí. Estos datos se usan para generar el borrador y no se guardan en tu perfil.</p><form id="assistantForm"><div class="product-grid"><div class="product-field full"><label for="assistantProject">Oportunidad</label><select id="assistantProject">' + projectOptions(project.identifier) + '</select></div><div class="product-field"><label for="assistantTask">Qué necesitas</label><select id="assistantTask"><option value="motivation">Explicar mi motivación</option><option value="why_me">Qué puedo aportar</option><option value="experience">Presentar mi experiencia</option><option value="review">Revisar mi borrador</option></select></div><div class="product-field"><label for="assistantMotivation">Motivación real</label><textarea id="assistantMotivation" placeholder="¿Por qué te interesa de verdad?"></textarea></div><div class="product-field"><label for="assistantExperience">Experiencia que quieras mencionar · no se guarda</label><textarea id="assistantExperience" placeholder="Voluntariado, estudios o proyectos reales"></textarea></div><div class="product-field"><label for="assistantStrengths">Qué puedes aportar · no se guarda</label><textarea id="assistantStrengths" placeholder="Fortalezas o formas de contribuir al grupo"></textarea></div><div class="product-field full"><label for="assistantLanguages">Idiomas relevantes · no se guardan</label><input id="assistantLanguages" maxlength="120" placeholder="Ej. inglés B1, español nativo"></div><div class="product-field full"><label for="assistantDraft">Borrador existente (opcional)</label><textarea id="assistantDraft" placeholder="Pega aquí la pregunta o tu texto"></textarea></div></div><div class="product-form-actions"><button class="product-button primary" id="assistantSubmit" type="submit">Crear borrador responsable</button></div></form><div id="assistantResult"></div>';
     const modal = modalShell("assistant", "Ayuda de redacción", "Preparar candidatura", body);
-    modal.querySelector("#assistantForm").onsubmit = event => { event.preventDefault(); const button = modal.querySelector("#assistantSubmit"); button.disabled = true; button.textContent = "Preparando…"; const selected = modal.querySelector("#assistantProject").value; fetch("/api/application-assistant", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({identifier:selected,task:modal.querySelector("#assistantTask").value,draft:modal.querySelector("#assistantDraft").value,motivation:modal.querySelector("#assistantMotivation").value,experience:p.experience||"",strengths:p.strengths||"",languages:p.languages||""})}).then(response => { if (!response.ok) throw Error(); return response.json(); }).then(result => { modal.querySelector("#assistantResult").innerHTML = '<div class="assistant-output"><textarea id="assistantOutput">' + esc(result.draft || "") + '</textarea></div>'; const output = modal.querySelector(".assistant-output"); output.insertAdjacentHTML("beforeend", '<ul>' + (result.tips || []).map(tip => '<li>' + esc(tip) + '</li>').join("") + '</ul><p class="notice">' + esc(result.notice || "Revisa siempre el borrador antes de enviarlo.") + '</p><button class="product-button" id="copyAssistant" type="button">Copiar texto</button>'); output.querySelector("#copyAssistant").onclick = () => navigator.clipboard.writeText(modal.querySelector("#assistantOutput").value).then(() => toast("Borrador copiado")); beacon(selected, "assistant"); }).catch(() => { modal.querySelector("#assistantResult").innerHTML = '<div class="product-empty">El asistente no está disponible ahora. Conserva tu texto y prueba más tarde.</div>'; }).finally(() => { button.disabled = false; button.textContent = "Crear borrador responsable"; }); };
+    modal.querySelector("#assistantForm").onsubmit = event => { event.preventDefault(); const button = modal.querySelector("#assistantSubmit"); button.disabled = true; button.textContent = "Preparando…"; const selected = modal.querySelector("#assistantProject").value; fetch("/api/application-assistant", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({identifier:selected,task:modal.querySelector("#assistantTask").value,draft:modal.querySelector("#assistantDraft").value,motivation:modal.querySelector("#assistantMotivation").value,experience:modal.querySelector("#assistantExperience").value,strengths:modal.querySelector("#assistantStrengths").value,languages:modal.querySelector("#assistantLanguages").value})}).then(response => { if (!response.ok) throw Error(); return response.json(); }).then(result => { modal.querySelector("#assistantResult").innerHTML = '<div class="assistant-output"><textarea id="assistantOutput">' + esc(result.draft || "") + '</textarea></div>'; const output = modal.querySelector(".assistant-output"); output.insertAdjacentHTML("beforeend", '<ul>' + (result.tips || []).map(tip => '<li>' + esc(tip) + '</li>').join("") + '</ul><p class="notice">' + esc(result.notice || "Revisa siempre el borrador antes de enviarlo.") + '</p><button class="product-button" id="copyAssistant" type="button">Copiar texto</button>'); output.querySelector("#copyAssistant").onclick = () => navigator.clipboard.writeText(modal.querySelector("#assistantOutput").value).then(() => toast("Borrador copiado")); beacon(selected, "assistant"); }).catch(() => { modal.querySelector("#assistantResult").innerHTML = '<div class="product-empty">El asistente no está disponible ahora. Conserva tu texto y prueba más tarde.</div>'; }).finally(() => { button.disabled = false; button.textContent = "Crear borrador responsable"; }); };
   }
 
   function openCalendarTool(identifier) {
@@ -260,7 +263,7 @@
     const card = document.querySelector(".apply-card"); if (!card || card.querySelector(".project-product-card")) return;
     const result = eligibility(project);
     card.insertAdjacentHTML("afterbegin", '<div class="project-eligibility ' + result.state + '"><strong>' + esc(result.label) + '</strong><br>' + esc(result.reasons.slice(0, 2).join(" · ")) + '</div>');
-    card.insertAdjacentHTML("beforeend", '<div class="project-product-card"><h3>Prepara esta oportunidad</h3><div class="project-product-actions"><button type="button" data-product-action="application" data-id="' + esc(project.identifier) + '">Seguir solicitud</button><button type="button" data-product-action="assistant" data-id="' + esc(project.identifier) + '">Asistente</button><button type="button" data-product-action="documents" data-id="' + esc(project.identifier) + '">Documentos</button><button type="button" data-product-action="travel" data-id="' + esc(project.identifier) + '">Calcular viaje</button><button type="button" data-product-action="calendar" data-id="' + esc(project.identifier) + '">Calendario</button><button type="button" data-product-action="compare" data-id="' + esc(project.identifier) + '">Comparar</button></div><div class="trace-note"><i></i><span>' + esc(project.infopack_enriched ? "Ampliada desde el infopack oficial" : "Datos estructurados por Corradi") + ' · ' + esc(fmt((project.updated || project.created || "").slice(0,10))) + '</span></div></div>');
+    card.insertAdjacentHTML("beforeend", '<div class="project-product-card"><h3>Antes de solicitar</h3><div class="project-product-actions"><a href="/guia">Consultar la guía Erasmus+</a><button type="button" data-product-open="profile">Ajustar mi compatibilidad</button></div><div class="trace-note"><i></i><span>' + esc(project.infopack_enriched ? "Ampliada desde el infopack oficial" : "Datos estructurados por Corradi") + ' · ' + esc(fmt((project.updated || project.created || "").slice(0,10))) + '</span></div></div>');
   }
 
   function routeAction(action, identifier) {
@@ -276,7 +279,7 @@
   function bindGlobal() {
     document.addEventListener("click", event => {
       const opener = event.target.closest("[data-product-open]");
-      if (opener) { event.preventDefault(); ({profile:openProfile,applications:openApplications,compare:openCompare,tools:openTools})[opener.dataset.productOpen](); return; }
+      if (opener) { event.preventDefault(); if (opener.dataset.productOpen === "profile") openProfile(); return; }
       const action = event.target.closest("[data-product-action]");
       if (action) { event.preventDefault(); event.stopPropagation(); routeAction(action.dataset.productAction, action.dataset.id); return; }
       const clear = event.target.closest("[data-clear-filter]");
@@ -285,14 +288,31 @@
     ["search","type","country","age"].forEach(id => { const field = document.getElementById(id); if (field) field.addEventListener(id === "search" || id === "age" ? "input" : "change", () => setTimeout(updateFilterChips)); });
   }
 
+  function setupInstall() {
+    const button = document.getElementById("installApp");
+    let prompt = null;
+    window.addEventListener("beforeinstallprompt", event => {
+      event.preventDefault(); prompt = event;
+      if (button) { button.hidden = false; button.onclick = async () => { await prompt.prompt(); prompt = null; button.hidden = true; }; }
+    });
+    window.addEventListener("appinstalled", () => { if (button) button.hidden = true; toast("Corradi se ha instalado"); });
+    if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+  }
+  function setupMobileNav() {
+    if (!document.querySelector(".mobile-bottom-nav")) document.body.insertAdjacentHTML("beforeend", '<nav class="mobile-bottom-nav" aria-label="Navegación móvil"><a href="/">⌂<span>Inicio</span></a><a href="/#explorar">⌕<span>Buscar</span></a><a href="/mapa">⌖<span>Mapa</span></a><a href="/guia">?<span>Guía</span></a><button type="button" data-product-open="profile">◎<span>Perfil</span></button></nav>');
+    const nav = document.querySelector(".mobile-bottom-nav");
+    nav.querySelectorAll("a,button").forEach(item => item.addEventListener("click", () => { nav.querySelectorAll(".active").forEach(active => active.classList.remove("active")); item.classList.add("active"); }));
+  }
+
   function initHome(data) {
     catalog = data.results || []; generated = data.generated || "";
-    bindGlobal(); updateSummaries(); updateFilterChips(); enhanceCards(); enhanceDetail();
+    setupMobileNav(); bindGlobal(); setupInstall(); updateSummaries(); updateFilterChips(); enhanceCards(); enhanceDetail();
     const observer = new MutationObserver(() => { enhanceCards(); enhanceDetail(); updateFilterChips(); });
     ["allCards","urgentCards","weeklyTop","rowSoon","rowYE","rowTC","detail"].forEach(id => { const node = document.getElementById(id); if (node) observer.observe(node, {childList:true, subtree:true}); });
+    if (new URLSearchParams(location.search).get("profile") === "1") setTimeout(openProfile, 0);
   }
   function initProject(data) {
-    catalog = [data]; currentProject = data; bindGlobal(); updateSummaries();
+    catalog = [data]; currentProject = data; setupMobileNav(); bindGlobal(); setupInstall(); updateSummaries();
     const apply = () => enhanceProjectPage(data); apply();
     const app = document.getElementById("app"); if (app) new MutationObserver(apply).observe(app, {childList:true, subtree:true});
   }

@@ -7,6 +7,7 @@
 <meta name="description" content="Mapa interactivo de las oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ECS.">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="color-scheme" content="light">
+<link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/assets/icon-192.png">
 <meta property="og:title" content="Mapa de oportunidades · Corradi Erasmus+">
 <meta property="og:description" content="Todas las oportunidades Erasmus+ con inscripción abierta, en el mapa.">
 <meta property="og:type" content="website">
@@ -198,6 +199,7 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
 
 /* ── Dock de acciones, arriba a la derecha ────────────────────────────────── */
 .top-actions { position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 8px; }
+.mobile-symbol{display:none;font-size:15px;font-weight:800}
 .pill-btn {
   display: inline-flex; align-items: center; gap: 8px; text-decoration: none; cursor: pointer; border: 0;
   font: 600 13px var(--font-body); white-space: nowrap;
@@ -296,6 +298,7 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
   color: #fff; background: var(--critical); padding: 4px 8px; border-radius: 7px;
 }
 .corner-actions { display: flex; gap: 6px; flex: none; }
+.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:7px}.compat-badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:7px;background:#edf3e6;color:#31553e;font-size:9px;font-weight:800;white-space:nowrap}.compat-badge.warn{background:#f7eedb;color:#805b23}.compat-badge.no{background:#f5e7e4;color:#983d38}.compat-badge.unknown{background:#ececef;color:#535966}.compat-detail{margin:0 0 16px;padding:13px 14px;border-radius:11px;background:#edf3e6;color:#31553e;font-size:11px}.compat-detail.warn{background:#f7eedb;color:#805b23}.compat-detail.no{background:#f5e7e4;color:#983d38}.compat-detail a{color:inherit;font-weight:800}
 .corner-btn {
   display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; padding: 0;
   background: var(--surface-sunk); border: 1px solid var(--line); color: var(--ink-faint); text-decoration: none;
@@ -563,6 +566,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   body.searching .quick-filters { display: none; }
   .top-actions { top: calc(18px + env(safe-area-inset-top)); right: 12px; display: flex; }
   .top-actions #contribute, .top-actions #infoBtn, .top-actions #igTopBtn { display: none; }
+  .top-actions a[href="/guia"], .top-actions a[href="/?profile=1"] { display:flex; }
+  .top-actions .mobile-symbol{display:inline}
   .top-actions .pill-btn .label { display: none; }
   .top-actions .pill-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
 
@@ -616,6 +621,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     </div>
 
     <div class="top-actions">
+      <a class="pill-btn" href="/guia" aria-label="Guía Erasmus+" title="Guía Erasmus+"><span class="mobile-symbol" aria-hidden="true">?</span><span class="label">Guía</span></a>
+      <a class="pill-btn" href="/?profile=1" aria-label="Mi compatibilidad" title="Mi compatibilidad"><span class="mobile-symbol" aria-hidden="true">◎</span><span class="label">Mi compatibilidad</span></a>
       <button type="button" class="icon-btn" id="contribute" aria-label="¿Quieres contribuir?" title="¿Quieres contribuir?"></button>
       <a class="pill-btn solid" id="channel" href="/">
         <span id="channelIconSlot"></span><span class="label">Ver web</span>
@@ -886,6 +893,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"
         integrity="sha256-Hk4dIpcqOSb0hZjgyvFOP+cEmDXUKKNE/tT542ZbNQg=" crossorigin=""></script>
+<script src="/assets/compatibility.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1014,6 +1022,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (d <= SOON_DAYS) return { text: "Cierra en " + d + " días", cls: "soon" };
     return { text: "Hasta el " + fmtDate(o.application_deadline), cls: "" };
   }
+  function compatibility(o) { return window.CorradiCompatibility.evaluate(o); }
+  function compatibilityBadge(o) { var c=compatibility(o); return '<span class="compat-badge '+c.state+'" title="'+esc(c.reasons.join(' · '))+'">'+esc(c.label)+'</span>'; }
+  function compatibilityDetail(o) { var c=compatibility(o),action=c.score==null?'<br><a href="/?profile=1">Configurar mi compatibilidad →</a>':'';return '<div class="compat-detail '+c.state+'"><strong>'+esc(c.label)+'</strong><br>'+esc(c.reasons.slice(0,2).join(' · '))+action+'</div>'; }
   function gcalUrl(o) {
     if (!o.application_deadline) return null;
     var start = o.application_deadline.replace(/-/g, "");
@@ -1152,11 +1163,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     return '<article class="card' + (located ? "" : " unlocated") + '" data-id="' + esc(o.identifier) + '" data-type="' + esc(o.type || "") + '" tabindex="0">' +
       '<div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
         (isNew(o) ? '<span class="new-tag">Nuevo hoy</span>' : "") + "</div>" +
-        '<div class="corner-actions">' +
+        '<div class="card-right">' + compatibilityBadge(o) + '<div class="corner-actions">' +
           (gcalUrl(o) ? '<a class="corner-btn cal-btn" href="' + esc(gcalUrl(o)) + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" aria-label="Recordar cierre" title="Añadir a Google Calendar">' + ICON.calendarPlus + '</a>' : "") +
           '<button type="button" class="corner-btn share-btn" aria-label="Compartir" title="Compartir" onclick="event.stopPropagation();shareOpp(\'' + esc(o.identifier) + '\')">' + ICON.link + '</button>' +
           '<button type="button" class="corner-btn fav-btn' + (favourites.has(o.identifier)?' saved':'') + '" aria-label="Guardar en favoritos" title="Guardar" onclick="event.stopPropagation();toggleMapFavourite(\'' + esc(o.identifier) + '\')">' + (favourites.has(o.identifier)?'♥':'♡') + '</button>' +
-        "</div></div>" +
+        "</div></div></div>" +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
         (place ? '<span><span class="flag-emoji">' + (flag(o.country_code) || "") + '</span>' + (flag(o.country_code) ? "" : ICON.pin) + esc(place) + "</span>" : "") +
@@ -1238,7 +1249,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var place = locationName(o);
     return '<div class="popup"><div class="popup-photo" style="background-image:url(&quot;' + esc(mapImage(o)) + '&quot;)"></div><div class="card-top"><div class="card-badges"><span class="badge">' + t.icon + esc(t.label) + "</span>" +
       (isNew(o) ? '<span class="new-tag">Nuevo hoy</span>' : "") + "</div>" +
-      '</div></div>' +
+      compatibilityBadge(o) + '</div>' +
       "<h3>" + esc(o.title) + "</h3>" +
       '<div class="meta">' +
         (place ? "<span>" + (flag(o.country_code) ? '<span class="flag-emoji">' + flag(o.country_code) + '</span>' : ICON.pin) + esc(place) + "</span>" : "") +
@@ -1264,7 +1275,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var sections = [["Sobre el proyecto",o.detailed_description||o.summary],["Programa y actividades",o.programme_details],["Qué aprenderás",o.learning_outcomes],["A quién buscan",o.participant_profile],["Países participantes",o.eligibility_countries],["Alojamiento y comidas",o.accommodation_details],["Costes y cobertura",o.covered_costs],["Viaje y reembolso",o.travel_details],["Contacto",o.contact_information]].filter(function(x){return x[1]});
     var actions=(o.application_url?'<a class="btn primary" href="'+esc(o.application_url)+'" target="_blank" rel="noopener">Form</a>':"")+(o.infopack_url?'<a class="btn" href="'+esc(o.infopack_url)+'" target="_blank" rel="noopener">Infopack</a>':"");
     document.getElementById("opportunityTitle").textContent=o.title;
-    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div><p><strong>'+flag(o.country_code)+' '+esc(locationName(o))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
+    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div>'+compatibilityDetail(o)+'<p><strong>'+flag(o.country_code)+' '+esc(locationName(o))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
     document.getElementById("opportunityFoot").innerHTML=actions;
     document.getElementById("mapDetailTools").innerHTML=(gcalUrl(o)?'<a href="'+esc(gcalUrl(o))+'" target="_blank" rel="noopener" title="Guardar en calendario" aria-label="Guardar en calendario">'+ICON.calendarPlus+'</a>':"")+'<button id="mapFav" class="'+(favourites.has(id)?"saved":"")+'" title="Guardar en favoritos" aria-label="Guardar en favoritos">'+(favourites.has(id)?"♥":"♡")+'</button><button id="mapShare" title="Compartir" aria-label="Compartir">'+ICON.share+'</button>';
     document.getElementById("mapFav").onclick=function(){favourites.has(id)?favourites.delete(id):favourites.add(id);localStorage.setItem("corradi-favourites",JSON.stringify(Array.from(favourites)));this.classList.toggle("saved",favourites.has(id));this.textContent=favourites.has(id)?"♥":"♡"};document.getElementById("mapShare").onclick=function(){shareOpp(id)};
@@ -1887,5 +1898,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   else boot();
 })();
 </script>
+<script>if("serviceWorker" in navigator)addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){})});</script>
 </body>
 </html>

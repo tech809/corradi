@@ -143,6 +143,9 @@ class Config:
 
     # Edición internacional (/world). Su ingesta SALTO usa cursor y tablas propios: no
     # publica en Telegram/Instagram ni escribe en `projects`.
+    # La edición sigue desarrollándose internamente, pero no se publica hasta activarla
+    # de forma expresa. Caddy tampoco expone sus rutas mientras permanezca oculta.
+    world_public_enabled: bool = os.getenv("WORLD_PUBLIC_ENABLED", "false").lower() == "true"
     world_salto_start_id: int = int(os.getenv("WORLD_SALTO_START_ID", "14500"))
     world_salto_scan_batch: int = int(os.getenv("WORLD_SALTO_SCAN_BATCH", "75"))
     world_salto_request_delay: float = float(os.getenv("WORLD_SALTO_REQUEST_DELAY", "0.35"))
