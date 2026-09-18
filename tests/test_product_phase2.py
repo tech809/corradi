@@ -92,6 +92,24 @@ def test_secondary_pages_share_the_same_back_navigation():
     assert 'href="/mapa"' in estadisticas
 
 
+def test_detail_dialog_has_single_full_page_action():
+    script = (STATIC / "discover-product.js").read_text(encoding="utf-8")
+    detail_block = script[script.index("function enhanceDetail"):script.index("function updateFilterChips")]
+    assert "detail-product-bar" not in detail_block
+    assert 'data-product-open="profile"' not in detail_block
+    assert "Abrir ficha completa" in detail_block
+    assert "trace-note" in detail_block
+
+
+def test_country_flags_cover_non_striped_designs():
+    from app.publisher.opportunity_card import _flag
+    from PIL import Image
+
+    for code in ("TR", "GR", "SE", "FI", "DK", "NO", "IT", "ES", "ZZ"):
+        canvas = Image.new("RGB", (140, 100), "#ffffff")
+        _flag(canvas, 10, 10, 120, 80, code)  # must not raise for any of these
+
+
 def test_catalog_and_map_can_sort_by_affinity():
     discover = (STATIC / "discover.html").read_text(encoding="utf-8")
     mapa = (STATIC / "mapa.html").read_text(encoding="utf-8")
