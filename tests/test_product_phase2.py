@@ -45,6 +45,8 @@ def test_shared_compatibility_and_guide_are_available():
     assert 'id:"facilitation"' in compatibility
     assert "missingRequired" in compatibility
     assert "matchedAvoid" in compatibility
+    assert "extendedText" in compatibility
+    assert "missingKeywords" in compatibility
     assert "Travel budget" in guide
     assert "No delegues tu candidatura a una IA" in guide
     assert "10–99 km" in guide
@@ -65,9 +67,9 @@ def test_compatibility_profile_only_persists_relevant_fields():
     assert "productResidence" in profile_block
     assert "productType" in profile_block
     assert "priorities:selected" in profile_block
-    assert 'data-mode="required"' in profile_block
-    assert 'data-mode="positive"' in profile_block
-    assert 'data-mode="avoid"' in profile_block
+    assert "data-concept-select" in profile_block
+    assert "productRequiredText" in profile_block
+    assert "requiredText:" in profile_block
     assert "productLanguages" not in profile_block
     assert "productExperience" not in profile_block
     assert "productStrengths" not in profile_block

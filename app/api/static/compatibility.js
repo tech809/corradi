@@ -50,8 +50,8 @@
     } catch (_) {}
     var priorities = cleanPriorities(raw.priorities);
     if (!Object.keys(priorities).length && raw.interests) priorities = migrateInterests(raw.interests);
-    var safe = {age:raw.age || "", residence:raw.residence || "", type:raw.type || "", priorities:priorities};
-    if (legacy || raw.interests || Object.keys(raw).some(function (key) { return ["age","residence","type","priorities"].indexOf(key) < 0; })) {
+    var safe = {age:raw.age || "", residence:raw.residence || "", type:raw.type || "", priorities:priorities, requiredText:typeof raw.requiredText === "string" ? raw.requiredText.slice(0, 140) : ""};
+    if (legacy || raw.interests || Object.keys(raw).some(function (key) { return ["age","residence","type","priorities","requiredText"].indexOf(key) < 0; })) {
       localStorage.setItem(KEY, JSON.stringify(safe));
       if (legacy) localStorage.removeItem(LEGACY_KEY);
     }
@@ -60,6 +60,12 @@
   function projectText(project) {
     return [project.title,project.topic,project.summary,project.detailed_description,project.learning_outcomes,project.participant_profile,project.programme_details].join(" ");
   }
+  // Campos de la "ficha extendida" (lo que viene del infopack o de la estructuración propia de
+  // Corradi), no el resumen corto de la tarjeta: aquí es donde comprobamos lo "imprescindible" en
+  // texto libre, para no dar por bueno algo que solo aparece de pasada en el título.
+  var EXTENDED_FIELDS = ["detailed_description","programme_details","learning_outcomes","participant_profile","accommodation_details","covered_costs","travel_details","eligibility_countries","contact_information"];
+  function extendedText(project) { return EXTENDED_FIELDS.map(function (field) { return project[field] || ""; }).join(" "); }
+  function parseRequiredText(raw) { return String(raw || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 6); }
   function conceptMatch(project, concept) {
     var topic = project.topic || "", core = [project.title,project.learning_outcomes].join(" "), body = projectText(project);
     var inTopic = concept.aliases.some(function (alias) { return containsPhrase(topic, alias); });
@@ -78,8 +84,8 @@
     if ((min && age < min) || (max && age > max)) return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["Tu edad no entra en el rango publicado"]};
     reasons.push(min || max ? "Tu edad encaja" : "La convocatoria no concreta el rango de edad");
 
-    var priorities = cleanPriorities(data.priorities), selected = Object.keys(priorities);
-    if (!selected.length) return {score:null,state:"unknown",label:"Añade preferencias",confidence:"media",reasons:reasons.concat(["Elige temas imprescindibles, interesantes o que prefieres evitar"])};
+    var priorities = cleanPriorities(data.priorities), selected = Object.keys(priorities), requiredKeywords = parseRequiredText(data.requiredText);
+    if (!selected.length && !requiredKeywords.length) return {score:null,state:"unknown",label:"Añade preferencias",confidence:"media",reasons:reasons.concat(["Elige temas muy importantes, interesantes o que prefieres evitar"])};
     var score = 50;
     if (data.type) {
       var typeMatch = data.type === project.type || (data.type === "VOLUNTEERING" && project.type === "ESC");
@@ -98,13 +104,28 @@
     score -= missingRequired.length * 22;
     score += Math.min(21, matchedPositive.length * 7);
     score -= matchedAvoid.length * 25;
-    if (matchedRequired.length) reasons.push("Imprescindibles presentes: " + listLabels(matchedRequired).join(", "));
-    if (missingRequired.length) reasons.push("Falta: " + listLabels(missingRequired).join(", "));
+    if (matchedRequired.length) reasons.push("Muy importantes presentes: " + listLabels(matchedRequired).join(", "));
+    if (missingRequired.length) reasons.push("Falta algo muy importante: " + listLabels(missingRequired).join(", "));
     if (matchedPositive.length) reasons.push("También coincide con: " + listLabels(matchedPositive).join(", "));
     if (matchedAvoid.length) reasons.push("Incluye algo que prefieres evitar: " + listLabels(matchedAvoid).join(", "));
+
+    var extended = extendedText(project), hasExtended = extended.trim().length > 40;
+    var matchedKeywords=[], missingKeywords=[], unverifiedKeywords=[];
+    requiredKeywords.forEach(function (keyword) {
+      if (containsPhrase(extended, keyword)) matchedKeywords.push(keyword);
+      else if (hasExtended) missingKeywords.push(keyword);
+      else unverifiedKeywords.push(keyword);
+    });
+    score += Math.min(15, matchedKeywords.length * 8);
+    score -= missingKeywords.length * 28;
+    if (matchedKeywords.length) reasons.push("Incluye lo que buscas: " + matchedKeywords.join(", "));
+    if (missingKeywords.length) reasons.push("No parece incluir: " + missingKeywords.join(", "));
+    if (unverifiedKeywords.length) reasons.push("Ficha poco detallada, no podemos confirmar: " + unverifiedKeywords.join(", "));
+
     score = Math.max(5, Math.min(100, score));
     var confidence = project.topic && project.participant_profile && project.detailed_description ? (topicEvidence ? "alta" : "media") : project.topic ? "media" : "baja";
-    return {score:score,state:score >= 75 && !missingRequired.length && !matchedAvoid.length ? "yes" : "warn",label:score + "% afinidad",confidence:confidence,reasons:reasons,matchedRequired:matchedRequired,missingRequired:missingRequired,matchedAvoid:matchedAvoid};
+    var isYes = score >= 75 && !missingRequired.length && !matchedAvoid.length && !missingKeywords.length;
+    return {score:score,state:isYes ? "yes" : "warn",label:score + "% afinidad",confidence:confidence,reasons:reasons,matchedRequired:matchedRequired,missingRequired:missingRequired,matchedAvoid:matchedAvoid,missingKeywords:missingKeywords};
   }
   global.CorradiCompatibility = {readProfile:readProfile,evaluate:evaluate,key:KEY,taxonomy:TAXONOMY,cleanPriorities:cleanPriorities};
 })(window);
