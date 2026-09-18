@@ -2,7 +2,7 @@
   "use strict";
 
   const KEYS = {
-    profile: "corradi-profile-v2",
+    profile: "corradi-profile-v3",
     applications: "corradi-applications-v1",
     compare: "corradi-compare-v1",
     documents: "corradi-documents-v1",
@@ -87,7 +87,7 @@
   function updateSummaries() {
     const p = profile(), apps = applications(), compare = compareIds();
     const pNode = document.getElementById("profileSummary");
-    if (pNode) pNode.textContent = Object.values(p).some(Boolean) ? "Guardado en este dispositivo" : "Comprueba requisitos sin registrarte";
+    if (pNode) pNode.textContent = (p.age || p.residence || p.type || Object.keys(p.priorities || {}).length) ? "Guardado en este dispositivo" : "Comprueba requisitos sin registrarte";
     const aNode = document.getElementById("applicationSummary");
     if (aNode) aNode.textContent = Object.keys(apps).length ? Object.keys(apps).length + " en seguimiento" : "Organiza tu progreso";
     const cNode = document.getElementById("compareSummary");
@@ -125,7 +125,7 @@
     if (!project) return;
     const result = eligibility(project);
     const head = detail.querySelector(".detail-head");
-    if (head) head.insertAdjacentHTML("afterend", '<div class="project-eligibility ' + result.state + '"><strong>' + esc(result.label) + '</strong><br>' + esc(result.reasons.slice(0, 2).join(" · ")) + '</div>');
+    if (head) head.insertAdjacentHTML("afterend", '<div class="project-eligibility ' + result.state + '"><strong>' + esc(result.label) + '</strong>' + (result.score == null ? "" : '<span class="compat-confidence">Confianza ' + esc(result.confidence) + '</span>') + '<br>' + esc(result.reasons.slice(0, 3).join(" · ")) + '</div>');
     const actions = detail.querySelector(".detail-actions");
     const bar = document.createElement("div"); bar.className = "detail-product-bar";
     bar.innerHTML = '<a class="strong" href="' + projectUrl(project) + '">Abrir ficha completa</a><button type="button" data-product-open="profile">Ajustar mi compatibilidad</button>';
@@ -162,13 +162,29 @@
   function openProfile() {
     const p = profile();
     const countryOptions = Object.keys(COUNTRIES).sort((a,b) => COUNTRIES[a].localeCompare(COUNTRIES[b], "es")).map(code => '<option value="' + code + '"' + (p.residence === code ? " selected" : "") + '>' + esc(COUNTRIES[code]) + '</option>').join("");
-    const body = '<p class="product-intro">Sin registro y sin cuenta. Usamos únicamente estos cuatro datos para comprobar requisitos y ordenar mejor las oportunidades.</p><div class="profile-explainer"><div><b>Requisitos</b><span>Edad y residencia determinan si cumples las condiciones publicadas.</span></div><div><b>Preferencias</b><span>Tipo e intereses mejoran la afinidad, pero nunca deciden tu elegibilidad.</span></div></div><form id="profileForm"><div class="product-grid"><div class="product-field"><label for="productAge">Edad · requisito</label><input id="productAge" type="number" min="13" max="99" value="' + esc(p.age || "") + '" required></div><div class="product-field"><label for="productResidence">País de residencia · requisito</label><select id="productResidence" required><option value="">Selecciona</option>' + countryOptions + '</select></div><div class="product-field"><label for="productType">Tipo preferido · opcional</label><select id="productType"><option value="">Cualquiera</option>' + Object.keys(TYPES).filter(x => x !== "ESC").map(type => '<option value="' + type + '"' + (p.type === type ? " selected" : "") + '>' + TYPES[type] + '</option>').join("") + '</select></div><div class="product-field"><label for="productInterests">Intereses · opcional</label><input id="productInterests" maxlength="180" value="' + esc(p.interests || "") + '" placeholder="Inclusión, fotografía, medio ambiente…"></div></div><div class="privacy-note"><b>Guardado local:</b><span>Permanece solo en este navegador y dispositivo. No se envía al servidor para calcular la compatibilidad. Se borra al limpiar los datos del navegador o al pulsar “Borrar”; hazlo al terminar si compartes el dispositivo.</span></div><div class="product-form-actions"><button class="product-button danger" id="clearProfile" type="button">Borrar datos</button><button class="product-button primary" type="submit">Guardar en este dispositivo</button></div></form>';
+    const priorities = p.priorities || {};
+    const preferenceRows = window.CorradiCompatibility.taxonomy.map(concept => {
+      const state = priorities[concept.id] || "";
+      return '<div class="preference-row" data-concept="' + concept.id + '" data-state="' + state + '"><strong>' + esc(concept.label) + '</strong><div class="preference-modes"><button type="button" data-mode="required" aria-pressed="' + (state === "required") + '">Imprescindible</button><button type="button" data-mode="positive" aria-pressed="' + (state === "positive") + '">Me interesa</button><button type="button" data-mode="avoid" aria-pressed="' + (state === "avoid") + '">Evitar</button></div></div>';
+    }).join("");
+    const body = '<p class="product-intro">Primero comprobamos los requisitos oficiales. Después calculamos afinidad con conceptos normalizados en español e inglés, no con coincidencias accidentales de palabras.</p><div class="profile-explainer"><div><b>Requisitos</b><span>Edad y residencia pueden determinar si eres elegible.</span></div><div><b>Afinidad</b><span>Formato y prioridades explican qué encaja contigo y qué no.</span></div></div><form id="profileForm"><div class="product-grid profile-basics"><div class="product-field"><label for="productAge">Edad · requisito</label><input id="productAge" type="number" min="13" max="99" value="' + esc(p.age || "") + '" required></div><div class="product-field"><label for="productResidence">País de residencia · requisito</label><select id="productResidence" required><option value="">Selecciona</option>' + countryOptions + '</select></div><div class="product-field full"><label for="productType">Formato preferido</label><select id="productType"><option value="">Me interesan todos</option>' + Object.keys(TYPES).filter(x => x !== "ESC").map(type => '<option value="' + type + '"' + (p.type === type ? " selected" : "") + '>' + TYPES[type] + '</option>').join("") + '</select></div></div><div class="priority-heading"><div><span>Prioridades temáticas</span><h3>Indica qué debe pesar de verdad.</h3></div><p><b>Imprescindible</b> baja mucho la afinidad si falta · <b>Me interesa</b> suma · <b>Evitar</b> resta si aparece. Máximo 2 imprescindibles y 5 interesantes.</p></div><div class="preference-list">' + preferenceRows + '</div><div class="privacy-note"><b>Guardado local:</b><span>Permanece solo en este navegador y dispositivo. No se envía al servidor. “Evitar” expresa una preferencia, nunca un requisito oficial de participación.</span></div><div class="product-form-actions"><button class="product-button danger" id="clearProfile" type="button">Borrar datos</button><button class="product-button primary" type="submit">Guardar y recalcular</button></div></form>';
     const modal = modalShell("profile", "Compatibilidad sin registro", "Mi compatibilidad", body);
+    modal.querySelectorAll(".preference-modes button").forEach(button => button.onclick = () => {
+      const row = button.closest(".preference-row"), mode = button.dataset.mode, current = row.dataset.state;
+      if (current !== mode) {
+        const limit = mode === "required" ? 2 : mode === "positive" ? 5 : 5;
+        const used = modal.querySelectorAll('.preference-row[data-state="' + mode + '"]').length;
+        if (used >= limit) { toast(mode === "required" ? "Elige como máximo 2 imprescindibles" : "Elige como máximo 5 en esta categoría"); return; }
+      }
+      row.dataset.state = current === mode ? "" : mode;
+      row.querySelectorAll("button").forEach(item => item.setAttribute("aria-pressed", String(item.dataset.mode === row.dataset.state)));
+    });
     modal.querySelector("#profileForm").onsubmit = event => {
-      event.preventDefault(); const next = {age:modal.querySelector("#productAge").value,residence:modal.querySelector("#productResidence").value,type:modal.querySelector("#productType").value,interests:modal.querySelector("#productInterests").value.trim()};
+      event.preventDefault(); const selected = {}; modal.querySelectorAll(".preference-row").forEach(row => { if (row.dataset.state) selected[row.dataset.concept] = row.dataset.state; });
+      const next = {age:modal.querySelector("#productAge").value,residence:modal.querySelector("#productResidence").value,type:modal.querySelector("#productType").value,priorities:selected};
       write(KEYS.profile, next); const age = document.getElementById("age"); if (age && next.age) { age.value = next.age; age.dispatchEvent(new Event("input", {bubbles:true})); } updateSummaries(); enhanceCards(); modal.close(); toast("Perfil guardado en este dispositivo");
     };
-    modal.querySelector("#clearProfile").onclick = () => { localStorage.removeItem(KEYS.profile); updateSummaries(); enhanceCards(); modal.close(); toast("Perfil eliminado"); };
+    modal.querySelector("#clearProfile").onclick = () => { localStorage.removeItem(KEYS.profile); localStorage.removeItem("corradi-profile-v2"); updateSummaries(); enhanceCards(); modal.close(); toast("Perfil eliminado"); };
   }
 
   function addApplication(project) {
@@ -262,7 +278,7 @@
     currentProject = project;
     const card = document.querySelector(".apply-card"); if (!card || card.querySelector(".project-product-card")) return;
     const result = eligibility(project);
-    card.insertAdjacentHTML("afterbegin", '<div class="project-eligibility ' + result.state + '"><strong>' + esc(result.label) + '</strong><br>' + esc(result.reasons.slice(0, 2).join(" · ")) + '</div>');
+    card.insertAdjacentHTML("afterbegin", '<div class="project-eligibility ' + result.state + '"><strong>' + esc(result.label) + '</strong>' + (result.score == null ? "" : '<span class="compat-confidence">Confianza ' + esc(result.confidence) + '</span>') + '<br>' + esc(result.reasons.slice(0, 3).join(" · ")) + '</div>');
     card.insertAdjacentHTML("beforeend", '<div class="project-product-card"><h3>Antes de solicitar</h3><div class="project-product-actions"><a href="/guia">Consultar la guía Erasmus+</a><button type="button" data-product-open="profile">Ajustar mi compatibilidad</button></div><div class="trace-note"><i></i><span>' + esc(project.infopack_enriched ? "Ampliada desde el infopack oficial" : "Datos estructurados por Corradi") + ' · ' + esc(fmt((project.updated || project.created || "").slice(0,10))) + '</span></div></div>');
   }
 

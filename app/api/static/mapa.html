@@ -636,6 +636,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       <div class="sort-switch" data-sort-group="desktop">
         <button type="button" class="sort-btn" data-sort="recent" aria-pressed="true">Últimas subidas</button>
         <button type="button" class="sort-btn" data-sort="deadline" aria-pressed="false">Cierran antes</button>
+        <button type="button" class="sort-btn" data-sort="affinity" aria-pressed="false">Mejor afinidad</button>
       </div>
       <div class="dock-head">
         <div><h2>Oportunidades</h2><div class="count-word" id="dockCount">cargando…</div></div>
@@ -659,6 +660,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       <div class="sort-switch" data-sort-group="mobile">
         <button type="button" class="sort-btn" data-sort="recent" aria-pressed="true">Últimas subidas</button>
         <button type="button" class="sort-btn" data-sort="deadline" aria-pressed="false">Cierran antes</button>
+        <button type="button" class="sort-btn" data-sort="affinity" aria-pressed="false">Mejor afinidad</button>
       </div>
       <div class="dock-body" id="listMobile" aria-live="polite">
         <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
@@ -1024,7 +1026,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
   function compatibility(o) { return window.CorradiCompatibility.evaluate(o); }
   function compatibilityBadge(o) { var c=compatibility(o); return '<span class="compat-badge '+c.state+'" title="'+esc(c.reasons.join(' · '))+'">'+esc(c.label)+'</span>'; }
-  function compatibilityDetail(o) { var c=compatibility(o),action=c.score==null?'<br><a href="/?profile=1">Configurar mi compatibilidad →</a>':'';return '<div class="compat-detail '+c.state+'"><strong>'+esc(c.label)+'</strong><br>'+esc(c.reasons.slice(0,2).join(' · '))+action+'</div>'; }
+  function compatibilityDetail(o) { var c=compatibility(o),action=c.score==null?'<br><a href="/?profile=1">Configurar mi compatibilidad →</a>':'';return '<div class="compat-detail '+c.state+'"><strong>'+esc(c.label)+'</strong>'+(c.score==null?'':' · confianza '+esc(c.confidence))+'<br>'+esc(c.reasons.slice(0,3).join(' · '))+action+'</div>'; }
   function gcalUrl(o) {
     if (!o.application_deadline) return null;
     var start = o.application_deadline.replace(/-/g, "");
@@ -1123,7 +1125,22 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   // "Últimas subidas": por fecha de creación, la más reciente primero (created es ISO,
   // compara bien como string). "Cierran antes": por fecha límite, sin ella al final (una
   // oportunidad sin deadline conocida no es "la más urgente", es la que menos se sabe).
+  // "Mejor afinidad": usa el perfil guardado (edad, residencia, prioridades) para traer
+  // primero lo elegible y afín; sin perfil, cae en el mismo orden que "Cierran antes".
+  function affinityRank(state) { return state === "yes" ? 0 : state === "warn" ? 1 : state === "unknown" ? 2 : 3; }
   function sortShown(list) {
+    if (sortMode === "affinity" && window.CorradiCompatibility) {
+      var profileData = window.CorradiCompatibility.readProfile();
+      return list.map(function (o) { return { o: o, r: window.CorradiCompatibility.evaluate(o, profileData) }; })
+        .sort(function (a, b) {
+          var ra = affinityRank(a.r.state), rb = affinityRank(b.r.state);
+          if (ra !== rb) return ra - rb;
+          var sa = a.r.score == null ? -1 : a.r.score, sb = b.r.score == null ? -1 : b.r.score;
+          if (sa !== sb) return sb - sa;
+          var da = a.o.application_deadline || "9999", db = b.o.application_deadline || "9999";
+          return da < db ? -1 : da > db ? 1 : 0;
+        }).map(function (x) { return x.o; });
+    }
     if (sortMode === "deadline") {
       return list.slice().sort(function (a, b) {
         var da = a.application_deadline, db = b.application_deadline;
@@ -1855,6 +1872,15 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         buildCountries();
         buildTopics();
         buildMonths();
+        if (window.CorradiCompatibility) {
+          var savedProfile = window.CorradiCompatibility.readProfile();
+          if (savedProfile.age && savedProfile.residence) {
+            sortMode = "affinity";
+            Array.prototype.forEach.call(document.querySelectorAll(".sort-btn"), function (b) {
+              b.setAttribute("aria-pressed", String(b.dataset.sort === "affinity"));
+            });
+          }
+        }
         var params = new URLSearchParams(location.search);
         var sharedFiltersRaw=localStorage.getItem("corradi-filters");
         resetFilters();

@@ -41,6 +41,10 @@ def test_shared_compatibility_and_guide_are_available():
     guide = (STATIC / "guia.html").read_text(encoding="utf-8")
     assert "eligibility_country_codes" in compatibility
     assert "participant_min_age" in compatibility
+    assert 'id:"nature"' in compatibility
+    assert 'id:"facilitation"' in compatibility
+    assert "missingRequired" in compatibility
+    assert "matchedAvoid" in compatibility
     assert "Travel budget" in guide
     assert "No delegues tu candidatura a una IA" in guide
     assert "10–99 km" in guide
@@ -60,10 +64,24 @@ def test_compatibility_profile_only_persists_relevant_fields():
     assert "productAge" in profile_block
     assert "productResidence" in profile_block
     assert "productType" in profile_block
-    assert "productInterests" in profile_block
+    assert "priorities:selected" in profile_block
+    assert 'data-mode="required"' in profile_block
+    assert 'data-mode="positive"' in profile_block
+    assert 'data-mode="avoid"' in profile_block
     assert "productLanguages" not in profile_block
     assert "productExperience" not in profile_block
     assert "productStrengths" not in profile_block
+
+
+def test_catalog_and_map_can_sort_by_affinity():
+    discover = (STATIC / "discover.html").read_text(encoding="utf-8")
+    mapa = (STATIC / "mapa.html").read_text(encoding="utf-8")
+    assert 'data-home-sort="affinity"' in discover
+    assert "affinityRank" in discover
+    assert 'order==="affinity"&&window.CorradiCompatibility' in discover
+    assert 'data-sort="affinity"' in mapa
+    assert "affinityRank" in mapa
+    assert 'sortMode === "affinity"' in mapa
 
 
 def test_sending_organisation_dataset_is_substantial():
