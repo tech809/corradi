@@ -96,7 +96,14 @@
     var reasons = [], age = Number(data.age || 0), codes = Array.isArray(project.eligibility_country_codes) ? project.eligibility_country_codes : [];
     if (!age || !data.residence) return {score:null,state:"unknown",label:"Configura tu perfil",confidence:"baja",reasons:["Añade edad y residencia para comprobar requisitos"]};
     if (!codes.length) return {score:null,state:"warn",label:"Revisa requisitos",confidence:"baja",reasons:["La fuente no publica una lista de países verificable"]};
-    if (codes.indexOf(data.residence) < 0) return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["Tu país no figura entre los admitidos"]};
+    if (codes.indexOf(data.residence) < 0) {
+      // Sin el infopack real procesado, la lista de países puede venir solo del país de
+      // destino (lo único que menciona el resumen), no de los países realmente admitidos —
+      // pasó con un curso en Turquía que en teoría también admitía España. No lo tratamos
+      // como un "no" verificado hasta que el infopack confirme la lista completa.
+      if (!project.infopack_enriched) return {score:null,state:"warn",label:"Revisa requisitos",confidence:"baja",reasons:["Aún no hemos confirmado todos los países admitidos"]};
+      return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["Tu país no figura entre los admitidos"]};
+    }
     reasons.push("Tu país figura en la convocatoria");
     var min = Number(project.participant_min_age || 0), max = Number(project.participant_max_age || 0);
     if ((min && age < min) || (max && age > max)) return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["Tu edad no entra en el rango publicado"]};

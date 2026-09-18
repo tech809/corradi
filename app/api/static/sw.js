@@ -1,4 +1,4 @@
-const CACHE = "corradi-shell-v10";
+const CACHE = "corradi-shell-v11";
 const SHELL = [
   "/", "/mapa", "/organizaciones", "/guia", "/manifest.webmanifest",
   "/assets/discover-product.css", "/assets/discover-product.js", "/assets/compatibility.js",

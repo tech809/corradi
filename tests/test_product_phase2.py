@@ -51,6 +51,7 @@ def test_shared_compatibility_and_guide_are_available():
     assert "matchedAvoid" in compatibility
     assert "extendedText" in compatibility
     assert "missingKeywords" in compatibility
+    assert "infopack_enriched" in compatibility
     assert "Travel budget" in guide
     assert "No delegues tu candidatura a una IA" in guide
     assert "10–99 km" in guide
