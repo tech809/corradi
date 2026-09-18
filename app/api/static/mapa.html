@@ -431,6 +431,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 .switch[aria-pressed="true"] i { transform: translateX(18px); }
 .info-note { margin: -2px 0 12px; font-size: 12px; color: var(--ink-faint); padding: 0 2px; display: none; }
 .info-note[data-open="true"] { display: block; }
+.affinity-help { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+.affinity-help span { color: var(--ink-soft); font-size: 12px; font-weight: 600; }
 
 .age-stepper { display: flex; align-items: center; gap: 18px; }
 .step-btn { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-sunk); font: 650 18px var(--font-body); cursor: pointer; color: var(--brand); transition: all .15s var(--ease); }
@@ -804,6 +806,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       <p class="fp-hint" style="margin:18px 0 8px"><b>Prioridades temáticas</b> · ++ muy importante, + me interesa, − evitar</p>
       <div class="preference-list" id="profilePreferenceList"></div>
       <p class="fp-hint" style="margin:18px 0 4px"><b>Esto tiene que aparecer sí o sí</b> — se comprueba en la ficha extendida, no en el resumen</p>
+      <div class="affinity-help"><button type="button" class="info-q" data-note="affinityNote" aria-expanded="false" aria-label="Cómo se calcula la afinidad">?</button><span>¿Cómo se calcula el % de afinidad?</span></div>
+      <p class="info-note" id="affinityNote">Partimos de una base y sumamos o restamos según lo que marques. <b>Muy importante</b> y esto <b>imprescindible</b> pesan mucho más que <b>Me interesa</b> o <b>Evitar</b>: con que falte uno solo, el % cae fuerte aunque todo lo demás encaje. Marca pocas cosas, pero las que de verdad te importen.</p>
       <label class="profile-full">Imprescindible que la oportunidad incluya<input type="text" id="profileRequiredText" maxlength="140" placeholder="Ej. deporte, aire libre"></label>
     </form>
   </div>
@@ -1653,7 +1657,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         var opt = document.createElement("option"); opt.value = code; opt.textContent = COUNTRIES[code]; residenceSel.appendChild(opt);
       });
     }
-    residenceSel.value = p.residence || "";
+    residenceSel.value = p.residence || "ES";
     document.getElementById("profileType").value = p.type || "";
     document.getElementById("profileRequiredText").value = p.requiredText || "";
     var priorities = p.priorities || {};

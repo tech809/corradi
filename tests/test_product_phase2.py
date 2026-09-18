@@ -73,6 +73,7 @@ def test_compatibility_profile_only_persists_relevant_fields():
     assert "priorities:selected" in profile_block
     assert "pref-btn" in profile_block
     assert "Indiferente" in profile_block
+    assert 'data-note="affinityNote"' in profile_block
     assert "productRequiredText" in profile_block
     assert "requiredText:" in profile_block
     assert "productLanguages" not in profile_block

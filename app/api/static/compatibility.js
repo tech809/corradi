@@ -74,8 +74,26 @@
     return {matched:inBody, central:inCore, source:inTopic ? "topic" : inCore ? "core" : inBody ? "description" : null};
   }
   function listLabels(ids) { return ids.map(function (id) { var item=conceptById(id); return item ? item.label.toLowerCase() : id; }); }
+  // Cache por perfil: discover.html/mapa.html llaman a evaluate() del mismo proyecto muchas
+  // veces por segundo (cada tecla en el buscador, cada MutationObserver) con el MISMO perfil
+  // sin cambiar; sin esto se repite todo el matching de texto en cada pasada, notable en móvil
+  // con el catálogo entero + las filas de colecthemas. Se invalida sola si cambia el perfil.
+  var _cache = {sig: null, map: null};
+  function profileSignature(data) {
+    return (data.age || "") + "|" + (data.residence || "") + "|" + (data.type || "") + "|" + JSON.stringify(data.priorities || {}) + "|" + (data.requiredText || "");
+  }
   function evaluate(project, supplied) {
-    var data = supplied || readProfile(), reasons = [], age = Number(data.age || 0), codes = Array.isArray(project.eligibility_country_codes) ? project.eligibility_country_codes : [];
+    if (supplied) return computeEvaluate(project, supplied);
+    var data = readProfile(), sig = profileSignature(data);
+    if (_cache.sig !== sig) { _cache.sig = sig; _cache.map = new Map(); }
+    var cached = _cache.map.get(project.identifier);
+    if (cached) return cached;
+    var result = computeEvaluate(project, data);
+    _cache.map.set(project.identifier, result);
+    return result;
+  }
+  function computeEvaluate(project, data) {
+    var reasons = [], age = Number(data.age || 0), codes = Array.isArray(project.eligibility_country_codes) ? project.eligibility_country_codes : [];
     if (!age || !data.residence) return {score:null,state:"unknown",label:"Configura tu perfil",confidence:"baja",reasons:["Añade edad y residencia para comprobar requisitos"]};
     if (!codes.length) return {score:null,state:"warn",label:"Revisa requisitos",confidence:"baja",reasons:["La fuente no publica una lista de países verificable"]};
     if (codes.indexOf(data.residence) < 0) return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["Tu país no figura entre los admitidos"]};
