@@ -100,8 +100,8 @@
       if (mode === "positive" && match.matched) matchedPositive.push(id);
       if (mode === "avoid" && match.central) matchedAvoid.push(id);
     });
-    score += matchedRequired.length * 12;
-    score -= missingRequired.length * 22;
+    score += matchedRequired.length * 25;
+    score -= missingRequired.length * 35;
     score += Math.min(21, matchedPositive.length * 7);
     score -= matchedAvoid.length * 25;
     if (matchedRequired.length) reasons.push("Muy importantes presentes: " + listLabels(matchedRequired).join(", "));
@@ -116,8 +116,8 @@
       else if (hasExtended) missingKeywords.push(keyword);
       else unverifiedKeywords.push(keyword);
     });
-    score += Math.min(15, matchedKeywords.length * 8);
-    score -= missingKeywords.length * 28;
+    score += Math.min(36, matchedKeywords.length * 18);
+    score -= missingKeywords.length * 40;
     if (matchedKeywords.length) reasons.push("Incluye lo que buscas: " + matchedKeywords.join(", "));
     if (missingKeywords.length) reasons.push("No parece incluir: " + missingKeywords.join(", "));
     if (unverifiedKeywords.length) reasons.push("Ficha poco detallada, no podemos confirmar: " + unverifiedKeywords.join(", "));

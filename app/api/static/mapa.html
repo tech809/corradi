@@ -459,6 +459,20 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 .range-inputs[hidden], .month-chips[hidden] { display: none; }
 .range-inputs label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
 .range-inputs input[type="date"] { font: inherit; font-size: 13px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink); }
+#profileForm label { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+#profileForm input, #profileForm select { font: inherit; font-size: 13px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink); }
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.profile-full { grid-column: 1 / -1; }
+.preference-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.preference-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-sunk); }
+.preference-row strong { font-size: 11px; font-weight: 650; }
+.pref-buttons { display: flex; align-items: center; gap: 5px; flex: none; }
+.pref-current { min-width: 66px; color: var(--ink-faint); font: 700 9px var(--font-body); text-align: center; }
+.pref-btn { min-width: 26px; min-height: 26px; padding: 0 5px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink-faint); font: 800 11px var(--font-body); cursor: pointer; }
+.pref-btn[aria-pressed="true"][data-mode="required"] { border-color: #36543d; background: #dfead2; color: #274634; }
+.pref-btn[aria-pressed="true"][data-mode="positive"] { border-color: #53679e; background: #e6eaf4; color: #263c73; }
+.pref-btn[aria-pressed="true"][data-mode="avoid"] { border-color: #a85b52; background: #f4e2df; color: #8d3832; }
+@media (max-width: 620px) { .profile-grid, .preference-list { grid-template-columns: 1fr; } }
 
 .sheet-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--line-soft); position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
 .sheet-foot .btn.primary { padding: 12px 22px; font-size: 13.5px; }
@@ -621,8 +635,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     </div>
 
     <div class="top-actions">
-      <a class="pill-btn" href="/guia" aria-label="Guía Erasmus+" title="Guía Erasmus+"><span class="mobile-symbol" aria-hidden="true">?</span><span class="label">Guía</span></a>
-      <a class="pill-btn" href="/?profile=1" aria-label="Mi compatibilidad" title="Mi compatibilidad"><span class="mobile-symbol" aria-hidden="true">◎</span><span class="label">Mi compatibilidad</span></a>
+      <button type="button" class="pill-btn" id="openProfileDialog" aria-label="Mi compatibilidad" title="Mi compatibilidad"><span class="mobile-symbol" aria-hidden="true">◎</span><span class="label">Mi compatibilidad</span></button>
       <button type="button" class="icon-btn" id="contribute" aria-label="¿Quieres contribuir?" title="¿Quieres contribuir?"></button>
       <a class="pill-btn solid" id="channel" href="/">
         <span id="channelIconSlot"></span><span class="label">Ver web</span>
@@ -772,6 +785,31 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   <div class="sheet-foot">
     <button type="button" class="reset" id="resetInDialog">Limpiar filtros</button>
     <button type="button" class="btn primary" id="filtersApply">Ver <span id="filtersApplyCount">…</span> oportunidades</button>
+  </div>
+</dialog>
+
+<dialog id="profileDialog" class="sheet-dialog" aria-labelledby="profileTitle">
+  <div class="sheet-head">
+    <h2 id="profileTitle">Mi compatibilidad</h2>
+    <button type="button" class="sheet-close" id="profileClose" aria-label="Cerrar"></button>
+  </div>
+  <div class="fp-pane" data-shown="true">
+    <p class="fp-hint" style="margin:0 0 18px">Edad y residencia comprueban requisitos oficiales. El resto son preferencias que solo afectan a la afinidad, nunca a si puedes participar.</p>
+    <form id="profileForm">
+      <div class="profile-grid">
+        <label>Edad<input type="number" id="profileAge" min="13" max="99"></label>
+        <label>Residencia<select id="profileResidence"><option value="">Selecciona</option></select></label>
+      </div>
+      <label class="profile-full">Formato preferido<select id="profileType"><option value="">Me interesan todos</option><option value="YOUTH_EXCHANGE">Youth Exchange</option><option value="TRAINING_COURSE">Training Course</option><option value="VOLUNTEERING">ESC</option></select></label>
+      <p class="fp-hint" style="margin:18px 0 8px"><b>Prioridades temáticas</b> · ++ muy importante, + me interesa, − evitar</p>
+      <div class="preference-list" id="profilePreferenceList"></div>
+      <p class="fp-hint" style="margin:18px 0 4px"><b>Esto tiene que aparecer sí o sí</b> — se comprueba en la ficha extendida, no en el resumen</p>
+      <label class="profile-full">Imprescindible que la oportunidad incluya<input type="text" id="profileRequiredText" maxlength="140" placeholder="Ej. deporte, aire libre"></label>
+    </form>
+  </div>
+  <div class="sheet-foot">
+    <button type="button" class="reset" id="profileClear">Borrar datos</button>
+    <button type="button" class="btn primary" id="profileSave">Guardar y recalcular</button>
   </div>
 </dialog>
 
@@ -1601,6 +1639,61 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     }
   });
 
+  // Diálogo de compatibilidad propio del mapa: no carga discover-product.js (duplicaría el
+  // fetch de /api/map y tocaría ids que no existen aquí), así que reimplementa el formulario
+  // de perfil en el idioma propio de esta página, leyendo/escribiendo el mismo localStorage.
+  function preferenceStateLabel(state) { return {avoid:"Evitar", positive:"Me interesa", required:"Muy importante"}[state] || "Indiferente"; }
+  function populateProfileDialog() {
+    var p = window.CorradiCompatibility.readProfile();
+    document.getElementById("profileAge").value = p.age || "";
+    var residenceSel = document.getElementById("profileResidence");
+    if (!residenceSel.dataset.built) {
+      residenceSel.dataset.built = "1";
+      Object.keys(COUNTRIES).sort(function (a, b) { return COUNTRIES[a].localeCompare(COUNTRIES[b], "es"); }).forEach(function (code) {
+        var opt = document.createElement("option"); opt.value = code; opt.textContent = COUNTRIES[code]; residenceSel.appendChild(opt);
+      });
+    }
+    residenceSel.value = p.residence || "";
+    document.getElementById("profileType").value = p.type || "";
+    document.getElementById("profileRequiredText").value = p.requiredText || "";
+    var priorities = p.priorities || {};
+    var list = document.getElementById("profilePreferenceList");
+    list.innerHTML = window.CorradiCompatibility.taxonomy.map(function (concept) {
+      var st = priorities[concept.id] || "";
+      function btn(mode, text, title) { return '<button type="button" class="pref-btn" data-mode="' + mode + '" aria-pressed="' + (st === mode) + '" title="' + title + '">' + text + '</button>'; }
+      return '<div class="preference-row" data-concept="' + concept.id + '" data-state="' + st + '"><strong>' + esc(concept.label) + '</strong><div class="pref-buttons">' + btn("avoid", "−", "Evitar") + '<span class="pref-current">' + preferenceStateLabel(st) + '</span>' + btn("positive", "+", "Me interesa") + btn("required", "++", "Muy importante") + '</div></div>';
+    }).join("");
+    Array.prototype.forEach.call(list.querySelectorAll(".pref-btn"), function (button) {
+      button.onclick = function () {
+        var row = button.closest(".preference-row"), mode = button.dataset.mode, current = row.dataset.state, next = current === mode ? "" : mode;
+        if (next === "required" || next === "positive") {
+          var limit = next === "required" ? 2 : 5;
+          var used = Array.prototype.filter.call(list.querySelectorAll(".preference-row"), function (r) { return r !== row && r.dataset.state === next; }).length;
+          if (used >= limit) { toast(next === "required" ? "Elige como máximo 2 muy importantes" : "Elige como máximo 5 en 'Me interesa'"); return; }
+        }
+        row.dataset.state = next;
+        Array.prototype.forEach.call(row.querySelectorAll(".pref-btn"), function (b) { b.setAttribute("aria-pressed", String(b.dataset.mode === next)); });
+        row.querySelector(".pref-current").textContent = preferenceStateLabel(next);
+      };
+    });
+  }
+  function openProfileDialog() { populateProfileDialog(); document.getElementById("profileDialog").showModal(); }
+  function saveProfileDialog() {
+    var selected = {};
+    Array.prototype.forEach.call(document.querySelectorAll("#profilePreferenceList .preference-row"), function (row) { if (row.dataset.state) selected[row.dataset.concept] = row.dataset.state; });
+    var next = {
+      age: document.getElementById("profileAge").value,
+      residence: document.getElementById("profileResidence").value,
+      type: document.getElementById("profileType").value,
+      priorities: selected,
+      requiredText: document.getElementById("profileRequiredText").value.trim()
+    };
+    localStorage.setItem(window.CorradiCompatibility.key, JSON.stringify(next));
+    document.getElementById("profileDialog").close();
+    apply();
+    toast("Perfil guardado en este dispositivo");
+  }
+
   function wire() {
     document.getElementById("igPopupClose").addEventListener("click", function () { document.getElementById("igPopup").classList.remove("show"); });
 
@@ -1634,6 +1727,16 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var filtersDlg = document.getElementById("filtersDialog");
     document.getElementById("filtersToggle").addEventListener("click", function () { filtersDlg.showModal(); });
     document.getElementById("infoBtn").addEventListener("click", function () { document.getElementById("infoDialog").showModal(); });
+
+    document.getElementById("openProfileDialog").addEventListener("click", openProfileDialog);
+    document.getElementById("profileClose").addEventListener("click", function () { document.getElementById("profileDialog").close(); });
+    document.getElementById("profileSave").addEventListener("click", saveProfileDialog);
+    document.getElementById("profileClear").addEventListener("click", function () {
+      localStorage.removeItem(window.CorradiCompatibility.key);
+      document.getElementById("profileDialog").close();
+      apply();
+      toast("Perfil eliminado");
+    });
 
     document.getElementById("dockCollapse").addEventListener("click", function () {
       document.getElementById("dock").classList.add("collapsed");

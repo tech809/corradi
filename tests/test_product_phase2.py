@@ -27,8 +27,10 @@ def test_home_has_compact_flow_and_mobile_navigation():
     assert 'class="mobile-bottom-nav"' in html
     assert 'href="/organizaciones"' in html
     assert 'id="installApp"' in html
-    assert 'class="wrap section collections-section"' not in html
     assert 'class="wrap weekly-top"' not in html
+    assert 'id="rowSoon"' in html
+    assert 'id="rowYE"' in html
+    assert 'id="rowTC"' in html
     assert 'href="/guia"' in html
     assert 'data-product-open="profile"' in html
     assert 'href="/world"' not in html
@@ -67,7 +69,8 @@ def test_compatibility_profile_only_persists_relevant_fields():
     assert "productResidence" in profile_block
     assert "productType" in profile_block
     assert "priorities:selected" in profile_block
-    assert "data-concept-select" in profile_block
+    assert "pref-btn" in profile_block
+    assert "Indiferente" in profile_block
     assert "productRequiredText" in profile_block
     assert "requiredText:" in profile_block
     assert "productLanguages" not in profile_block
