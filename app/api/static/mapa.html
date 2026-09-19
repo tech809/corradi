@@ -1689,6 +1689,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     });
   }
   function openProfileDialog() { populateProfileDialog(); document.getElementById("profileDialog").showModal(); }
+  window.openProfileDialog = openProfileDialog;
   function saveProfileDialog() {
     var selected = {};
     Array.prototype.forEach.call(document.querySelectorAll("#profilePreferenceList .preference-row"), function (row) { if (row.dataset.state) selected[row.dataset.concept] = row.dataset.state; });
