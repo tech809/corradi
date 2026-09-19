@@ -336,21 +336,15 @@
     window.addEventListener("appinstalled", () => { if (button) button.hidden = true; toast("Corradi se ha instalado"); });
     if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
   }
-  function setupMobileNav() {
-    if (!document.querySelector(".mobile-bottom-nav")) document.body.insertAdjacentHTML("beforeend", '<nav class="mobile-bottom-nav" aria-label="Navegación móvil"><a href="/">⌂<span>Inicio</span></a><a href="/#explorar">⌕<span>Buscar</span></a><a href="/mapa">⌖<span>Mapa</span></a><a href="/guia">?<span>Guía</span></a><button type="button" data-product-open="profile">◎<span>Perfil</span></button></nav>');
-    const nav = document.querySelector(".mobile-bottom-nav");
-    nav.querySelectorAll("a,button").forEach(item => item.addEventListener("click", () => { nav.querySelectorAll(".active").forEach(active => active.classList.remove("active")); item.classList.add("active"); }));
-  }
-
   function initHome(data) {
     catalog = data.results || []; generated = data.generated || "";
-    setupMobileNav(); bindGlobal(); setupInstall(); updateSummaries(); updateFilterChips(); enhanceCards(); enhanceDetail();
+    bindGlobal(); setupInstall(); updateSummaries(); updateFilterChips(); enhanceCards(); enhanceDetail();
     const observer = new MutationObserver(() => { enhanceCards(); enhanceDetail(); updateFilterChips(); });
     ["allCards","urgentCards","weeklyTop","rowSoon","rowYE","rowTC","detail"].forEach(id => { const node = document.getElementById(id); if (node) observer.observe(node, {childList:true, subtree:true}); });
     if (new URLSearchParams(location.search).get("profile") === "1") setTimeout(openProfile, 0);
   }
   function initProject(data) {
-    catalog = [data]; currentProject = data; setupMobileNav(); bindGlobal(); setupInstall(); updateSummaries();
+    catalog = [data]; currentProject = data; bindGlobal(); setupInstall(); updateSummaries();
     const apply = () => enhanceProjectPage(data); apply();
     const app = document.getElementById("app"); if (app) new MutationObserver(apply).observe(app, {childList:true, subtree:true});
   }

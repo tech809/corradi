@@ -24,7 +24,9 @@ def test_pwa_has_required_icons_and_root_service_worker():
 
 def test_home_has_compact_flow_and_mobile_navigation():
     html = (STATIC / "discover.html").read_text(encoding="utf-8")
-    assert 'class="mobile-bottom-nav"' in html
+    assert 'class="mobile-bottom-nav"' not in html
+    assert 'class="nav-more"' in html
+    assert 'class="mobile-symbol"' in html
     assert 'href="/organizaciones"' in html
     assert 'id="productMatches"' in html
     assert 'class="product-edit-btn"' in html
