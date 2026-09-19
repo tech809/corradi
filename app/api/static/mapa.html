@@ -1979,15 +1979,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         buildCountries();
         buildTopics();
         buildMonths();
-        if (window.CorradiCompatibility) {
-          var savedProfile = window.CorradiCompatibility.readProfile();
-          if (savedProfile.age && savedProfile.residence) {
-            sortMode = "affinity";
-            Array.prototype.forEach.call(document.querySelectorAll(".sort-btn"), function (b) {
-              b.setAttribute("aria-pressed", String(b.dataset.sort === "affinity"));
-            });
-          }
-        }
         var params = new URLSearchParams(location.search);
         var sharedFiltersRaw=localStorage.getItem("corradi-filters");
         resetFilters();
