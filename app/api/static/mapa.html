@@ -298,7 +298,7 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
   color: #fff; background: var(--critical); padding: 4px 8px; border-radius: 7px;
 }
 .corner-actions { display: flex; gap: 6px; flex: none; }
-.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:7px}.compat-badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:7px;background:#edf3e6;color:#31553e;font-size:9px;font-weight:800;white-space:nowrap}.compat-badge.warn{background:#f7eedb;color:#805b23}.compat-badge.no{background:#f5e7e4;color:#983d38}.compat-badge.unknown{background:#ececef;color:#535966}.compat-detail{margin:0 0 16px;padding:13px 14px;border-radius:11px;background:#edf3e6;color:#31553e;font-size:11px}.compat-detail.warn{background:#f7eedb;color:#805b23}.compat-detail.no{background:#f5e7e4;color:#983d38}.compat-detail a{color:inherit;font-weight:800}
+.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:7px}.compat-badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:7px;background:#edf3e6;color:#31553e;font-size:9px;font-weight:800;white-space:nowrap}.compat-badge.warn{background:#f7eedb;color:#805b23}.compat-badge.no{background:#f5e7e4;color:#983d38}.compat-badge.unknown{background:#ececef;color:#535966;border:0;cursor:pointer}.compat-detail{margin:0 0 16px;padding:13px 14px;border-radius:11px;background:#edf3e6;color:#31553e;font-size:11px}.compat-detail.warn{background:#f7eedb;color:#805b23}.compat-detail.no{background:#f5e7e4;color:#983d38}.compat-detail a{color:inherit;font-weight:800}
 .corner-btn {
   display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; padding: 0;
   background: var(--surface-sunk); border: 1px solid var(--line); color: var(--ink-faint); text-decoration: none;
@@ -1067,7 +1067,14 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     return { text: "Hasta el " + fmtDate(o.application_deadline), cls: "" };
   }
   function compatibility(o) { return window.CorradiCompatibility.evaluate(o); }
-  function compatibilityBadge(o) { var c=compatibility(o); return '<span class="compat-badge '+c.state+'" title="'+esc(c.reasons.join(' · '))+'">'+esc(c.label)+'</span>'; }
+  function compatibilityBadge(o) {
+    var c = compatibility(o);
+    // "Configura tu perfil" parecía un botón (misma forma de píldora que el resto de
+    // acciones de la tarjeta) pero no hacía nada: el tap caía en el listener de la
+    // tarjeta, que la seleccionaba en el mapa en vez de abrir el perfil.
+    if (c.state === "unknown") return '<button type="button" class="compat-badge unknown" title="'+esc(c.reasons.join(' · '))+'" onclick="event.stopPropagation();openProfileDialog()">'+esc(c.label)+'</button>';
+    return '<span class="compat-badge '+c.state+'" title="'+esc(c.reasons.join(' · '))+'">'+esc(c.label)+'</span>';
+  }
   function compatibilityDetail(o) { var c=compatibility(o),action=c.score==null?'<br><a href="/?profile=1">Configurar mi compatibilidad →</a>':'';return '<div class="compat-detail '+c.state+'"><strong>'+esc(c.label)+'</strong>'+(c.score==null?'':' · confianza '+esc(c.confidence))+'<br>'+esc(c.reasons.slice(0,3).join(' · '))+action+'</div>'; }
   function gcalUrl(o) {
     if (!o.application_deadline) return null;
@@ -1938,6 +1945,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
 
   function fillIcons() {
+    // El input es demasiado estrecho en móvil para el placeholder largo de escritorio:
+    // se cortaba a media palabra ("...temátic") en vez de mostrarse completo.
+    if (isMobileQuery && isMobileQuery.matches) document.getElementById("q").placeholder = "Busca país, ciudad...";
     document.getElementById("searchIconSlot").innerHTML = ICON.search;
     document.getElementById("filtersIconSlot").innerHTML = ICON.sliders;
     document.getElementById("askIconSlot").innerHTML = ICON.sparkle;
