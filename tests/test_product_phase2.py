@@ -142,7 +142,7 @@ def test_ecs_duration_filter_is_contextual_in_catalog_and_map():
 
 def test_map_starts_two_zoom_levels_closer():
     mapa = (STATIC / "mapa.html").read_text(encoding="utf-8")
-    assert mapa.count('setView([48.6, 12], 7') == 3
+    assert mapa.count('setView([48.6, 12], 5') == 3
     assert "bootingMap && !_p.get" in mapa
 
 

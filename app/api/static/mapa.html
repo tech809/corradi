@@ -1412,11 +1412,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     // después con focusOpportunity; el resto empieza siempre cerca de Europa.
     var _p = new URLSearchParams(location.search);
     if (bootingMap && !_p.get("o")) {
-      map.setView([48.6, 12], 7, { animate: false });
+      map.setView([48.6, 12], 5, { animate: false });
       return;
     }
     if (shown.length === all.length && !_p.get("o")) {
-      map.setView([48.6, 12], 7, { animate: false });
+      map.setView([48.6, 12], 5, { animate: false });
       return;
     }
     if (bounds.length === 1) map.setView(bounds[0], 7, { animate: false });
@@ -1931,7 +1931,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
   function initMap() {
     // Vista inicial: centro de Europa continental y un punto más de zoom que antes ([50,12],4).
-    map = L.map("map", { zoomControl: false, scrollWheelZoom: true, attributionControl: true }).setView([48.6, 12], 7);
+    map = L.map("map", { zoomControl: false, scrollWheelZoom: true, attributionControl: true }).setView([48.6, 12], 5);
     L.control.zoom({ position: "bottomleft" }).addTo(map);
     paintTiles();
     layer = L.markerClusterGroup({
