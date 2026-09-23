@@ -135,10 +135,16 @@
     const ageInput = form.querySelector("#qpAge");
     ageInput.addEventListener("input", () => saveQuick({age: ageInput.value}));
     const typeHolder = form.querySelector("#qpType");
-    typeHolder.innerHTML = [["", "Todo"], ["YOUTH_EXCHANGE", "Youth Exchange"], ["TRAINING_COURSE", "Training Course"], ["VOLUNTEERING", "Voluntariado ESC"]]
-      .map(([value, label]) => '<button type="button" class="qp-chip" data-type="' + value + '">' + label + '</button>').join("");
+    typeHolder.innerHTML = [["", "Todo", "Todos los formatos"], ["YOUTH_EXCHANGE", "YE", "Youth Exchange"], ["TRAINING_COURSE", "TC", "Training Course"], ["VOLUNTEERING", "ESC", "Voluntariado ESC"]]
+      .map(([value, label, title]) => '<button type="button" class="qp-chip" data-type="' + value + '" title="' + title + '">' + label + '</button>').join("");
     typeHolder.addEventListener("click", event => {
-      const chip = event.target.closest(".qp-chip"); if (chip) saveQuick({type: chip.dataset.type}, true);
+      const chip = event.target.closest(".qp-chip"); if (!chip) return;
+      let types = (profile().types || []).slice();
+      if (!chip.dataset.type) types = [];
+      else if (types.includes(chip.dataset.type)) types = types.filter(t => t !== chip.dataset.type);
+      else types.push(chip.dataset.type);
+      if (types.length === 3) types = [];
+      saveQuick({types, type: types.length === 1 ? types[0] : ""}, true);
     });
 
     // Palabras imprescindibles: cada palabra se convierte en etiqueta al pulsar Enter o coma.
@@ -172,6 +178,7 @@
       '<button type="button" data-mode="avoid" title="Evitar" aria-label="Evitar ' + esc(concept.label) + '">−</button>' +
       '<button type="button" data-mode="positive" title="Me interesa" aria-label="Me interesa ' + esc(concept.label) + '">+</button>' +
       '<button type="button" data-mode="required" title="Muy importante" aria-label="Muy importante ' + esc(concept.label) + '">++</button></span></div>').join("");
+    prefs.addEventListener("scroll", () => prefs.classList.toggle("at-end", prefs.scrollTop + prefs.clientHeight >= prefs.scrollHeight - 4), {passive:true});
     prefs.addEventListener("click", event => {
       const button = event.target.closest("button[data-mode]"); if (!button) return;
       const id = button.closest(".qp-pref").dataset.concept, mode = button.dataset.mode;
@@ -197,7 +204,8 @@
     if (document.activeElement !== ageInput) ageInput.value = p.age || 22;
     out.textContent = p.age ? p.age + " años" : "Sin indicar";
     form.classList.toggle("no-age", !p.age);
-    form.querySelectorAll("[data-type]").forEach(chip => chip.setAttribute("aria-pressed", String((p.type || "") === chip.dataset.type)));
+    const types = p.types || [];
+    form.querySelectorAll("[data-type]").forEach(chip => chip.setAttribute("aria-pressed", String(chip.dataset.type ? types.includes(chip.dataset.type) : !types.length)));
     const words = requiredWords(p), tags = form.querySelector("#qpTags"), input = form.querySelector("#qpWordInput");
     tags.querySelectorAll(".qp-tag").forEach(tag => tag.remove());
     input.insertAdjacentHTML("beforebegin", words.map(w => '<span class="qp-tag"><span aria-hidden="true">★</span>' + esc(w) + '<button type="button" data-remove-word="' + esc(w) + '" aria-label="Quitar ' + esc(w) + '">×</button></span>').join(""));
@@ -211,7 +219,7 @@
     });
     const topics = Object.values(priorities).filter(v => v !== "avoid").length;
     const summary = document.getElementById("qpSummary");
-    if (summary) summary.textContent = p.age ? [p.age + " años", p.type ? TYPE_SHORT[p.type] : "Todo", topics ? topics + (topics === 1 ? " tema" : " temas") : "", words.length ? words.length + (words.length === 1 ? " palabra" : " palabras") : ""].filter(Boolean).join(" · ") : "Sin completar";
+    if (summary) summary.textContent = p.age ? [p.age + " años", (p.types || []).length ? p.types.map(t => TYPE_SHORT[t] === "Youth Exchange" ? "YE" : TYPE_SHORT[t] === "Training Course" ? "TC" : "ESC").join(" + ") : "Todo", topics ? topics + (topics === 1 ? " tema" : " temas") : "", words.length ? words.length + (words.length === 1 ? " palabra" : " palabras") : ""].filter(Boolean).join(" · ") : "Sin completar";
   }
   function showInCatalog() {
     const p = profile(), type = document.getElementById("type"), age = document.getElementById("age");
@@ -243,7 +251,8 @@
     if (!holder || !catalog.length) return;
     const p = profile();
     const open = catalog.filter(project => { const d = daysLeft(project); return d == null || d >= 0; });
-    const byType = open.filter(project => !p.type || project.type === p.type || (p.type === "VOLUNTEERING" && project.type === "ESC"));
+    const wanted = p.types || [];
+    const byType = open.filter(project => !wanted.length || wanted.includes(project.type) || (wanted.includes("VOLUNTEERING") && project.type === "ESC"));
     // Desempate: con la misma afinidad, primero lo que cierra antes y después lo que está más
     // cerca (desde Madrid si vives en España; fuera de España no sabemos la ciudad de origen).
     const home = ORIGINS.madrid;
@@ -358,8 +367,37 @@
       const btn = (mode, text, title) => '<button type="button" class="pref-btn" data-mode="' + mode + '" aria-pressed="' + (state === mode) + '" title="' + title + '">' + text + '</button>';
       return '<div class="preference-row" data-concept="' + concept.id + '" data-state="' + state + '"><strong>' + esc(concept.label) + '</strong><div class="pref-buttons">' + btn("avoid", "−", "Evitar") + '<span class="pref-current">' + stateLabel(state) + '</span>' + btn("positive", "+", "Me interesa") + btn("required", "++", "Muy importante") + '</div></div>';
     }).join("");
-    const body = '<p class="product-intro">Tu edad comprueba si eres elegible. Tus prioridades, después, calculan cuánto te encaja — nunca al revés.</p><form id="profileForm"><div class="product-grid profile-basics"><div class="product-field"><label for="productAge">Edad · requisito</label><input id="productAge" type="number" min="13" max="99" value="' + esc(p.age || "") + '" required></div><div class="product-field full"><label for="productType">Formato preferido</label><select id="productType"><option value="">Me interesan todos</option>' + Object.keys(TYPES).filter(x => x !== "ESC").map(type => '<option value="' + type + '"' + (p.type === type ? " selected" : "") + '>' + TYPES[type] + '</option>').join("") + '</select></div></div><div class="priority-heading"><div><span>Prioridades temáticas</span><h3>Indica qué debe pesar de verdad.</h3></div><p><b>Muy importante</b> baja mucho la afinidad si falta · <b>Me interesa</b> suma · <b>Evitar</b> resta si aparece. Máximo 2 muy importantes y 5 interesantes.</p></div><div class="preference-list">' + preferenceRows + '</div><div class="required-heading"><div><span>Nivel máximo</span><h3>Esto tiene que aparecer sí o sí.</h3></div><p>No es una prioridad más: si no lo encontramos en la ficha extendida o el infopack, la afinidad baja fuerte.</p></div><div class="product-field full required-field"><label for="productRequiredText">Imprescindible que la oportunidad incluya (máx. 3 palabras)</label><input id="productRequiredText" maxlength="140" placeholder="Ej. deporte, aire libre" value="' + esc(p.requiredText || "") + '"><small>Sepáralo por comas si son varias cosas.</small></div><div class="privacy-note"><b>Guardado local:</b><span>Permanece solo en este navegador y dispositivo. No se envía al servidor. “Evitar” expresa una preferencia, nunca un requisito oficial de participación.</span></div><div class="affinity-help"><button type="button" class="info-q" data-note="affinityNote" aria-expanded="false" aria-label="Cómo se calcula la afinidad">?</button><span>¿Cómo se calcula el % de afinidad?</span></div><p class="info-note" id="affinityNote">El % dice qué parte de lo que buscas cubre cada oportunidad:<br><br>&bull; <b>Me interesa</b> cuenta 1 y <b>Muy importante</b> cuenta 2. El texto de <b>Imprescindible</b> también cuenta 2.<br>&bull; Cuenta entero si es el tema principal, un 60 % si sale en el título o los objetivos y un 25 % si solo se menciona de pasada.<br>&bull; Si falta algo muy importante o imprescindible, la afinidad no pasa del 40 %.<br>&bull; Cada tema marcado como <b>Evitar</b> que sea central resta 30 puntos.<br>&bull; Si la ficha tiene poca información, no pasa del 70 %.<br><br>El formato no suma: sirve para filtrar. Y la afinidad nunca decide si puedes participar: eso solo lo decide tu edad.<br><br>Consejo: marca pocas cosas, pero las que de verdad te importen.</p><div class="product-form-actions"><button class="product-button danger" id="clearProfile" type="button">Borrar datos</button><button class="product-button primary" type="submit">Guardar y recalcular</button></div></form>';
+    const body = '<p class="product-intro">Tu edad comprueba si eres elegible. Tus prioridades, después, calculan cuánto te encaja — nunca al revés.</p><form id="profileForm"><div class="product-grid profile-basics"><div class="product-field"><label for="productAge">Edad · requisito</label><input id="productAge" type="number" min="13" max="99" value="' + esc(p.age || "") + '" required></div><div class="product-field full"><label for="productType">Formato preferido</label><select id="productType"><option value="">Me interesan todos</option>' + Object.keys(TYPES).filter(x => x !== "ESC").map(type => '<option value="' + type + '"' + (p.type === type ? " selected" : "") + '>' + TYPES[type] + '</option>').join("") + '</select></div></div><div class="priority-heading"><div><span>Prioridades temáticas</span><h3>Indica qué debe pesar de verdad.</h3></div><p><b>Muy importante</b> baja mucho la afinidad si falta · <b>Me interesa</b> suma · <b>Evitar</b> resta si aparece. Máximo 2 muy importantes y 5 interesantes.</p></div><div class="preference-list">' + preferenceRows + '</div><div class="required-heading"><div><span>Nivel máximo</span><h3>Esto tiene que aparecer sí o sí.</h3></div><p>No es una prioridad más: si no lo encontramos en la ficha extendida o el infopack, la afinidad baja fuerte.</p></div><div class="product-field full required-field"><label for="productWordInput">Imprescindible que la oportunidad incluya <span class="word-count" id="productWordCount">0/3</span></label><input type="hidden" id="productRequiredText" value="' + esc(p.requiredText || "") + '"><div class="word-tags" id="productWordTags"><input id="productWordInput" maxlength="30" placeholder="Escribe y pulsa Enter"></div><small>Una palabra o expresión por etiqueta. Máximo 3.</small></div><div class="privacy-note"><b>Guardado local:</b><span>Permanece solo en este navegador y dispositivo. No se envía al servidor. “Evitar” expresa una preferencia, nunca un requisito oficial de participación.</span></div><div class="affinity-help"><button type="button" class="info-q" data-note="affinityNote" aria-expanded="false" aria-label="Cómo se calcula la afinidad">?</button><span>¿Cómo se calcula el % de afinidad?</span></div><p class="info-note" id="affinityNote">El % dice qué parte de lo que buscas cubre cada oportunidad:<br><br>&bull; <b>Me interesa</b> cuenta 1 y <b>Muy importante</b> cuenta 2. El texto de <b>Imprescindible</b> también cuenta 2.<br>&bull; Cuenta entero si es el tema principal, un 60 % si sale en el título o los objetivos y un 25 % si solo se menciona de pasada.<br>&bull; Si falta algo muy importante o imprescindible, la afinidad no pasa del 40 %.<br>&bull; Cada tema marcado como <b>Evitar</b> que sea central resta 30 puntos.<br>&bull; Si la ficha tiene poca información, no pasa del 70 %.<br><br>El formato no suma: sirve para filtrar. Y la afinidad nunca decide si puedes participar: eso solo lo decide tu edad.<br><br>Consejo: marca pocas cosas, pero las que de verdad te importen.</p><div class="product-form-actions"><button class="product-button danger" id="clearProfile" type="button">Borrar datos</button><button class="product-button primary" type="submit">Guardar y recalcular</button></div></form>';
     const modal = modalShell("profile", "Compatibilidad sin registro", "Mi compatibilidad", body);
+    // Palabras imprescindibles como etiquetas (igual que en el panel de la home).
+    const hiddenWords = modal.querySelector("#productRequiredText"), wordTags = modal.querySelector("#productWordTags"), wordInput = modal.querySelector("#productWordInput");
+    const dialogWords = () => hiddenWords.value.split(",").map(w => w.trim()).filter(Boolean).slice(0, 3);
+    const paintWords = () => {
+      const words = dialogWords();
+      wordTags.querySelectorAll(".word-tag").forEach(tag => tag.remove());
+      wordInput.insertAdjacentHTML("beforebegin", words.map(w => '<span class="word-tag"><span aria-hidden="true">★</span>' + esc(w) + '<button type="button" data-remove-word="' + esc(w) + '" aria-label="Quitar ' + esc(w) + '">×</button></span>').join(""));
+      wordInput.hidden = words.length >= 3;
+      modal.querySelector("#productWordCount").textContent = words.length + "/3";
+    };
+    const addDialogWord = () => {
+      const word = wordInput.value.replace(/,/g, " ").trim().slice(0, 30); wordInput.value = "";
+      if (!word) return;
+      const words = dialogWords();
+      if (words.some(w => w.toLowerCase() === word.toLowerCase())) return;
+      if (words.length >= 3) { toast("Máximo 3 palabras imprescindibles"); return; }
+      hiddenWords.value = words.concat(word).join(", "); paintWords();
+    };
+    wordInput.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addDialogWord(); }
+      else if (event.key === "Backspace" && !wordInput.value) { hiddenWords.value = dialogWords().slice(0, -1).join(", "); paintWords(); }
+    });
+    wordInput.addEventListener("blur", addDialogWord);
+    wordTags.addEventListener("click", event => {
+      const remove = event.target.closest("[data-remove-word]");
+      if (remove) { hiddenWords.value = dialogWords().filter(w => w !== remove.dataset.removeWord).join(", "); paintWords(); }
+      else if (event.target === wordTags) wordInput.focus();
+    });
+    paintWords();
     modal.querySelectorAll(".info-q").forEach(q => q.onclick = () => {
       const note = modal.querySelector("#" + q.dataset.note), open = note.getAttribute("data-open") !== "true";
       note.setAttribute("data-open", String(open)); q.setAttribute("aria-expanded", String(open));
@@ -376,8 +414,8 @@
       row.querySelector(".pref-current").textContent = stateLabel(next);
     });
     modal.querySelector("#profileForm").onsubmit = event => {
-      event.preventDefault(); const selected = {}; modal.querySelectorAll(".preference-row").forEach(row => { if (row.dataset.state) selected[row.dataset.concept] = row.dataset.state; });
-      const next = {age:modal.querySelector("#productAge").value,residence:"ES",type:modal.querySelector("#productType").value,priorities:selected,requiredText:modal.querySelector("#productRequiredText").value.trim()};
+      event.preventDefault(); addDialogWord(); const selected = {}; modal.querySelectorAll(".preference-row").forEach(row => { if (row.dataset.state) selected[row.dataset.concept] = row.dataset.state; });
+      const next = {age:modal.querySelector("#productAge").value,residence:"ES",type:modal.querySelector("#productType").value,types:modal.querySelector("#productType").value ? [modal.querySelector("#productType").value] : (p.types || []),priorities:selected,requiredText:modal.querySelector("#productRequiredText").value.trim()};
       write(KEYS.profile, next); const age = document.getElementById("age"); if (age && next.age) { age.value = next.age; age.dispatchEvent(new Event("input", {bubbles:true})); } updateSummaries(); enhanceCards(); modal.close(); toast("Perfil guardado en este dispositivo");
     };
     modal.querySelector("#clearProfile").onclick = () => { localStorage.removeItem(KEYS.profile); localStorage.removeItem("corradi-profile-v2"); updateSummaries(); enhanceCards(); modal.close(); toast("Perfil eliminado"); };

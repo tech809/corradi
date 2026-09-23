@@ -51,8 +51,13 @@
     var priorities = cleanPriorities(raw.priorities);
     if (!Object.keys(priorities).length && raw.interests) priorities = migrateInterests(raw.interests);
     // Corradi es solo para residentes en España: la residencia ya no se pregunta.
-    var safe = {age:raw.age || "", residence:"ES", type:raw.type || "", priorities:priorities, requiredText:typeof raw.requiredText === "string" ? raw.requiredText.slice(0, 140) : ""};
-    if (legacy || raw.interests || Object.keys(raw).some(function (key) { return ["age","residence","type","priorities","requiredText"].indexOf(key) < 0; })) {
+    // Formatos: ahora se pueden elegir varios (`types`). `type` se mantiene como el único
+    // formato elegido (o "" si hay varios/ninguno) para las pantallas que aún usan un select.
+    var TYPE_IDS = ["YOUTH_EXCHANGE","TRAINING_COURSE","VOLUNTEERING"];
+    var types = (Array.isArray(raw.types) ? raw.types : (raw.type ? [raw.type] : [])).filter(function (t, i, all) { return TYPE_IDS.indexOf(t) >= 0 && all.indexOf(t) === i; });
+    if (types.length === TYPE_IDS.length) types = [];
+    var safe = {age:raw.age || "", residence:"ES", type:types.length === 1 ? types[0] : "", types:types, priorities:priorities, requiredText:typeof raw.requiredText === "string" ? raw.requiredText.slice(0, 140) : ""};
+    if (legacy || raw.interests || Object.keys(raw).some(function (key) { return ["age","residence","type","types","priorities","requiredText"].indexOf(key) < 0; })) {
       localStorage.setItem(KEY, JSON.stringify(safe));
       if (legacy) localStorage.removeItem(LEGACY_KEY);
     }
@@ -81,7 +86,7 @@
   // con el catálogo entero + las filas de colecthemas. Se invalida sola si cambia el perfil.
   var _cache = {sig: null, map: null};
   function profileSignature(data) {
-    return (data.age || "") + "|" + (data.residence || "") + "|" + (data.type || "") + "|" + JSON.stringify(data.priorities || {}) + "|" + (data.requiredText || "");
+    return (data.age || "") + "|" + (data.residence || "") + "|" + (data.types || [data.type]).join(",") + "|" + JSON.stringify(data.priorities || {}) + "|" + (data.requiredText || "");
   }
   function evaluate(project, supplied) {
     if (supplied) return computeEvaluate(project, supplied);
@@ -116,8 +121,9 @@
     // con sumas. Cada tema pesa según DÓNDE aparece: en el tema principal cuenta entero,
     // en título/objetivos un 60 %, y si solo sale de pasada en la descripción, un 25 %.
     // El formato no suma: ya actúa como filtro y sumarlo inflaba todas las notas por igual.
-    if (data.type) {
-      var typeMatch = data.type === project.type || (data.type === "VOLUNTEERING" && project.type === "ESC");
+    var wantedTypes = Array.isArray(data.types) ? data.types : (data.type ? [data.type] : []);
+    if (wantedTypes.length) {
+      var typeMatch = wantedTypes.indexOf(project.type) >= 0 || (wantedTypes.indexOf("VOLUNTEERING") >= 0 && project.type === "ESC");
       reasons.push(typeMatch ? "Coincide con tu formato preferido" : "No es tu formato preferido");
     }
     var EVIDENCE = {topic:1, core:.6, description:.25};
