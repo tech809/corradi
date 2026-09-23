@@ -145,7 +145,12 @@ async def hide_unpublished_world_asset(request: Request, call_next):
     """Evita que el HTML en desarrollo sea accesible a través del montaje /assets."""
     if not cfg.world_public_enabled and request.url.path in {"/assets/world.html", "/assets/world.css"}:
         return Response(content="No encontrado", status_code=404, media_type="text/plain")
-    return await call_next(request)
+    response = await call_next(request)
+    # JS/CSS sin nombre versionado: sin esto el navegador aplica caché heurística y, tras un
+    # deploy, puede combinar HTML nuevo con JS/CSS viejos. `no-cache` = revalida (304 barato).
+    if request.url.path.startswith("/assets/") and request.url.path.endswith((".js", ".css")):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 # El webhook de WhatsApp SOLO se monta si WhatsApp está activo. Con la API expuesta a

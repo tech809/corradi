@@ -1,4 +1,4 @@
-const CACHE = "corradi-shell-v18";
+const CACHE = "corradi-shell-v19";
 const SHELL = [
   "/", "/mapa", "/organizaciones", "/guia", "/manifest.webmanifest",
   "/assets/discover-product.css", "/assets/discover-product.js", "/assets/compatibility.js",
@@ -17,7 +17,11 @@ self.addEventListener("fetch", event => {
   const url = new URL(request.url);
   const isDocument = request.mode === "navigate";
   const isData = url.pathname.startsWith("/api/") || url.pathname.startsWith("/opportunities/");
-  if (isDocument || isData) {
+  // JS y CSS también van primero a la red: si salieran de caché mientras el HTML llega nuevo,
+  // tras cada deploy se mezclaban versiones (HTML nuevo con JS/CSS viejos = sección rota).
+  // El servidor responde 304 si no cambiaron, así que apenas cuesta; la caché queda para offline.
+  const isCode = /\.(js|css)$/.test(url.pathname) && url.pathname !== "/sw.js";
+  if (isDocument || isData || isCode) {
     event.respondWith(fetch(request).then(response => {
       if (response.ok) caches.open(CACHE).then(cache => cache.put(request, response.clone()));
       return response;
