@@ -111,46 +111,63 @@
 
     var priorities = cleanPriorities(data.priorities), selected = Object.keys(priorities), requiredKeywords = parseRequiredText(data.requiredText);
     if (!selected.length && !requiredKeywords.length) return {score:null,state:"unknown",label:"Añade preferencias",confidence:"media",reasons:reasons.concat(["Elige temas muy importantes, interesantes o que prefieres evitar"])};
-    var score = 50;
+    // Afinidad = qué parte de lo que pides cubre la oportunidad (0–100), no una base fija
+    // con sumas. Cada tema pesa según DÓNDE aparece: en el tema principal cuenta entero,
+    // en título/objetivos un 60 %, y si solo sale de pasada en la descripción, un 25 %.
+    // El formato no suma: ya actúa como filtro y sumarlo inflaba todas las notas por igual.
     if (data.type) {
       var typeMatch = data.type === project.type || (data.type === "VOLUNTEERING" && project.type === "ESC");
-      score += typeMatch ? 15 : -10;
       reasons.push(typeMatch ? "Coincide con tu formato preferido" : "No es tu formato preferido");
-    } else score += 10;
-    var matchedRequired=[], missingRequired=[], matchedPositive=[], matchedAvoid=[], topicEvidence=0;
+    }
+    var EVIDENCE = {topic:1, core:.6, description:.25};
+    var matchedRequired=[], missingRequired=[], matchedPositive=[], weakPositive=[], matchedAvoid=[], topicEvidence=0;
+    var earned = 0, possible = 0;
     selected.forEach(function (id) {
-      var match=conceptMatch(project,conceptById(id)), mode=priorities[id];
+      var match=conceptMatch(project,conceptById(id)), mode=priorities[id], weight=match.source ? EVIDENCE[match.source] : 0;
       if (match.source === "topic") topicEvidence++;
-      if (mode === "required") (match.central ? matchedRequired : missingRequired).push(id);
-      if (mode === "positive" && match.matched) matchedPositive.push(id);
-      if (mode === "avoid" && match.central) matchedAvoid.push(id);
+      if (mode === "required") {
+        possible += 2; earned += 2 * weight;
+        (match.central ? matchedRequired : missingRequired).push(id);
+      } else if (mode === "positive") {
+        possible += 1; earned += weight;
+        if (match.central) matchedPositive.push(id); else if (match.matched) weakPositive.push(id);
+      } else if (mode === "avoid" && match.central) matchedAvoid.push(id);
     });
-    score += matchedRequired.length * 25;
-    score -= missingRequired.length * 35;
-    score += Math.min(21, matchedPositive.length * 7);
-    score -= matchedAvoid.length * 25;
-    if (matchedRequired.length) reasons.push("Muy importantes presentes: " + listLabels(matchedRequired).join(", "));
-    if (missingRequired.length) reasons.push("Falta algo muy importante: " + listLabels(missingRequired).join(", "));
-    if (matchedPositive.length) reasons.push("También coincide con: " + listLabels(matchedPositive).join(", "));
-    if (matchedAvoid.length) reasons.push("Incluye algo que prefieres evitar: " + listLabels(matchedAvoid).join(", "));
 
     var extended = extendedText(project), hasExtended = extended.trim().length > 40;
     var matchedKeywords=[], missingKeywords=[], unverifiedKeywords=[];
     requiredKeywords.forEach(function (keyword) {
-      if (containsPhrase(extended, keyword)) matchedKeywords.push(keyword);
+      possible += 2;
+      if (containsPhrase(extended, keyword)) { matchedKeywords.push(keyword); earned += 2; }
       else if (hasExtended) missingKeywords.push(keyword);
-      else unverifiedKeywords.push(keyword);
+      else { unverifiedKeywords.push(keyword); earned += .5; }
     });
-    score += Math.min(36, matchedKeywords.length * 18);
-    score -= missingKeywords.length * 40;
+
+    // Solo "evitar" marcado: no hay nada que cubrir, partimos de encaje completo y restamos.
+    var score = possible ? Math.round(100 * earned / possible) : 100;
+    score -= matchedAvoid.length * 30;
+    if (missingRequired.length || missingKeywords.length) score = Math.min(score, 40);
+    // Ficha pobre = sin infopack procesado Y sin descripción larga (los ESC oficiales del
+    // Portal Europeo de la Juventud traen la descripción completa aunque no haya infopack).
+    var incomplete = !project.infopack_enriched && String(project.detailed_description || "").length < 300;
+    if (incomplete) score = Math.min(score, 70);
+    score = Math.max(5, Math.min(100, score));
+
+    var positiveTotal = selected.filter(function (id) { return priorities[id] === "positive"; }).length;
+    if (positiveTotal) reasons.push("Cubre " + (matchedPositive.length + weakPositive.length) + " de tus " + positiveTotal + " temas");
+    if (matchedRequired.length) reasons.push("Muy importantes presentes: " + listLabels(matchedRequired).join(", "));
+    if (missingRequired.length) reasons.push("Falta algo muy importante: " + listLabels(missingRequired).join(", "));
+    if (matchedPositive.length) reasons.push("Es tema central: " + listLabels(matchedPositive).join(", "));
+    if (weakPositive.length) reasons.push("Solo se menciona de pasada: " + listLabels(weakPositive).join(", "));
+    if (matchedAvoid.length) reasons.push("Incluye algo que prefieres evitar: " + listLabels(matchedAvoid).join(", "));
     if (matchedKeywords.length) reasons.push("Incluye lo que buscas: " + matchedKeywords.join(", "));
     if (missingKeywords.length) reasons.push("No parece incluir: " + missingKeywords.join(", "));
     if (unverifiedKeywords.length) reasons.push("Ficha poco detallada, no podemos confirmar: " + unverifiedKeywords.join(", "));
+    if (incomplete) reasons.push("Ficha con poca información: la afinidad no pasa del 70 %");
 
-    score = Math.max(5, Math.min(100, score));
-    var confidence = project.topic && project.participant_profile && project.detailed_description ? (topicEvidence ? "alta" : "media") : project.topic ? "media" : "baja";
+    var confidence = incomplete ? "baja" : project.topic && project.participant_profile && project.detailed_description ? (topicEvidence ? "alta" : "media") : "media";
     var isYes = score >= 75 && !missingRequired.length && !matchedAvoid.length && !missingKeywords.length;
-    return {score:score,state:isYes ? "yes" : "warn",label:score + "% afinidad",confidence:confidence,reasons:reasons,matchedRequired:matchedRequired,missingRequired:missingRequired,matchedAvoid:matchedAvoid,missingKeywords:missingKeywords};
+    return {score:score,state:isYes ? "yes" : "warn",label:score + "% afinidad",confidence:confidence,incomplete:incomplete,reasons:reasons,matchedRequired:matchedRequired,missingRequired:missingRequired,matchedPositive:matchedPositive,weakPositive:weakPositive,matchedAvoid:matchedAvoid,missingKeywords:missingKeywords};
   }
   global.CorradiCompatibility = {readProfile:readProfile,evaluate:evaluate,key:KEY,taxonomy:TAXONOMY,cleanPriorities:cleanPriorities};
 })(window);

@@ -97,46 +97,48 @@
   }
 
   const QUICK_TOPICS = ["outdoor","sport","sustainability","wellbeing","creative","intercultural","inclusion","digital","leadership","rights"];
+  const TYPE_SHORT = {YOUTH_EXCHANGE:"Youth Exchange", TRAINING_COURSE:"Training Course", VOLUNTEERING:"ESC", ESC:"ESC"};
   function daysLeft(project) {
     if (!project.application_deadline) return null;
-    const end = new Date(project.application_deadline + "T23:59:59"), now = new Date();
-    return Math.ceil((end - now) / 86400000);
+    return Math.ceil((new Date(project.application_deadline + "T23:59:59") - new Date()) / 86400000);
   }
   function deadlineLabel(days) {
-    if (days == null) return "Sin fecha límite publicada";
+    if (days == null) return "Sin fecha límite";
     if (days <= 0) return "Cierra hoy";
     if (days === 1) return "Cierra mañana";
     return "Cierra en " + days + " días";
   }
-  function saveQuick(patch) {
-    const next = Object.assign({}, profile(), patch);
-    write(KEYS.profile, next);
-    const age = document.getElementById("age");
-    if (age && "age" in patch && age.value !== String(next.age || "")) { age.value = next.age || ""; age.dispatchEvent(new Event("input", {bubbles:true})); }
-    updateSummaries(); enhanceCards();
+  function flag(code) {
+    return code && /^[A-Z]{2}$/i.test(code) ? String.fromCodePoint.apply(null, code.toUpperCase().split("").map(ch => 127397 + ch.charCodeAt(0))) : "";
+  }
+  function imageFor(project) {
+    return project.image_url || (window.CorradiImageFor ? window.CorradiImageFor(project) : "");
+  }
+  let saveTimer = null;
+  function saveQuick(patch, immediate) {
+    write(KEYS.profile, Object.assign({}, profile(), patch));
+    renderTopMatches();
+    clearTimeout(saveTimer);
+    // Sincronizar el catálogo de abajo es caro (re-render entero): lo diferimos mientras se arrastra.
+    saveTimer = setTimeout(() => {
+      const p = profile(), age = document.getElementById("age");
+      if (age && age.value !== String(p.age || "")) { age.value = p.age || ""; age.dispatchEvent(new Event("input", {bubbles:true})); }
+      updateSummaries(); enhanceCards();
+    }, immediate ? 0 : 350);
   }
   function setupQuickProfile() {
     const form = document.getElementById("quickProfile");
     if (!form || form.dataset.ready) return;
     form.dataset.ready = "1";
-    const p = profile();
     const ageInput = form.querySelector("#qpAge"), residence = form.querySelector("#qpResidence");
     residence.innerHTML = Object.keys(COUNTRIES).sort((a,b) => COUNTRIES[a].localeCompare(COUNTRIES[b], "es")).map(code => '<option value="' + code + '">' + esc(COUNTRIES[code]) + '</option>').join("");
-    let ageTimer = null;
-    ageInput.addEventListener("input", () => {
-      clearTimeout(ageTimer);
-      ageTimer = setTimeout(() => {
-        const value = parseInt(ageInput.value, 10);
-        saveQuick({age: value >= 13 && value <= 99 ? String(value) : "", residence: residence.value || "ES"});
-      }, 250);
-    });
-    residence.addEventListener("change", () => saveQuick({residence: residence.value}));
+    ageInput.addEventListener("input", () => saveQuick({age: ageInput.value, residence: profile().residence || residence.value || "ES"}));
+    residence.addEventListener("change", () => saveQuick({residence: residence.value}, true));
     const typeHolder = form.querySelector("#qpType");
     typeHolder.innerHTML = [["", "Todo"], ["YOUTH_EXCHANGE", "Youth Exchange"], ["TRAINING_COURSE", "Training Course"], ["VOLUNTEERING", "Voluntariado ESC"]]
       .map(([value, label]) => '<button type="button" class="qp-chip" data-type="' + value + '">' + label + '</button>').join("");
     typeHolder.addEventListener("click", event => {
-      const chip = event.target.closest(".qp-chip"); if (!chip) return;
-      saveQuick({type: chip.dataset.type});
+      const chip = event.target.closest(".qp-chip"); if (chip) saveQuick({type: chip.dataset.type}, true);
     });
     const topicHolder = form.querySelector("#qpTopics");
     topicHolder.innerHTML = QUICK_TOPICS.map(id => window.CorradiCompatibility.taxonomy.find(c => c.id === id)).filter(Boolean)
@@ -146,21 +148,22 @@
       const priorities = Object.assign({}, profile().priorities || {}), id = chip.dataset.topic;
       if (priorities[id]) delete priorities[id];
       else {
-        const used = Object.values(priorities).filter(v => v === "positive").length;
-        if (used >= 5) { toast("Elige como máximo 5 temas"); return; }
+        if (Object.values(priorities).filter(v => v === "positive").length >= 5) { toast("Elige como máximo 5 temas"); return; }
         priorities[id] = "positive";
       }
-      saveQuick({priorities});
+      saveQuick({priorities}, true);
     });
-    ageInput.value = p.age || "";
+    form.querySelector("#qpReset").onclick = () => { localStorage.removeItem(KEYS.profile); saveQuick({}, true); toast("Perfil borrado"); };
     syncQuickProfile();
   }
   function syncQuickProfile() {
     const form = document.getElementById("quickProfile");
     if (!form || !form.dataset.ready) return;
     const p = profile(), priorities = p.priorities || {};
-    const ageInput = form.querySelector("#qpAge");
-    if (document.activeElement !== ageInput) ageInput.value = p.age || "";
+    const ageInput = form.querySelector("#qpAge"), out = form.querySelector("#qpAgeOut");
+    if (document.activeElement !== ageInput) ageInput.value = p.age || 22;
+    out.textContent = p.age ? p.age + " años" : "Sin indicar";
+    form.classList.toggle("no-age", !p.age);
     form.querySelector("#qpResidence").value = p.residence || "ES";
     form.querySelectorAll("[data-type]").forEach(chip => chip.setAttribute("aria-pressed", String((p.type || "") === chip.dataset.type)));
     form.querySelectorAll("[data-topic]").forEach(chip => {
@@ -169,6 +172,9 @@
       chip.classList.toggle("is-required", state === "required");
       chip.classList.toggle("is-avoid", state === "avoid");
     });
+    const topics = Object.values(priorities).filter(v => v !== "avoid").length;
+    const summary = document.getElementById("qpSummary");
+    if (summary) summary.textContent = p.age ? [p.age + " años", COUNTRIES[p.residence || "ES"] || p.residence, p.type ? TYPE_SHORT[p.type] : "", topics ? topics + (topics === 1 ? " tema" : " temas") : ""].filter(Boolean).join(" · ") : "Sin completar";
   }
   function showInCatalog() {
     const p = profile(), type = document.getElementById("type"), age = document.getElementById("age");
@@ -176,44 +182,72 @@
     if (age) { age.value = p.age || ""; age.dispatchEvent(new Event("input", {bubbles:true})); }
     const target = document.getElementById("explorar"); if (target) target.scrollIntoView({behavior:"smooth", block:"start"});
   }
+  function animateCount(node, to) {
+    const from = Number(node.dataset.value || to);
+    node.dataset.value = to;
+    if (from === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { node.textContent = to; return; }
+    const t0 = performance.now(), dur = 350;
+    (function step(now) {
+      const k = Math.min(1, (now - t0) / dur);
+      node.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+      if (k < 1 && node.dataset.value == to) requestAnimationFrame(step);
+    })(t0);
+  }
+  function matchCard(project, result, showScore) {
+    const days = daysLeft(project), img = imageFor(project);
+    const badge = showScore && result && result.score != null ? result.score + "%" : (days == null ? "" : Math.max(days, 0) + " d");
+    return '<a class="qp-card" data-id="' + esc(project.identifier) + '" href="' + projectUrl(project) + '">' +
+      '<span class="qp-card-img"' + (img ? ' style="background-image:url(\'' + esc(img) + '\')"' : '') + '>' + (badge ? '<span class="qp-card-badge' + (showScore ? '' : ' is-date') + '">' + badge + '</span>' : '') + '<span class="qp-card-type">' + esc(TYPE_SHORT[project.type] || "") + '</span></span>' +
+      '<span class="qp-card-body"><span class="qp-card-title">' + esc(project.title) + '</span><span class="qp-card-meta">' + flag(project.country_code) + ' ' + esc(COUNTRIES[project.country_code] || project.country_code || "") + ' · ' + deadlineLabel(days) + '</span></span></a>';
+  }
   function renderTopMatches() {
     syncQuickProfile();
     const holder = document.getElementById("productMatches");
-    if (!holder) return;
+    if (!holder || !catalog.length) return;
     const p = profile();
     const open = catalog.filter(project => { const d = daysLeft(project); return d == null || d >= 0; });
     const byType = open.filter(project => !p.type || project.type === p.type || (p.type === "VOLUNTEERING" && project.type === "ESC"));
-    const guide = '<a class="directory-link" href="/guia">Antes de solicitar: lee la guía Erasmus+ →</a>';
+    // Desempate: con la misma afinidad, primero lo que cierra antes y después lo que está más
+    // cerca (desde Madrid si vives en España; fuera de España no sabemos la ciudad de origen).
+    const home = (p.residence || "ES") === "ES" ? ORIGINS.madrid : null;
+    const km = project => home && project.latitude != null && project.longitude != null ? distance(home, [Number(project.latitude), Number(project.longitude)]) : 99999;
+    const soonest = (a, b) => { const da = daysLeft(a.project), db = daysLeft(b.project); return ((da == null ? 9999 : da) - (db == null ? 9999 : db)) || (km(a.project) - km(b.project)); };
+    let fits, excluded = 0, headline, sub, hasTopics = false;
     if (!p.age) {
-      const count = type => open.filter(project => project.type === type || (type === "VOLUNTEERING" && project.type === "ESC")).length;
-      holder.innerHTML = '<div class="qp-result is-idle"><span class="matches-title">Ahora mismo en Corradi</span><div class="qp-big"><b>' + open.length + '</b><span>oportunidades abiertas</span></div>' +
-        '<ul class="qp-split"><li><b>' + count("VOLUNTEERING") + '</b> voluntariados ESC</li><li><b>' + count("TRAINING_COURSE") + '</b> training courses</li><li><b>' + count("YOUTH_EXCHANGE") + '</b> youth exchanges</li></ul>' +
-        '<p class="qp-hint">Pon tu edad a la izquierda y verás solo las que admiten tu perfil.</p>' + guide + '</div>';
-      return;
-    }
-    const evaluated = byType.map(project => ({project, result: eligibility(project, p)}));
-    const fits = evaluated.filter(x => x.result.state !== "no");
-    const pending = fits.filter(x => x.result.state === "warn" && x.result.score == null).length;
-    const excluded = evaluated.length - fits.length;
-    const hasTopics = Object.keys(p.priorities || {}).length > 0 || !!(p.requiredText || "").trim();
-    const soonest = (a, b) => { const da = daysLeft(a.project), db = daysLeft(b.project); return (da == null ? 9999 : da) - (db == null ? 9999 : db); };
-    const top = fits.slice().sort((a, b) => hasTopics ? ((b.result.score || 0) - (a.result.score || 0)) || soonest(a, b) : soonest(a, b)).slice(0, 3);
-    const typeLabel = p.type ? {YOUTH_EXCHANGE:"youth exchanges", TRAINING_COURSE:"training courses", VOLUNTEERING:"voluntariados ESC"}[p.type] : "oportunidades";
-    let html = '<div class="qp-result"><span class="matches-title">Con ' + esc(p.age) + ' años y viviendo en ' + esc(COUNTRIES[p.residence || "ES"] || p.residence) + '</span>' +
-      '<div class="qp-big"><b>' + fits.length + '</b><span>' + typeLabel + ' a las que puedes apuntarte</span></div>' +
-      '<p class="qp-note">' + (excluded ? excluded + ' descartadas por edad o país. ' : '') + (pending ? pending + ' tienen requisitos que conviene confirmar en el infopack.' : '') + '</p>';
-    if (top.length) {
-      html += '<span class="matches-title">' + (hasTopics ? 'Las que más encajan con tus temas' : 'Las que cierran antes') + '</span>' + top.map(({project, result}) => {
-        const place = project.location || COUNTRIES[project.country_code] || project.country_code || "";
-        const badge = hasTopics && result.score != null ? '<span class="product-match-score">' + result.score + '%</span>' : '<span class="product-match-score is-date">' + (daysLeft(project) == null ? "—" : Math.max(daysLeft(project), 0) + "d") + '</span>';
-        return '<a class="product-match" href="' + projectUrl(project) + '">' + badge + '<span class="product-match-body"><span class="product-match-title">' + esc(project.title) + '</span><span class="product-match-meta">' + esc(TYPES[project.type] || "") + (place ? ' · ' + esc(place) : '') + ' · ' + deadlineLabel(daysLeft(project)) + '</span></span></a>';
-      }).join("");
-      html += '<button type="button" class="qp-cta" id="qpShowAll">Ver las ' + fits.length + ' en el catálogo →</button>';
+      fits = byType.map(project => ({project, result: null}));
+      headline = "abiertas ahora"; sub = "Indica tu edad y verás solo las que te admiten.";
     } else {
-      html += '<p class="qp-hint">Ahora mismo no hay ninguna abierta para tu perfil' + (p.type ? ' en este formato. Prueba con «Todo».' : '. Se añaden nuevas cada día.') + '</p>';
+      const evaluated = byType.map(project => ({project, result: eligibility(project, p)}));
+      fits = evaluated.filter(x => x.result.state !== "no");
+      excluded = evaluated.length - fits.length;
+      hasTopics = Object.keys(p.priorities || {}).length > 0 || !!(p.requiredText || "").trim();
+      headline = "encajan contigo";
+      sub = excluded ? excluded + " descartadas por tu edad o tu país." : "Ninguna descartada por edad o país.";
     }
-    holder.innerHTML = html + guide + '</div>';
-    const cta = holder.querySelector("#qpShowAll"); if (cta) cta.onclick = showInCatalog;
+    const top = fits.slice().sort((a, b) => hasTopics ? ((b.result.score || 0) - (a.result.score || 0)) || soonest(a, b) : soonest(a, b)).slice(0, 6);
+    let shell = holder.querySelector(".qp-results");
+    if (!shell) {
+      holder.innerHTML = '<div class="qp-results"><div class="qp-head"><div class="qp-big"><b id="qpCount">0</b><span id="qpHeadline"></span></div><p class="qp-note" id="qpSub"></p></div><span class="matches-title" id="qpListTitle"></span><div class="qp-grid" id="qpGrid"></div><div class="qp-actions"><button type="button" class="qp-cta" id="qpShowAll"></button><a class="directory-link" href="/guia">Antes de solicitar: lee la guía →</a></div></div>';
+      shell = holder.querySelector(".qp-results");
+      holder.querySelector("#qpShowAll").onclick = showInCatalog;
+    }
+    animateCount(holder.querySelector("#qpCount"), fits.length);
+    holder.querySelector("#qpHeadline").textContent = headline;
+    holder.querySelector("#qpSub").textContent = sub;
+    holder.querySelector("#qpListTitle").textContent = hasTopics ? "Las que más encajan con tus temas" : "Las que cierran antes";
+    holder.querySelector("#qpShowAll").textContent = fits.length ? "Ver las " + fits.length + " en el catálogo →" : "Ver el catálogo →";
+    // FLIP: guardamos la posición de cada tarjeta, re-renderizamos y animamos desde la posición antigua.
+    const grid = holder.querySelector("#qpGrid"), before = {};
+    grid.querySelectorAll(".qp-card").forEach(card => { before[card.dataset.id] = card.getBoundingClientRect(); });
+    grid.innerHTML = top.length ? top.map(x => matchCard(x.project, x.result, hasTopics)).join("") : '<div class="qp-empty">No hay ninguna abierta para este perfil ahora mismo. Prueba con otro formato: se añaden nuevas cada día.</div>';
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    grid.querySelectorAll(".qp-card").forEach(card => {
+      const old = before[card.dataset.id], now = card.getBoundingClientRect();
+      if (old) {
+        const dx = old.left - now.left, dy = old.top - now.top;
+        if (dx || dy) card.animate([{transform: "translate(" + dx + "px," + dy + "px)"}, {transform: "none"}], {duration: 380, easing: "cubic-bezier(.2,.8,.2,1)"});
+      } else card.animate([{opacity: 0, transform: "scale(.94)"}, {opacity: 1, transform: "none"}], {duration: 320, easing: "ease-out"});
+    });
   }
 
   function enhanceCards() {
@@ -289,7 +323,7 @@
       const btn = (mode, text, title) => '<button type="button" class="pref-btn" data-mode="' + mode + '" aria-pressed="' + (state === mode) + '" title="' + title + '">' + text + '</button>';
       return '<div class="preference-row" data-concept="' + concept.id + '" data-state="' + state + '"><strong>' + esc(concept.label) + '</strong><div class="pref-buttons">' + btn("avoid", "−", "Evitar") + '<span class="pref-current">' + stateLabel(state) + '</span>' + btn("positive", "+", "Me interesa") + btn("required", "++", "Muy importante") + '</div></div>';
     }).join("");
-    const body = '<p class="product-intro">Edad y residencia comprueban si eres elegible. Tus prioridades, después, calculan cuánto te encaja — nunca al revés.</p><form id="profileForm"><div class="product-grid profile-basics"><div class="product-field"><label for="productAge">Edad · requisito</label><input id="productAge" type="number" min="13" max="99" value="' + esc(p.age || "") + '" required></div><div class="product-field"><label for="productResidence">País de residencia · requisito</label><select id="productResidence" required><option value="">Selecciona</option>' + countryOptions + '</select></div><div class="product-field full"><label for="productType">Formato preferido</label><select id="productType"><option value="">Me interesan todos</option>' + Object.keys(TYPES).filter(x => x !== "ESC").map(type => '<option value="' + type + '"' + (p.type === type ? " selected" : "") + '>' + TYPES[type] + '</option>').join("") + '</select></div></div><div class="priority-heading"><div><span>Prioridades temáticas</span><h3>Indica qué debe pesar de verdad.</h3></div><p><b>Muy importante</b> baja mucho la afinidad si falta · <b>Me interesa</b> suma · <b>Evitar</b> resta si aparece. Máximo 2 muy importantes y 5 interesantes.</p></div><div class="preference-list">' + preferenceRows + '</div><div class="required-heading"><div><span>Nivel máximo</span><h3>Esto tiene que aparecer sí o sí.</h3></div><p>No es una prioridad más: si no lo encontramos en la ficha extendida o el infopack, la afinidad baja fuerte.</p></div><div class="product-field full required-field"><label for="productRequiredText">Imprescindible que la oportunidad incluya (máx. 3 palabras)</label><input id="productRequiredText" maxlength="140" placeholder="Ej. deporte, aire libre" value="' + esc(p.requiredText || "") + '"><small>Sepáralo por comas si son varias cosas.</small></div><div class="privacy-note"><b>Guardado local:</b><span>Permanece solo en este navegador y dispositivo. No se envía al servidor. “Evitar” expresa una preferencia, nunca un requisito oficial de participación.</span></div><div class="affinity-help"><button type="button" class="info-q" data-note="affinityNote" aria-expanded="false" aria-label="Cómo se calcula la afinidad">?</button><span>¿Cómo se calcula el % de afinidad?</span></div><p class="info-note" id="affinityNote">Comparamos lo que marcas con cada oportunidad y sumamos o restamos según el peso de cada cosa:<br><br>&bull; <b>Muy importante:</b> si aparece, sube mucho el %. Si falta, lo baja mucho — es lo que más pesa de todo.<br>&bull; <b>Imprescindible</b> (el texto libre): pesa igual de fuerte, pero solo cuenta si aparece en la ficha extendida o el infopack, no de pasada en el resumen.<br>&bull; <b>Me interesa:</b> si aparece, suma un poco.<br>&bull; <b>Evitar:</b> si aparece, resta.<br><br>El resultado va siempre del 5% al 100%.<br><br>Esto es afinidad, no un requisito: lo único que decide si puedes participar de verdad es tu edad y tu país de residencia, y eso nunca lo cambian tus preferencias.<br><br>Consejo: marca pocas cosas, pero las que de verdad te importen — así el % te sirve para decidir de un vistazo, en vez de moverse por igual con todo.</p><div class="product-form-actions"><button class="product-button danger" id="clearProfile" type="button">Borrar datos</button><button class="product-button primary" type="submit">Guardar y recalcular</button></div></form>';
+    const body = '<p class="product-intro">Edad y residencia comprueban si eres elegible. Tus prioridades, después, calculan cuánto te encaja — nunca al revés.</p><form id="profileForm"><div class="product-grid profile-basics"><div class="product-field"><label for="productAge">Edad · requisito</label><input id="productAge" type="number" min="13" max="99" value="' + esc(p.age || "") + '" required></div><div class="product-field"><label for="productResidence">País de residencia · requisito</label><select id="productResidence" required><option value="">Selecciona</option>' + countryOptions + '</select></div><div class="product-field full"><label for="productType">Formato preferido</label><select id="productType"><option value="">Me interesan todos</option>' + Object.keys(TYPES).filter(x => x !== "ESC").map(type => '<option value="' + type + '"' + (p.type === type ? " selected" : "") + '>' + TYPES[type] + '</option>').join("") + '</select></div></div><div class="priority-heading"><div><span>Prioridades temáticas</span><h3>Indica qué debe pesar de verdad.</h3></div><p><b>Muy importante</b> baja mucho la afinidad si falta · <b>Me interesa</b> suma · <b>Evitar</b> resta si aparece. Máximo 2 muy importantes y 5 interesantes.</p></div><div class="preference-list">' + preferenceRows + '</div><div class="required-heading"><div><span>Nivel máximo</span><h3>Esto tiene que aparecer sí o sí.</h3></div><p>No es una prioridad más: si no lo encontramos en la ficha extendida o el infopack, la afinidad baja fuerte.</p></div><div class="product-field full required-field"><label for="productRequiredText">Imprescindible que la oportunidad incluya (máx. 3 palabras)</label><input id="productRequiredText" maxlength="140" placeholder="Ej. deporte, aire libre" value="' + esc(p.requiredText || "") + '"><small>Sepáralo por comas si son varias cosas.</small></div><div class="privacy-note"><b>Guardado local:</b><span>Permanece solo en este navegador y dispositivo. No se envía al servidor. “Evitar” expresa una preferencia, nunca un requisito oficial de participación.</span></div><div class="affinity-help"><button type="button" class="info-q" data-note="affinityNote" aria-expanded="false" aria-label="Cómo se calcula la afinidad">?</button><span>¿Cómo se calcula el % de afinidad?</span></div><p class="info-note" id="affinityNote">El % dice qué parte de lo que buscas cubre cada oportunidad:<br><br>&bull; <b>Me interesa</b> cuenta 1 y <b>Muy importante</b> cuenta 2. El texto de <b>Imprescindible</b> también cuenta 2.<br>&bull; Cuenta entero si es el tema principal, un 60 % si sale en el título o los objetivos y un 25 % si solo se menciona de pasada.<br>&bull; Si falta algo muy importante o imprescindible, la afinidad no pasa del 40 %.<br>&bull; Cada tema marcado como <b>Evitar</b> que sea central resta 30 puntos.<br>&bull; Si la ficha tiene poca información, no pasa del 70 %.<br><br>El formato no suma: sirve para filtrar. Y la afinidad nunca decide si puedes participar: eso solo lo deciden tu edad y tu país de residencia.<br><br>Consejo: marca pocas cosas, pero las que de verdad te importen.</p><div class="product-form-actions"><button class="product-button danger" id="clearProfile" type="button">Borrar datos</button><button class="product-button primary" type="submit">Guardar y recalcular</button></div></form>';
     const modal = modalShell("profile", "Compatibilidad sin registro", "Mi compatibilidad", body);
     modal.querySelectorAll(".info-q").forEach(q => q.onclick = () => {
       const note = modal.querySelector("#" + q.dataset.note), open = note.getAttribute("data-open") !== "true";
