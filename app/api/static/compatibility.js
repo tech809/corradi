@@ -22,10 +22,26 @@
   ];
 
   function fold(value) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
-  function containsPhrase(text, phrase) {
-    var hay = " " + fold(text).replace(/[^a-z0-9+]+/g, " ").trim() + " ";
-    var needle = " " + fold(phrase).replace(/[^a-z0-9+]+/g, " ").trim() + " ";
-    return needle.trim() && hay.indexOf(needle) >= 0;
+  function norm(text) { return " " + fold(text).replace(/[^a-z0-9+]+/g, " ").trim() + " "; }
+  // Normalizar (NFD + minúsculas + limpiar) descripciones largas es lo caro del matching: se
+  // hacía por cada alias de cada tema. Ahora cada ficha se normaliza una vez y cada alias también.
+  var _needles = new Map();
+  function needleFor(phrase) {
+    var n = _needles.get(phrase);
+    if (n === undefined) { n = norm(phrase); _needles.set(phrase, n); }
+    return n;
+  }
+  function hasPhrase(hay, phrase) { var n = needleFor(phrase); return n.length > 2 && hay.indexOf(n) >= 0; }
+  function containsPhrase(text, phrase) { return hasPhrase(norm(text), phrase); }
+  var _texts = new Map();
+  function textsFor(project) {
+    var key = project.identifier + "|" + (project.updated || "");
+    var t = _texts.get(key);
+    if (!t) {
+      t = {topic: norm(project.topic), core: norm([project.title, project.learning_outcomes].join(" ")), body: norm(projectText(project)), extended: norm(extendedText(project)), extendedLength: extendedText(project).trim().length};
+      _texts.set(key, t);
+    }
+    return t;
   }
   function conceptById(id) { return TAXONOMY.filter(function (item) { return item.id === id; })[0]; }
   function cleanPriorities(value) {
@@ -72,11 +88,17 @@
   var EXTENDED_FIELDS = ["detailed_description","programme_details","learning_outcomes","participant_profile","accommodation_details","covered_costs","travel_details","eligibility_countries","contact_information"];
   function extendedText(project) { return EXTENDED_FIELDS.map(function (field) { return project[field] || ""; }).join(" "); }
   function parseRequiredText(raw) { return String(raw || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 6); }
+  var _matches = new Map();
   function conceptMatch(project, concept) {
-    var topic = project.topic || "", core = [project.title,project.learning_outcomes].join(" "), body = projectText(project);
-    var inTopic = concept.aliases.some(function (alias) { return containsPhrase(topic, alias); });
-    var inCore = inTopic || concept.aliases.some(function (alias) { return containsPhrase(core, alias); });
-    var inBody = inCore || concept.aliases.some(function (alias) { return containsPhrase(body, alias); });
+    var key = project.identifier + "|" + (project.updated || "") + "|" + concept.id, hit = _matches.get(key);
+    if (!hit) { hit = computeConceptMatch(project, concept); _matches.set(key, hit); }
+    return hit;
+  }
+  function computeConceptMatch(project, concept) {
+    var t = textsFor(project);
+    var inTopic = concept.aliases.some(function (alias) { return hasPhrase(t.topic, alias); });
+    var inCore = inTopic || concept.aliases.some(function (alias) { return hasPhrase(t.core, alias); });
+    var inBody = inCore || concept.aliases.some(function (alias) { return hasPhrase(t.body, alias); });
     return {matched:inBody, central:inCore, source:inTopic ? "topic" : inCore ? "core" : inBody ? "description" : null};
   }
   function listLabels(ids) { return ids.map(function (id) { var item=conceptById(id); return item ? item.label.toLowerCase() : id; }); }
@@ -100,23 +122,25 @@
   }
   function computeEvaluate(project, data) {
     var reasons = [], age = Number(data.age || 0), codes = Array.isArray(project.eligibility_country_codes) ? project.eligibility_country_codes : [];
-    if (!age || !data.residence) return {score:null,state:"unknown",label:"Configura tu perfil",confidence:"baja",reasons:["Añade edad y residencia para comprobar requisitos"]};
-    if (!codes.length) return {score:null,state:"warn",label:"Revisa requisitos",confidence:"baja",reasons:["La fuente no publica una lista de países verificable"]};
-    if (codes.indexOf(data.residence) < 0) {
+    var residence = data.residence || "ES", unverified = false;
+    var priorities = cleanPriorities(data.priorities), selected = Object.keys(priorities), requiredKeywords = parseRequiredText(data.requiredText);
+    var hasPrefs = selected.length > 0 || requiredKeywords.length > 0;
+    if (!age && !hasPrefs) return {score:null,state:"unknown",label:"Configura tu perfil",confidence:"baja",reasons:["Añade tu edad o tus temas para ver cuánto te encaja"]};
+    if (!codes.length) { unverified = true; reasons.push("La fuente no publica una lista de países verificable"); }
+    else if (codes.indexOf(residence) < 0) {
       // Sin el infopack real procesado, la lista de países puede venir solo del país de
       // destino (lo único que menciona el resumen), no de los países realmente admitidos —
       // pasó con un curso en Turquía que en teoría también admitía España. No lo tratamos
       // como un "no" verificado hasta que el infopack confirme la lista completa.
-      if (!project.infopack_enriched) return {score:null,state:"warn",label:"Revisa requisitos",confidence:"baja",reasons:["Aún no hemos confirmado todos los países admitidos"]};
-      return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["España no figura entre los países admitidos"]};
-    }
-    reasons.push("España figura entre los países admitidos");
+      if (project.infopack_enriched) return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["España no figura entre los países admitidos"]};
+      unverified = true; reasons.push("Aún no hemos confirmado todos los países admitidos");
+    } else reasons.push("España figura entre los países admitidos");
     var min = Number(project.participant_min_age || 0), max = Number(project.participant_max_age || 0);
-    if ((min && age < min) || (max && age > max)) return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["Tu edad no entra en el rango publicado"]};
-    reasons.push(min || max ? "Tu edad encaja" : "La convocatoria no concreta el rango de edad");
-
-    var priorities = cleanPriorities(data.priorities), selected = Object.keys(priorities), requiredKeywords = parseRequiredText(data.requiredText);
-    if (!selected.length && !requiredKeywords.length) return {score:null,state:"unknown",label:"Añade preferencias",confidence:"media",reasons:reasons.concat(["Elige temas muy importantes, interesantes o que prefieres evitar"])};
+    if (age) {
+      if ((min && age < min) || (max && age > max)) return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["Tu edad no entra en el rango publicado"]};
+      reasons.push(min || max ? "Tu edad encaja" : "La convocatoria no concreta el rango de edad");
+    } else if (min || max) reasons.push("Añade tu edad para comprobar el rango (" + (min || "?") + "–" + (max || "?") + " años)");
+    if (!hasPrefs) return {score:null,state:unverified ? "warn" : "unknown",label:unverified ? "Revisa requisitos" : "Añade preferencias",confidence:"media",reasons:reasons.concat(["Elige temas muy importantes, interesantes o que prefieres evitar"])};
     // Afinidad = qué parte de lo que pides cubre la oportunidad (0–100), no una base fija
     // con sumas. Cada tema pesa según DÓNDE aparece: en el tema principal cuenta entero,
     // en título/objetivos un 60 %, y si solo sale de pasada en la descripción, un 25 %.
@@ -141,11 +165,11 @@
       } else if (mode === "avoid" && match.central) matchedAvoid.push(id);
     });
 
-    var extended = extendedText(project), hasExtended = extended.trim().length > 40;
+    var texts = textsFor(project), hasExtended = texts.extendedLength > 40;
     var matchedKeywords=[], missingKeywords=[], unverifiedKeywords=[];
     requiredKeywords.forEach(function (keyword) {
       possible += 2;
-      if (containsPhrase(extended, keyword)) { matchedKeywords.push(keyword); earned += 2; }
+      if (hasPhrase(texts.extended, keyword)) { matchedKeywords.push(keyword); earned += 2; }
       else if (hasExtended) missingKeywords.push(keyword);
       else { unverifiedKeywords.push(keyword); earned += .5; }
     });
@@ -173,8 +197,8 @@
     if (incomplete) reasons.push("Ficha con poca información: la afinidad no pasa del 70 %");
 
     var confidence = incomplete ? "baja" : project.topic && project.participant_profile && project.detailed_description ? (topicEvidence ? "alta" : "media") : "media";
-    var isYes = score >= 75 && !missingRequired.length && !matchedAvoid.length && !missingKeywords.length;
-    return {score:score,state:isYes ? "yes" : "warn",label:score + "% afinidad",confidence:confidence,incomplete:incomplete,reasons:reasons,matchedRequired:matchedRequired,missingRequired:missingRequired,matchedPositive:matchedPositive,weakPositive:weakPositive,matchedAvoid:matchedAvoid,missingKeywords:missingKeywords};
+    var isYes = score >= 75 && !!age && !unverified && !missingRequired.length && !matchedAvoid.length && !missingKeywords.length;
+    return {score:score,state:isYes ? "yes" : "warn",label:score + "% afinidad",confidence:confidence,incomplete:incomplete,unverified:unverified,ageChecked:!!age,reasons:reasons,matchedRequired:matchedRequired,missingRequired:missingRequired,matchedPositive:matchedPositive,weakPositive:weakPositive,matchedAvoid:matchedAvoid,missingKeywords:missingKeywords};
   }
   global.CorradiCompatibility = {readProfile:readProfile,evaluate:evaluate,key:KEY,taxonomy:TAXONOMY,cleanPriorities:cleanPriorities};
 })(window);

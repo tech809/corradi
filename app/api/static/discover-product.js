@@ -117,7 +117,7 @@
   let saveTimer = null;
   function saveQuick(patch, immediate) {
     write(KEYS.profile, Object.assign({}, profile(), patch));
-    renderTopMatches();
+    scheduleRender();
     clearTimeout(saveTimer);
     // Sincronizar el catálogo de abajo es caro (re-render entero): lo diferimos mientras se arrastra.
     saveTimer = setTimeout(() => {
@@ -128,6 +128,13 @@
   }
   const PREF_LABEL = {avoid:"Evitar", positive:"Me interesa", required:"Muy importante"};
   function requiredWords(p) { return String((p || profile()).requiredText || "").split(",").map(w => w.trim()).filter(Boolean).slice(0, 3); }
+  // Un render por frame como máximo: el deslizador de edad dispara decenas de eventos por segundo.
+  let renderQueued = false;
+  function scheduleRender() {
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => { renderQueued = false; renderTopMatches(); });
+  }
   function setupQuickProfile() {
     const form = document.getElementById("quickProfile");
     if (!form || form.dataset.ready) return;
@@ -219,7 +226,7 @@
     });
     const topics = Object.values(priorities).filter(v => v !== "avoid").length;
     const summary = document.getElementById("qpSummary");
-    if (summary) summary.textContent = p.age ? [p.age + " años", (p.types || []).length ? p.types.map(t => TYPE_SHORT[t] === "Youth Exchange" ? "YE" : TYPE_SHORT[t] === "Training Course" ? "TC" : "ESC").join(" + ") : "Todo", topics ? topics + (topics === 1 ? " tema" : " temas") : "", words.length ? words.length + (words.length === 1 ? " palabra" : " palabras") : ""].filter(Boolean).join(" · ") : "Sin completar";
+    if (summary) summary.textContent = (p.age || topics || words.length || (p.types || []).length) ? [p.age ? p.age + " años" : "Sin edad", (p.types || []).length ? p.types.map(t => TYPE_SHORT[t] === "Youth Exchange" ? "YE" : TYPE_SHORT[t] === "Training Course" ? "TC" : "ESC").join(" + ") : "Todo", topics ? topics + (topics === 1 ? " tema" : " temas") : "", words.length ? words.length + (words.length === 1 ? " palabra" : " palabras") : ""].filter(Boolean).join(" · ") : "Sin completar";
   }
   function showInCatalog() {
     const p = profile(), type = document.getElementById("type"), age = document.getElementById("age");
@@ -230,7 +237,7 @@
   function animateCount(node, to) {
     const from = Number(node.dataset.value || to);
     node.dataset.value = to;
-    if (from === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { node.textContent = to; return; }
+    if (from === to || document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { node.textContent = to; return; }
     const t0 = performance.now(), dur = 350;
     (function step(now) {
       const k = Math.min(1, (now - t0) / dur);
@@ -258,18 +265,13 @@
     const home = ORIGINS.madrid;
     const km = project => home && project.latitude != null && project.longitude != null ? distance(home, [Number(project.latitude), Number(project.longitude)]) : 99999;
     const soonest = (a, b) => { const da = daysLeft(a.project), db = daysLeft(b.project); return ((da == null ? 9999 : da) - (db == null ? 9999 : db)) || (km(a.project) - km(b.project)); };
-    let fits, excluded = 0, headline, sub, hasTopics = false;
-    if (!p.age) {
-      fits = byType.map(project => ({project, result: null}));
-      headline = "abiertas ahora"; sub = "Indica tu edad y verás solo las que te admiten.";
-    } else {
-      const evaluated = byType.map(project => ({project, result: eligibility(project, p)}));
-      fits = evaluated.filter(x => x.result.state !== "no");
-      excluded = evaluated.length - fits.length;
-      hasTopics = Object.keys(p.priorities || {}).length > 0 || !!(p.requiredText || "").trim();
-      headline = "encajan contigo";
-      sub = excluded ? excluded + " descartadas por edad o requisitos." : "Ninguna descartada por edad o requisitos.";
-    }
+    // Sin edad también se filtra: los temas y palabras puntúan igual; solo falta descartar por edad.
+    const evaluated = byType.map(project => ({project, result: eligibility(project, p)}));
+    const fits = evaluated.filter(x => x.result.state !== "no");
+    const excluded = evaluated.length - fits.length;
+    const hasTopics = Object.keys(p.priorities || {}).length > 0 || !!(p.requiredText || "").trim();
+    const headline = p.age ? "encajan contigo" : "abiertas ahora";
+    const sub = !p.age ? "Pon tu edad para descartar las que no te admiten." : excluded ? excluded + " descartadas por edad o requisitos." : "Ninguna descartada por edad o requisitos.";
     const top = fits.slice().sort((a, b) => hasTopics ? ((b.result.score || 0) - (a.result.score || 0)) || soonest(a, b) : soonest(a, b)).slice(0, 6);
     let shell = holder.querySelector(".qp-results");
     if (!shell) {
@@ -284,9 +286,12 @@
     holder.querySelector("#qpShowAll").textContent = fits.length ? "Ver las " + fits.length + " en el catálogo →" : "Ver el catálogo →";
     // FLIP: guardamos la posición de cada tarjeta, re-renderizamos y animamos desde la posición antigua.
     const grid = holder.querySelector("#qpGrid"), before = {};
+    const signature = top.map(x => x.project.identifier + ":" + (x.result && x.result.score)).join("|") + "|" + hasTopics;
+    if (grid.dataset.signature === signature) return;
+    grid.dataset.signature = signature;
     grid.querySelectorAll(".qp-card").forEach(card => { before[card.dataset.id] = card.getBoundingClientRect(); });
     grid.innerHTML = top.length ? top.map(x => matchCard(x.project, x.result, hasTopics)).join("") : '<div class="qp-empty">No hay ninguna abierta para este perfil ahora mismo. Prueba con otro formato: se añaden nuevas cada día.</div>';
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     grid.querySelectorAll(".qp-card").forEach(card => {
       const old = before[card.dataset.id], now = card.getBoundingClientRect();
       if (old) {
