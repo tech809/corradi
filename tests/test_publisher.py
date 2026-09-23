@@ -34,6 +34,19 @@ def test_format_opportunity_whatsapp_bold():
     assert "<b>" not in t  # WhatsApp no usa HTML
 
 
+def test_official_eyp_message_has_duration_and_points_to_full_web_catalogue():
+    ecs = {
+        **OPP, "type": "VOLUNTEERING", "source": "eyp",
+        "duration_days": 183, "duration_months": 6.0,
+    }
+    telegram = pub.format_opportunity(ecs)
+    whatsapp = pub.format_opportunity_whatsapp(ecs)
+    assert "⏱️ Duración: 6 meses" in telegram
+    assert "otros ECS nuevos" in telegram
+    assert "⏱️ Duración: 6 meses" in whatsapp
+    assert "mapa.proactivefuture.eu" in whatsapp
+
+
 def test_format_opportunity_whatsapp_incluye_bandera_y_categoria():
     """Sin foto (el canal de difusión de WhatsApp es solo texto), así que la bandera y la
     categoría -- que en Telegram van en la imagen del post, no en el pie -- tienen que

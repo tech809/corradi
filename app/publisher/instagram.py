@@ -18,7 +18,9 @@ from typing import Any
 
 from app.config import cfg
 from app.db import repository as repo
-from app.publisher.telegram_publisher import _compact_dates, _days_left, _est, _flag, _place
+from app.publisher.telegram_publisher import (
+    _compact_dates, _days_left, _duration_label, _est, _flag, _is_official_eyp, _place,
+)
 
 log = logging.getLogger("corradi.instagram")
 
@@ -87,6 +89,8 @@ def build_caption(opp: dict[str, Any]) -> str:
         lines.append("📍 " + " · 🗓️ ".join(meta_bits))
     if opp.get("topic"):
         lines.append(f"🏷️ Temática: {opp['topic']}")
+    if opp.get("type") == "VOLUNTEERING" and _duration_label(opp):
+        lines.append(f"⏱️ Duración: {_duration_label(opp)}")
 
     if opp.get("summary"):
         lines.append("")
@@ -96,6 +100,8 @@ def build_caption(opp: dict[str, Any]) -> str:
         lines.append("")
         lines.append(f"⏳ Fecha límite: {opp['application_deadline']}{_est(opp)} ({days_left_label(opp)})")
     lines.append("📱 Toda la info en el link de la bio")
+    if _is_official_eyp(opp):
+        lines.append("🌐 Puede haber otros ECS nuevos en la web de Corradi")
     lines.append("")
 
     tags = list(_HASHTAGS_BY_TYPE.get(opp.get("type") or "", [])) + _HASHTAGS_BASE

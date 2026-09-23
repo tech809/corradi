@@ -163,7 +163,7 @@ def opportunity_keyboard(o: dict[str, Any]) -> InlineKeyboardMarkup | None:
     row = []
     if _valid_url(o.get("infopack_url")):
         row.append(InlineKeyboardButton("📄 Infopack", url=o["infopack_url"]))
-    if _valid_url(o.get("application_url")):
+    if _valid_url(o.get("application_url")) and o.get("application_url") != o.get("infopack_url"):
         row.append(InlineKeyboardButton("👉 Formulario", url=o["application_url"]))
     return InlineKeyboardMarkup([row]) if row else None
 
@@ -183,6 +183,23 @@ def _dates(o: dict[str, Any]) -> str:
     if s and e:
         return f"{s} → {e}"
     return str(s or e or "fechas por confirmar")
+
+
+def _duration_label(o: dict[str, Any]) -> str | None:
+    """Duración ECS normalizada para mensajes; cae a las fechas en fichas antiguas."""
+    months = o.get("duration_months")
+    if months is None and o.get("start_date") and o.get("end_date"):
+        start = date.fromisoformat(str(o["start_date"]))
+        end = date.fromisoformat(str(o["end_date"]))
+        months = round(((end - start).days + 1) / 30.44, 1)
+    if months is None:
+        return None
+    value = f"{float(months):.1f}".rstrip("0").rstrip(".").replace(".", ",")
+    return f"{value} mes" if value == "1" else f"{value} meses"
+
+
+def _is_official_eyp(o: dict[str, Any]) -> bool:
+    return o.get("source") == "eyp"
 
 
 # Abreviaturas de mes en español (RAE): sept. es la de septiembre, no "sep".
@@ -255,6 +272,8 @@ def format_opportunity(
     if _place(o):
         lines.append(f"📍 {_place(o)}")
     lines.append(f"🗓️ {_compact_dates(o)}")
+    if o.get("type") == "VOLUNTEERING" and _duration_label(o):
+        lines.append(f"⏱️ Duración: {_duration_label(o)}")
     if o.get("summary"):
         lines.append(f"\n{o['summary']}")
     if o.get("application_deadline"):
@@ -282,6 +301,8 @@ def format_opportunity(
     contacto = clean_contact(o.get("contact_information"))
     if contacto:
         lines.append(f"✉️ {contacto}")
+    if _is_official_eyp(o):
+        lines.append("\n🌐 Puede haber otros ECS nuevos en https://mapa.proactivefuture.eu/")
     return "\n".join(lines)
 
 
@@ -355,6 +376,8 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
     if _place(o):
         cabecera.append(f"📍 {_place(o)}")
     cabecera.append(f"🗓️ {_compact_dates(o)}")
+    if o.get("type") == "VOLUNTEERING" and _duration_label(o):
+        cabecera.append(f"⏱️ Duración: {_duration_label(o)}")
 
     bloques = ["\n".join(cabecera)]
 
@@ -383,6 +406,9 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
         )
     if lineas:
         bloques.append("\n".join(lineas))
+
+    if _is_official_eyp(o):
+        bloques.append("🌐 Puede haber otros ECS nuevos en https://mapa.proactivefuture.eu/")
 
     return "\n\n".join(bloques)
 

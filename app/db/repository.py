@@ -1,6 +1,7 @@
 """Repositorio de oportunidades y lista blanca (async, psycopg3 + pgvector)."""
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import date, datetime, timezone
 from typing import Any
@@ -21,7 +22,7 @@ def _vec(embedding):
 # Columnas que se escriben al insertar (las normaliza app.domain.project.normalize)
 _INSERT_COLS = [
     "identifier", "hash", "title", "type", "topic", "organiser_name", "summary", "raw_message",
-    "country_code", "location", "start_date", "end_date", "application_deadline",
+    "country_code", "location", "latitude", "longitude", "start_date", "end_date", "application_deadline",
     "deadline_estimated", "infopack_url", "application_url", "max_participants",
     "participant_min_age", "participant_max_age", "cost", "contact_information",
     "detailed_description", "programme_details", "learning_outcomes",
@@ -29,7 +30,10 @@ _INSERT_COLS = [
     "eligibility_countries", "infopack_enriched",
     "eligibility_country_codes", "eligibility_scope",
     "image_url", "image_credit", "image_source_url", "image_origin",
-    "status", "source", "submitted_by", "submitted_by_id", "embedding",
+    "status", "source", "source_external_id", "source_url", "source_checked_at",
+    "application_deadline_at", "publication_scope", "duration_days", "duration_months",
+    "social_published_at",
+    "submitted_by", "submitted_by_id", "embedding",
 ]
 
 
@@ -52,7 +56,9 @@ async def insert_project(fields: dict[str, Any], embedding: list[float] | None) 
             identifier = await _next_identifier(cur)
             row = {
                 "identifier": identifier,
-                "hash": make_hash(fields.get("title"), fields.get("country_code"), fields.get("start_date")),
+                "hash": fields.get("_dedup_hash") or make_hash(
+                    fields.get("title"), fields.get("country_code"), fields.get("start_date")
+                ),
                 "title": fields.get("title") or "(sin título)",
                 "type": fields.get("type"),
                 "topic": fields.get("topic"),
@@ -61,6 +67,8 @@ async def insert_project(fields: dict[str, Any], embedding: list[float] | None) 
                 "raw_message": fields["raw_message"],
                 "country_code": fields.get("country_code"),
                 "location": fields.get("location"),
+                "latitude": fields.get("latitude"),
+                "longitude": fields.get("longitude"),
                 "start_date": fields.get("start_date"),
                 "end_date": fields.get("end_date"),
                 "application_deadline": fields.get("application_deadline"),
@@ -89,6 +97,14 @@ async def insert_project(fields: dict[str, Any], embedding: list[float] | None) 
                 "image_origin": fields.get("image_origin"),
                 "status": "open",
                 "source": fields.get("source"),
+                "source_external_id": fields.get("source_external_id"),
+                "source_url": fields.get("source_url"),
+                "source_checked_at": fields.get("source_checked_at"),
+                "application_deadline_at": fields.get("application_deadline_at"),
+                "publication_scope": fields.get("publication_scope", "all"),
+                "duration_days": fields.get("duration_days"),
+                "duration_months": fields.get("duration_months"),
+                "social_published_at": fields.get("social_published_at"),
                 "submitted_by": fields.get("submitted_by"),
                 "submitted_by_id": fields.get("submitted_by_id"),
                 "embedding": _vec(embedding),
@@ -97,6 +113,113 @@ async def insert_project(fields: dict[str, Any], embedding: list[float] | None) 
             ph = ", ".join(f"%({c})s" for c in _INSERT_COLS)
             await cur.execute(f"INSERT INTO projects ({cols}) VALUES ({ph}) RETURNING *", row)
             return await cur.fetchone()
+
+
+async def upsert_eyp_project(fields: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Crea o refresca una oportunidad oficial de EYP sin activar publicadores.
+
+    También enlaza una ficha manual previa cuando coincide su hash exacto; evita duplicar
+    oportunidades que llegaron por Telegram antes de activar esta fuente.
+    """
+    external_id = str(fields["source_external_id"])
+    hash_ = make_hash(fields.get("title"), fields.get("country_code"), fields.get("start_date"))
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT * FROM projects WHERE source = 'eyp' AND source_external_id = %s",
+                (external_id,),
+            )
+            existing = await cur.fetchone()
+            if not existing:
+                # El hash manual es deliberadamente simple (título+país+inicio). Dos
+                # placements oficiales pueden compartir esos tres datos y seguir siendo
+                # oportunidades distintas; solo se usa para enlazar una ficha NO-EYP que
+                # ya existía antes de activar esta ingesta.
+                await cur.execute(
+                    "SELECT * FROM projects WHERE hash = %s AND status = 'open' "
+                    "AND source IS DISTINCT FROM 'eyp'",
+                    (hash_,),
+                )
+                existing = await cur.fetchone()
+
+            if existing:
+                await cur.execute(
+                    "UPDATE projects SET title=%s, type='VOLUNTEERING', topic=%s, "
+                    "organiser_name=%s, summary=%s, country_code=%s, location=%s, "
+                    "latitude=%s, longitude=%s, start_date=%s, end_date=%s, "
+                    "application_deadline=%s, application_deadline_at=%s, "
+                    "deadline_estimated=FALSE, infopack_url=%s, application_url=%s, "
+                    "participant_min_age=%s, participant_max_age=%s, "
+                    "detailed_description=%s, participant_profile=%s, "
+                    "accommodation_details=%s, eligibility_countries=%s, "
+                    "eligibility_country_codes=%s, eligibility_scope='explicit', "
+                    "source='eyp', source_external_id=%s, source_url=%s, "
+                    "source_checked_at=%s, duration_days=%s, duration_months=%s, "
+                    "status='open', updated=now() WHERE id=%s RETURNING *",
+                    (
+                        fields["title"], fields.get("topic"), fields.get("organiser_name"),
+                        fields.get("summary"), fields.get("country_code"), fields.get("location"),
+                        fields.get("latitude"), fields.get("longitude"), fields.get("start_date"),
+                        fields.get("end_date"), fields.get("application_deadline"),
+                        fields.get("application_deadline_at"), fields.get("infopack_url"),
+                        fields.get("application_url"), fields.get("participant_min_age"),
+                        fields.get("participant_max_age"), fields.get("detailed_description"),
+                        fields.get("participant_profile"), fields.get("accommodation_details"),
+                        fields.get("eligibility_countries"), fields.get("eligibility_country_codes", []),
+                        external_id, fields.get("source_url"), fields.get("source_checked_at"),
+                        fields.get("duration_days"), fields.get("duration_months"),
+                        existing["id"],
+                    ),
+                )
+                return await cur.fetchone(), False
+
+    # La clave oficial es la identidad estable para esta fuente. El hash histórico
+    # título+país+inicio puede coincidir legítimamente entre varias plazas EYP.
+    insert_fields = {
+        **fields,
+        "_dedup_hash": hashlib.md5(f"eyp:{external_id}".encode()).hexdigest(),
+    }
+    return await insert_project(insert_fields, embedding=None), True
+
+
+async def close_missing_eyp_projects(active_external_ids: list[str], checked_at: datetime) -> int:
+    """Cierra fichas EYP que ya no superan el catálogo oficial completo.
+
+    Solo se llama tras una descarga completa validada; una respuesta truncada nunca puede
+    retirar oportunidades por accidente.
+    """
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "UPDATE projects SET status='closed', source_checked_at=%s, updated=now() "
+            "WHERE source='eyp' AND status='open' AND source_external_id IS NOT NULL "
+            "AND NOT (source_external_id = ANY(%s::text[]))",
+            (checked_at, active_external_ids),
+        )
+        return cur.rowcount
+
+
+async def count_eyp_social_published_on(day: date, timezone_name: str) -> int:
+    """Publicaciones ECS realmente enviadas en el día local indicado."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "SELECT count(*) FROM projects WHERE source='eyp' "
+            "AND social_published_at IS NOT NULL "
+            "AND (social_published_at AT TIME ZONE %s)::date = %s",
+            (timezone_name, day),
+        )
+        row = await cur.fetchone()
+        return int(row[0])
+
+
+async def mark_eyp_social_published(project_id) -> None:
+    """Promueve una ficha EYP al flujo completo después de publicarse en Telegram."""
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "UPDATE projects SET publication_scope='all', "
+            "social_published_at=COALESCE(social_published_at, now()), updated=now() "
+            "WHERE id=%s AND source='eyp'",
+            (project_id,),
+        )
 
 
 async def find_by_hash(hash_: str) -> dict[str, Any] | None:

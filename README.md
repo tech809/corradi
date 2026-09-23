@@ -227,6 +227,28 @@ make scrape-salto-world
 python -m app.scheduler.scrape_salto_world --limit 5
 ```
 
+### Ingesta oficial ESC/CES (catálogo completo + selección social)
+
+El Portal Europeo de la Juventud alimenta el catálogo principal con una selección
+conservadora: residentes en España admitidos, inicio futuro, deadline explícita y dentro de
+los próximos `MAX_DEADLINE_MONTHS`. Todas las fichas entran en la web. Solo los ECS nuevos
+descubiertos en el pase actual pueden entrar al flujo Telegram/WhatsApp/Instagram, con un
+máximo diario configurable mediante `EYP_SOCIAL_DAILY_CAP` (2 por defecto); el lote histórico
+no se publica retroactivamente. Los mensajes sociales remiten al catálogo ECS completo.
+
+La duración se normaliza como `duration_days` y `duration_months`. La portada y el mapa
+muestran un filtro contextual de duración máxima cuando se selecciona ECS.
+
+```bash
+python -m app.scheduler.scrape_eyp --dry-run
+python -m app.scheduler.scrape_eyp
+```
+
+Antes del primer pase en una base ya existente hay que aplicar
+`db/migrations/0021_eyp_ingestion.sql` y `db/migrations/0022_eyp_duration_social.sql`. En
+producción se ejecuta cada 6 horas. Cada pase también retira las fichas importadas que hayan
+desaparecido del conjunto oficial válido.
+
 Para mantenerlo actualizado en producción puede ejecutarse por cron una vez al día. Al
 alcanzar el final vuelve a comprobar el pequeño borde de IDs inexistentes y continúa cuando
 SALTO publica nuevas fichas.

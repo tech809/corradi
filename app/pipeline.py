@@ -232,6 +232,36 @@ async def _publish_instagram_background(opp: dict[str, Any]) -> None:
         log.exception("Error encolando/publicando en Instagram (%s)", opp["identifier"])
 
 
+async def publish_existing_eyp(opp: dict[str, Any]) -> dict[str, Any]:
+    """Mete una ficha EYP ya guardada en el flujo social completo, sin recrearla.
+
+    Telegram es la confirmación de publicación. Después se marca el cupo diario, se hace
+    el handoff a WhatsApp y se encola/publica Instagram. Un fallo social nunca retira la
+    ficha del catálogo web.
+    """
+    try:
+        caption = pub.format_opportunity(opp, buttons=True, show_title=False, show_type=False)
+        image = await asyncio.to_thread(card_v2.render, opp)
+        message_id = await pub.publish_photo_to_channel(
+            image, caption, reply_markup=pub.opportunity_keyboard(opp)
+        )
+        if not message_id:
+            return {"published": False, "error": "Telegram no devolvió message_id"}
+        await repo.mark_published(opp["id"], message_id)
+        await repo.mark_eyp_social_published(opp["id"])
+        opp = {**opp, "telegram_message_id": message_id, "publication_scope": "all"}
+    except Exception as exc:  # noqa: BLE001
+        log.exception("No pude publicar ECS oficial %s en Telegram", opp["identifier"])
+        return {"published": False, "error": str(exc)}
+
+    try:
+        await handoff.opportunity(opp)
+    except Exception:  # noqa: BLE001
+        log.exception("Falló el handoff ECS de %s; Telegram ya está publicado", opp["identifier"])
+    await _publish_instagram_background(opp)
+    return {"published": True, "message_id": message_id}
+
+
 async def commit(
     fields: dict[str, Any], source: str, submitted_by: str, submitted_by_id: int,
 ) -> dict[str, Any]:

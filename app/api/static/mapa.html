@@ -461,6 +461,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 .range-inputs[hidden], .month-chips[hidden] { display: none; }
 .range-inputs label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
 .range-inputs input[type="date"] { font: inherit; font-size: 13px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink); }
+.ecs-duration-filter { margin-top: 18px; padding: 15px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface-sunk); }
+.ecs-duration-filter[hidden] { display: none; }
+.ecs-duration-filter label { display: grid; gap: 7px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.ecs-duration-filter select { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
 #profileForm label { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
 #profileForm input, #profileForm select { font: inherit; font-size: 13px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink); }
 .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -738,6 +742,18 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
   <div class="fp-pane" data-pane="cat" data-shown="true">
     <div class="chips cat-compact" id="chips" role="group" aria-label="Filtrar por categoría"></div>
+    <div class="ecs-duration-filter" id="ecsDurationFilter" hidden>
+      <label>Duración máxima del ECS
+        <select id="ecsMaxMonths">
+          <option value="">Cualquier duración</option>
+          <option value="1">Hasta 1 mes</option>
+          <option value="3">Hasta 3 meses</option>
+          <option value="6">Hasta 6 meses</option>
+          <option value="9">Hasta 9 meses</option>
+          <option value="12">Hasta 12 meses</option>
+        </select>
+      </label>
+    </div>
     <div style="margin-top:22px">
       <div class="sw-row">
         <div class="lbl" id="lblSoon"><span></span>Cierran pronto <button type="button" class="info-q" data-note="noteSoon" aria-expanded="false" aria-label="Qué significa">?</button></div>
@@ -1012,14 +1028,14 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     return found;
   }
 
-  var state = { q: "", types: new Set(), countries: new Set(), topics: new Set(), months: new Set(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
+  var state = { q: "", types: new Set(), countries: new Set(), topics: new Set(), months: new Set(), dateFrom: null, dateTo: null, ecsMaxMonths: null, soon: false, isNewFilter: false, age: null, only: null };
   var sortMode = "recent"; // "recent" (últimas subidas, por defecto) | "deadline" (cierran antes)
   var dateMode = "months";
   var ageValue = null;
 
   function renderAge() { document.getElementById("ageVal").innerHTML = (ageValue == null ? "–" : ageValue) + "<small>años</small>"; }
 
-  var all = [], shown = [], markers = {}, map, layer, activeId = null;
+  var all = [], shown = [], markers = {}, map, layer, activeId = null, bootingMap = true;
   var favourites = new Set(JSON.parse(localStorage.getItem("corradi-favourites") || "[]"));
   var isMobileQuery = window.matchMedia && window.matchMedia("(max-width: 880px)");
 
@@ -1099,6 +1115,16 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     while (d <= end && guard < 60) { out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); d.setMonth(d.getMonth() + 1); guard++; }
     return out;
   }
+  function durationMonths(o) {
+    if (o.duration_months != null) return Number(o.duration_months);
+    if (!o.start_date || !o.end_date) return null;
+    return Math.max(0, (new Date(o.end_date + "T12:00:00") - new Date(o.start_date + "T12:00:00")) / 86400000 + 1) / 30.44;
+  }
+  function durationText(o) {
+    var months = durationMonths(o); if (months == null) return "";
+    var value = (Math.round(months * 10) / 10).toLocaleString("es", { maximumFractionDigits: 1 });
+    return value + (Number(value.replace(",", ".")) === 1 ? " mes" : " meses");
+  }
   function nextMonthsKeys(n) {
     var out = [], d = new Date(); d.setDate(1);
     for (var i = 0; i < n; i++) { out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); d.setMonth(d.getMonth() + 1); }
@@ -1125,6 +1151,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (state.countries.size && !state.countries.has(o.country_code || "OTHER")) return false;
     if (state.topics.size && !state.topics.has(topicOf(o).key)) return false;
     if (!matchesDate(o)) return false;
+    if (o.type === "VOLUNTEERING" && state.ecsMaxMonths != null) {
+      var duration = durationMonths(o);
+      if (duration == null || duration > state.ecsMaxMonths) return false;
+    }
     if (state.soon) { var d = daysLeft(o.application_deadline); if (d === null || d > SOON_DAYS) return false; }
     if (state.isNewFilter && !isNew(o)) return false;
     if (state.age != null) {
@@ -1155,7 +1185,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var sameTypes = sameSet(state.types, defaultTypeSet());
     var sameCountries = sameSet(state.countries, defaultCountrySet());
     var dateDirty = dateMode === "range" ? !!(state.dateFrom || state.dateTo) : !sameSet(state.months, defaultMonthSet());
-    return !!(state.q || state.soon || state.isNewFilter || state.age != null || !!state.only || !sameTypes || !sameCountries || state.topics.size || dateDirty);
+    return !!(state.q || state.soon || state.isNewFilter || state.age != null || state.ecsMaxMonths != null || !!state.only || !sameTypes || !sameCountries || state.topics.size || dateDirty);
   }
   function activeFilterGroups() {
     var n = 0;
@@ -1166,11 +1196,12 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (dateDirty) n++;
     if (state.soon || state.isNewFilter) n++;
     if (state.age != null) n++;
+    if (state.ecsMaxMonths != null) n++;
     return n;
   }
 
-  function saveSharedFilters(){try{localStorage.setItem("corradi-filters",JSON.stringify({q:state.q,type:state.types.size===1?Array.from(state.types)[0]:"",countries:sameSet(state.countries,defaultCountrySet())?[]:Array.from(state.countries),age:state.age,soon:state.soon,saved:!!state.only}))}catch(e){}}
-  function restoreSharedFilters(raw){var p;try{p=raw?JSON.parse(raw):null}catch(e){}if(!p)return;state.q=p.q||"";document.getElementById("q").value=p.q||"";if(p.type){var mapped=p.type==="VOLUNTEERING"?"ESC":p.type;state.types=new Set([mapped])}if(p.countries&&p.countries.length)state.countries=new Set(p.countries);if(p.age){state.age=Number(p.age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}state.soon=!!p.soon;if(p.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
+  function saveSharedFilters(){try{localStorage.setItem("corradi-filters",JSON.stringify({q:state.q,type:state.types.size===1?Array.from(state.types)[0]:"",types:Array.from(state.types),countries:sameSet(state.countries,defaultCountrySet())?[]:Array.from(state.countries),age:state.age,ecsMaxMonths:state.ecsMaxMonths,soon:state.soon,saved:!!state.only}))}catch(e){}}
+  function restoreSharedFilters(raw){var saved;try{saved=raw?JSON.parse(raw):{}}catch(e){saved={}}var params=new URLSearchParams(location.search),queryCountries=params.getAll("country"),savedTypes=saved.types||[];state.q=params.has("q")?(params.get("q")||""):(saved.q||"");document.getElementById("q").value=state.q;var queryType=params.get("type"),types=queryType?[queryType]:(savedTypes.length?savedTypes:(saved.type?[saved.type]:[]));if(types.length)state.types=new Set(types);var countries=queryCountries.length?queryCountries:(saved.countries||[]);if(countries.length)state.countries=new Set(countries);var age=params.has("age")?params.get("age"):saved.age;if(age){state.age=Number(age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}var ecsMax=params.has("ecs_max")?params.get("ecs_max"):saved.ecsMaxMonths;if(ecsMax){state.ecsMaxMonths=Number(ecsMax);document.getElementById("ecsMaxMonths").value=String(ecsMax)}state.soon=params.get("soon")==="1"||(!params.has("soon")&&!!saved.soon);if(saved.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
 
   // "Últimas subidas": por fecha de creación, la más reciente primero (created es ISO,
   // compara bien como string). "Cierran antes": por fecha límite, sin ella al final (una
@@ -1207,6 +1238,13 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
 
   function apply() {
+    var durationFilter = document.getElementById("ecsDurationFilter");
+    var ecsSelected = state.types.has("VOLUNTEERING");
+    durationFilter.hidden = !ecsSelected;
+    if (!ecsSelected && state.ecsMaxMonths != null) {
+      state.ecsMaxMonths = null;
+      document.getElementById("ecsMaxMonths").value = "";
+    }
     shown = sortShown(all.filter(matches));
     saveSharedFilters();
     renderList();
@@ -1240,6 +1278,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         (place ? '<span><span class="flag-emoji">' + (flag(o.country_code) || "") + '</span>' + (flag(o.country_code) ? "" : ICON.pin) + esc(place) + "</span>" : "") +
         (located ? "" : '<span class="nogeo">' + ICON.warn + 'Sin ubicación exacta — no sale en el mapa</span>') +
         "<span>" + ICON.calendar + esc(fmtRange(o)) + "</span>" +
+        (o.type === "VOLUNTEERING" && durationText(o) ? "<span>" + ICON.hourglass + "Duración: " + esc(durationText(o)) + "</span>" : "") +
         (o.topic ? "<span>" + ICON.tag + esc(o.topic) + "</span>" : "") +
       "</div>" +
       '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
@@ -1321,6 +1360,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       '<div class="meta">' +
         (place ? "<span>" + (flag(o.country_code) ? '<span class="flag-emoji">' + flag(o.country_code) + '</span>' : ICON.pin) + esc(place) + "</span>" : "") +
         "<span>" + ICON.calendar + esc(fmtRange(o)) + "</span>" +
+        (o.type === "VOLUNTEERING" && durationText(o) ? "<span>" + ICON.hourglass + "Duración: " + esc(durationText(o)) + "</span>" : "") +
         (o.topic ? "<span>" + ICON.tag + esc(o.topic) + "</span>" : "") +
       "</div>" +
       '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
@@ -1342,7 +1382,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var sections = [["Sobre el proyecto",o.detailed_description||o.summary],["Programa y actividades",o.programme_details],["Qué aprenderás",o.learning_outcomes],["A quién buscan",o.participant_profile],["Países participantes",o.eligibility_countries],["Alojamiento y comidas",o.accommodation_details],["Costes y cobertura",o.covered_costs],["Viaje y reembolso",o.travel_details],["Contacto",o.contact_information]].filter(function(x){return x[1]});
     var actions=(o.application_url?'<a class="btn primary" href="'+esc(o.application_url)+'" target="_blank" rel="noopener">Form</a>':"")+(o.infopack_url?'<a class="btn" href="'+esc(o.infopack_url)+'" target="_blank" rel="noopener">Infopack</a>':"");
     document.getElementById("opportunityTitle").textContent=o.title;
-    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div>'+compatibilityDetail(o)+'<p><strong>'+flag(o.country_code)+' '+esc(locationName(o))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
+    document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div>'+compatibilityDetail(o)+'<p><strong>'+flag(o.country_code)+' '+esc(locationName(o))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.type==="VOLUNTEERING"&&durationText(o)?'<br>Duración: '+esc(durationText(o)):"")+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
     document.getElementById("opportunityFoot").innerHTML=actions;
     document.getElementById("mapDetailTools").innerHTML=(gcalUrl(o)?'<a href="'+esc(gcalUrl(o))+'" target="_blank" rel="noopener" title="Guardar en calendario" aria-label="Guardar en calendario">'+ICON.calendarPlus+'</a>':"")+'<button id="mapFav" class="'+(favourites.has(id)?"saved":"")+'" title="Guardar en favoritos" aria-label="Guardar en favoritos">'+(favourites.has(id)?"♥":"♡")+'</button><button id="mapShare" title="Compartir" aria-label="Compartir">'+ICON.share+'</button>';
     document.getElementById("mapFav").onclick=function(){favourites.has(id)?favourites.delete(id):favourites.add(id);localStorage.setItem("corradi-favourites",JSON.stringify(Array.from(favourites)));this.classList.toggle("saved",favourites.has(id));this.textContent=favourites.has(id)?"♥":"♡"};document.getElementById("mapShare").onclick=function(){shareOpp(id)};
@@ -1367,12 +1407,16 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     for (var id in markers) bounds.push(markers[id].getLatLng());
     if (!bounds.length) return;
     map.invalidateSize({ animate: false });
-    // Sin ningún filtro activo (se ven TODAS): vista fija centrada en Europa continental
-    // en vez de un fitBounds a todos los pines (que salía casi de continente entero).
-    // ?o= abre una ficha concreta y ?todo=1 pide ver todo -> esos sí encajan a los pines.
+    // Durante la carga nunca encajamos todos los pines: con ECS en varios continentes eso
+    // alejaba el mapa aunque initMap ya hubiera fijado el zoom. Una ficha ?o= se enfoca
+    // después con focusOpportunity; el resto empieza siempre cerca de Europa.
     var _p = new URLSearchParams(location.search);
-    if (shown.length === all.length && !_p.get("o") && !_p.get("todo")) {
-      map.setView([48.6, 12], 5, { animate: false });
+    if (bootingMap && !_p.get("o")) {
+      map.setView([48.6, 12], 7, { animate: false });
+      return;
+    }
+    if (shown.length === all.length && !_p.get("o")) {
+      map.setView([48.6, 12], 7, { animate: false });
       return;
     }
     if (bounds.length === 1) map.setView(bounds[0], 7, { animate: false });
@@ -1558,7 +1602,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
 
   function resetFilters() {
-    state = { q: "", types: defaultTypeSet(), countries: defaultCountrySet(), topics: new Set(), months: defaultMonthSet(), dateFrom: null, dateTo: null, soon: false, isNewFilter: false, age: null, only: null };
+    state = { q: "", types: defaultTypeSet(), countries: defaultCountrySet(), topics: new Set(), months: defaultMonthSet(), dateFrom: null, dateTo: null, ecsMaxMonths: null, soon: false, isNewFilter: false, age: null, only: null };
     dateMode = "months";
     document.getElementById("q").value = "";
     document.getElementById("ageInput").value = "";
@@ -1568,6 +1612,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     Array.prototype.forEach.call(document.querySelectorAll("#topicChips .chip"), function (c) { c.setAttribute("aria-pressed", "false"); });
     document.getElementById("dateFrom").value = "";
     document.getElementById("dateTo").value = "";
+    document.getElementById("ecsMaxMonths").value = "";
     document.getElementById("monthChips").hidden = false;
     document.getElementById("rangeInputs").hidden = true;
     Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (b) { b.setAttribute("aria-pressed", String(b.dataset.mode === "months")); });
@@ -1788,6 +1833,11 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     }
     document.getElementById("ageMinus").addEventListener("click", function () { stepAge(-1); });
     document.getElementById("agePlus").addEventListener("click", function () { stepAge(1); });
+    document.getElementById("ecsMaxMonths").addEventListener("change", function (e) {
+      var value = parseFloat(e.target.value);
+      state.ecsMaxMonths = isFinite(value) ? value : null;
+      apply();
+    });
 
     var infoDlg = document.getElementById("infoDialog");
     document.getElementById("infoClose").addEventListener("click", function () { infoDlg.close(); });
@@ -1881,7 +1931,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
   function initMap() {
     // Vista inicial: centro de Europa continental y un punto más de zoom que antes ([50,12],4).
-    map = L.map("map", { zoomControl: false, scrollWheelZoom: true, attributionControl: true }).setView([48.6, 12], 5);
+    map = L.map("map", { zoomControl: false, scrollWheelZoom: true, attributionControl: true }).setView([48.6, 12], 7);
     L.control.zoom({ position: "bottomleft" }).addTo(map);
     paintTiles();
     layer = L.markerClusterGroup({
@@ -1997,6 +2047,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         // ?todo=1 (desde la miniatura de la portada) -> abrir el mapa con TODO, sin
         // arrastrar los filtros del catálogo.
         if(!params.get("todo")) restoreSharedFilters(sharedFiltersRaw);
+        bootingMap = false;
         var wanted = params.get("o");
         if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
           setSheet("peek");

@@ -52,6 +52,8 @@ _PUBLIC_FIELDS = (
     "participant_profile", "accommodation_details", "covered_costs", "travel_details",
     "eligibility_countries", "eligibility_country_codes", "eligibility_scope", "infopack_enriched",
     "image_url", "image_credit", "image_source_url", "image_origin",
+    "source_url", "source_checked_at", "application_deadline_at", "publication_scope",
+    "duration_days", "duration_months",
     "status", "telegram_message_id", "created", "updated",
 )
 
