@@ -32,7 +32,7 @@ _MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
 _HASHTAGS_BY_TYPE = {
     "YOUTH_EXCHANGE": ["#YouthExchange", "#IntercambioJuvenil"],
     "TRAINING_COURSE": ["#TrainingCourse", "#FormaciónJuvenil"],
-    "VOLUNTEERING": ["#ECS", "#CuerpoEuropeoDeSolidaridad", "#Voluntariado"],
+    "VOLUNTEERING": ["#ESC", "#CuerpoEuropeoDeSolidaridad", "#Voluntariado"],
 }
 _HASHTAGS_BASE = ["#ErasmusPlus", "#CorradiErasmus", "#JuventudEuropea", "#OportunidadesErasmus"]
 
@@ -101,7 +101,7 @@ def build_caption(opp: dict[str, Any]) -> str:
         lines.append(f"⏳ Fecha límite: {opp['application_deadline']}{_est(opp)} ({days_left_label(opp)})")
     lines.append("📱 Toda la info en el link de la bio")
     if _is_official_eyp(opp):
-        lines.append("🌐 Puede haber otros ECS nuevos en la web de Corradi")
+        lines.append("🌐 Puede haber otros ESC nuevos en la web de Corradi")
     lines.append("")
 
     tags = list(_HASHTAGS_BY_TYPE.get(opp.get("type") or "", [])) + _HASHTAGS_BASE

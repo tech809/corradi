@@ -72,7 +72,7 @@ async def run(*, dry_run: bool = False, limit: int | None = None) -> dict[str, i
                     counts["social_published"] += 1
                 else:
                     log.error(
-                        "ECS %s quedó solo web por fallo social: %s",
+                        "ESC %s quedó solo web por fallo social: %s",
                         project["identifier"], result.get("error"),
                     )
         log.info("EYP ingesta y selección social: %s", counts)

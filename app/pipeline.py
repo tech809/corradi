@@ -251,13 +251,13 @@ async def publish_existing_eyp(opp: dict[str, Any]) -> dict[str, Any]:
         await repo.mark_eyp_social_published(opp["id"])
         opp = {**opp, "telegram_message_id": message_id, "publication_scope": "all"}
     except Exception as exc:  # noqa: BLE001
-        log.exception("No pude publicar ECS oficial %s en Telegram", opp["identifier"])
+        log.exception("No pude publicar ESC oficial %s en Telegram", opp["identifier"])
         return {"published": False, "error": str(exc)}
 
     try:
         await handoff.opportunity(opp)
     except Exception:  # noqa: BLE001
-        log.exception("Falló el handoff ECS de %s; Telegram ya está publicado", opp["identifier"])
+        log.exception("Falló el handoff ESC de %s; Telegram ya está publicado", opp["identifier"])
     await _publish_instagram_background(opp)
     return {"published": True, "message_id": message_id}
 

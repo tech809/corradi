@@ -73,7 +73,7 @@ Ya sabemos —comprobado, no supuesto— que un Canal de difusión de WhatsApp n
 Traducir los botones a rumano y griego (los idiomas de los socios) es el mínimo. Lo que de verdad cambia quién puede usar esto:
 
 - **Traducir el contenido, no solo el chrome**: el resumen y la temática de cada oportunidad en el idioma nativo del usuario, con un toque para ver el original — el título del proyecto no siempre necesita traducirse, pero entender de qué va sí.
-- **Modo simple para el argot**: "KA152", "ECS", "training course" son jerga que un recién llegado al ecosistema Erasmus+ no conoce. Un modo que explica en una frase qué es cada cosa la primera vez que aparece, sin que haga falta ir a buscarlo.
+- **Modo simple para el argot**: "KA152", "ESC", "training course" son jerga que un recién llegado al ecosistema Erasmus+ no conoce. Un modo que explica en una frase qué es cada cosa la primera vez que aparece, sin que haga falta ir a buscarlo.
 - **Lectura en voz alta y modo alto contraste/dislexia**: no como feature de accesibilidad aparte, sino como parte del mismo motor de notas de voz del punto anterior.
 
 ---

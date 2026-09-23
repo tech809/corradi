@@ -21,12 +21,12 @@ FONT_DIR = Path("/usr/share/fonts/truetype/dejavu")
 W, H = 1200, 360
 
 # Claves = valor real de `type` en BD (el mismo que usa el LLM al extraer y que consume
-# mapa.html) — el tipo de voluntariado/ECS se guarda como "VOLUNTEERING", no "ECS"; con la
+# mapa.html) — el tipo de voluntariado/ESC se guarda como "VOLUNTEERING", no "ESC"; con la
 # clave equivocada estos tres diccionarios caían siempre al color/icono por defecto
 # (YOUTH_EXCHANGE, azul) tanto en el banner de Telegram como en el post/story/reel de
 # Instagram, aunque el mapa ya mostraba el verde correcto con su propio mapeo aparte.
 CAT_COLORS = {"YOUTH_EXCHANGE": "#2a78d6", "TRAINING_COURSE": "#eda100", "VOLUNTEERING": "#008300"}
-CAT_LABELS = {"YOUTH_EXCHANGE": "YOUTH EXCHANGE", "TRAINING_COURSE": "TRAINING COURSE", "VOLUNTEERING": "ECS"}
+CAT_LABELS = {"YOUTH_EXCHANGE": "YOUTH EXCHANGE", "TRAINING_COURSE": "TRAINING COURSE", "VOLUNTEERING": "ESC"}
 WHITE = "#ffffff"
 
 # Banderas de los 27 países de la UE + asociados habituales de Erasmus+ (Turquía, Noruega).

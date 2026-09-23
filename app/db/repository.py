@@ -199,7 +199,7 @@ async def close_missing_eyp_projects(active_external_ids: list[str], checked_at:
 
 
 async def count_eyp_social_published_on(day: date, timezone_name: str) -> int:
-    """Publicaciones ECS realmente enviadas en el día local indicado."""
+    """Publicaciones ESC realmente enviadas en el día local indicado."""
     async with get_pool().connection() as conn:
         cur = await conn.execute(
             "SELECT count(*) FROM projects WHERE source='eyp' "

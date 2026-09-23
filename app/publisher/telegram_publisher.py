@@ -39,7 +39,7 @@ _TIPOS_ES = {
 _TIPO_LABEL_TEMA = {
     "YOUTH_EXCHANGE": "Youth Exchange",
     "TRAINING_COURSE": "Training Course",
-    "VOLUNTEERING": "ECS",
+    "VOLUNTEERING": "ESC",
 }
 
 # Orden y cabecera visual de los grupos del resumen diario. Mismo icono+etiqueta que usa
@@ -49,7 +49,7 @@ _TIPO_LABEL_TEMA = {
 _GRUPOS_RESUMEN = [
     ("YOUTH_EXCHANGE", "🎒 Youth Exchange"),
     ("TRAINING_COURSE", "🎓 Training Course"),
-    ("VOLUNTEERING", "🤝 ECS"),
+    ("VOLUNTEERING", "🤝 ESC"),
 ]
 _CATEGORIA_WHATSAPP = dict(_GRUPOS_RESUMEN)
 _OTRAS_CATEGORIA = "🏷️ Otras"
@@ -186,7 +186,7 @@ def _dates(o: dict[str, Any]) -> str:
 
 
 def _duration_label(o: dict[str, Any]) -> str | None:
-    """Duración ECS normalizada para mensajes; cae a las fechas en fichas antiguas."""
+    """Duración ESC normalizada para mensajes; cae a las fechas en fichas antiguas."""
     months = o.get("duration_months")
     if months is None and o.get("start_date") and o.get("end_date"):
         start = date.fromisoformat(str(o["start_date"]))
@@ -302,7 +302,7 @@ def format_opportunity(
     if contacto:
         lines.append(f"✉️ {contacto}")
     if _is_official_eyp(o):
-        lines.append("\n🌐 Puede haber otros ECS nuevos en https://mapa.proactivefuture.eu/")
+        lines.append("\n🌐 Puede haber otros ESC nuevos en https://mapa.proactivefuture.eu/")
     return "\n".join(lines)
 
 
@@ -408,7 +408,7 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
         bloques.append("\n".join(lineas))
 
     if _is_official_eyp(o):
-        bloques.append("🌐 Puede haber otros ECS nuevos en https://mapa.proactivefuture.eu/")
+        bloques.append("🌐 Puede haber otros ESC nuevos en https://mapa.proactivefuture.eu/")
 
     return "\n\n".join(bloques)
 
@@ -463,7 +463,7 @@ def format_summary_item(o: dict[str, Any], show_type: bool = True) -> str:
 def format_daily_summary(opps: list[dict[str, Any]], today: date | None = None) -> str:
     """Resumen de TODAS las oportunidades que siguen ABIERTAS (fecha límite de inscripción aún
     no vencida), no solo las recibidas hoy, agrupadas por tipo (Youth Exchange, Training Course,
-    ECS, Workshop). Cada título enlaza a su post original en el canal (si es público y se conoce
+    ESC, Workshop). Cada título enlaza a su post original en el canal (si es público y se conoce
     su message_id), para poder encontrarla en el historial."""
     today = today or date.today()
     head = _header(today)

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Corradi — Mapa de oportunidades</title>
-<meta name="description" content="Mapa interactivo de las oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ECS.">
+<meta name="description" content="Mapa interactivo de las oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ESC.">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="color-scheme" content="light">
 <link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/assets/icon-192.png">
@@ -27,7 +27,7 @@
   "@type": "WebSite",
   "name": "Corradi Erasmus+",
   "url": "https://mapa.proactivefuture.eu/mapa",
-  "description": "Mapa interactivo de oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ECS.",
+  "description": "Mapa interactivo de oportunidades Erasmus+ con inscripción abierta: intercambios juveniles, training courses y ESC.",
   "publisher": { "@type": "Organization", "name": "Corradi" }
 }
 </script>
@@ -79,7 +79,7 @@
      original, cada uno sigue siendo distinguible a la vez para daltonismo. */
   --ye: #35588f;   /* zafiro */
   --tc: #a9803f;   /* bronce/latón */
-  --ecs: #3e6b4c;  /* esmeralda */
+  --esc: #3e6b4c;  /* esmeralda */
   --other: #8d8e93;
   --critical: #a83e37;
   --warn: #a9803f;
@@ -280,7 +280,7 @@ svg.icon { width: 16px; height: 16px; flex: none; display: block; }
 .card.active { border-color: color-mix(in srgb, var(--c, var(--brand)) 45%, var(--line-soft)); box-shadow: var(--shadow-2); }
 .card[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
 .card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
-.card[data-type="VOLUNTEERING"]    { --c: var(--ecs); }
+.card[data-type="VOLUNTEERING"]    { --c: var(--esc); }
 .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 9px; padding-left: 9px; }
 .card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 /* Color del tipo (--c) cuando está disponible -- la tarjeta lo define vía
@@ -461,10 +461,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 .range-inputs[hidden], .month-chips[hidden] { display: none; }
 .range-inputs label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
 .range-inputs input[type="date"] { font: inherit; font-size: 13px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink); }
-.ecs-duration-filter { margin-top: 18px; padding: 15px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface-sunk); }
-.ecs-duration-filter[hidden] { display: none; }
-.ecs-duration-filter label { display: grid; gap: 7px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
-.ecs-duration-filter select { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.esc-duration-filter { margin-top: 18px; padding: 15px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface-sunk); }
+.esc-duration-filter[hidden] { display: none; }
+.esc-duration-filter label { display: grid; gap: 7px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.esc-duration-filter select { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
 #profileForm label { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
 #profileForm input, #profileForm select { font: inherit; font-size: 13px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink); }
 .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -742,9 +742,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
   <div class="fp-pane" data-pane="cat" data-shown="true">
     <div class="chips cat-compact" id="chips" role="group" aria-label="Filtrar por categoría"></div>
-    <div class="ecs-duration-filter" id="ecsDurationFilter" hidden>
-      <label>Duración máxima del ECS
-        <select id="ecsMaxMonths">
+    <div class="esc-duration-filter" id="escDurationFilter" hidden>
+      <label>Duración máxima del ESC
+        <select id="escMaxMonths">
           <option value="">Cualquier duración</option>
           <option value="1">Hasta 1 mes</option>
           <option value="3">Hasta 3 meses</option>
@@ -842,7 +842,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   <div class="info-body">
     <h3>Qué vas a encontrar</h3>
     <p>Oportunidades de movilidad europea con <strong>inscripción abierta ahora mismo</strong>:
-    intercambios juveniles, training courses y voluntariado ECS. Están pensadas
+    intercambios juveniles, training courses y voluntariado ESC. Están pensadas
     para jóvenes <strong>residentes en España</strong>.</p>
 
     <h3>Saca el máximo partido al mapa</h3>
@@ -987,7 +987,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   var TYPES = {
     YOUTH_EXCHANGE:  { label: "Youth Exchange",  quickLabel: "YE",  colorVar: "--ye",  icon: ICON.compass },
     TRAINING_COURSE: { label: "Training Course", quickLabel: "TC",  colorVar: "--tc",  icon: ICON.cap },
-    VOLUNTEERING:    { label: "ECS",             quickLabel: "ECS", colorVar: "--ecs", icon: ICON.heart }
+    VOLUNTEERING:    { label: "ESC",             quickLabel: "ESC", colorVar: "--esc", icon: ICON.heart }
   };
   var OTHER = { label: "Otras", colorVar: "--other", icon: ICON.tag };
   var AGE_DEFAULTS = { YOUTH_EXCHANGE: { min: 18, max: 30 }, TRAINING_COURSE: { min: 18, max: null } };
@@ -1028,7 +1028,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     return found;
   }
 
-  var state = { q: "", types: new Set(), countries: new Set(), topics: new Set(), months: new Set(), dateFrom: null, dateTo: null, ecsMaxMonths: null, soon: false, isNewFilter: false, age: null, only: null };
+  var state = { q: "", types: new Set(), countries: new Set(), topics: new Set(), months: new Set(), dateFrom: null, dateTo: null, escMaxMonths: null, soon: false, isNewFilter: false, age: null, only: null };
   var sortMode = "recent"; // "recent" (últimas subidas, por defecto) | "deadline" (cierran antes)
   var dateMode = "months";
   var ageValue = null;
@@ -1151,9 +1151,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (state.countries.size && !state.countries.has(o.country_code || "OTHER")) return false;
     if (state.topics.size && !state.topics.has(topicOf(o).key)) return false;
     if (!matchesDate(o)) return false;
-    if (o.type === "VOLUNTEERING" && state.ecsMaxMonths != null) {
+    if (o.type === "VOLUNTEERING" && state.escMaxMonths != null) {
       var duration = durationMonths(o);
-      if (duration == null || duration > state.ecsMaxMonths) return false;
+      if (duration == null || duration > state.escMaxMonths) return false;
     }
     if (state.soon) { var d = daysLeft(o.application_deadline); if (d === null || d > SOON_DAYS) return false; }
     if (state.isNewFilter && !isNew(o)) return false;
@@ -1185,7 +1185,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     var sameTypes = sameSet(state.types, defaultTypeSet());
     var sameCountries = sameSet(state.countries, defaultCountrySet());
     var dateDirty = dateMode === "range" ? !!(state.dateFrom || state.dateTo) : !sameSet(state.months, defaultMonthSet());
-    return !!(state.q || state.soon || state.isNewFilter || state.age != null || state.ecsMaxMonths != null || !!state.only || !sameTypes || !sameCountries || state.topics.size || dateDirty);
+    return !!(state.q || state.soon || state.isNewFilter || state.age != null || state.escMaxMonths != null || !!state.only || !sameTypes || !sameCountries || state.topics.size || dateDirty);
   }
   function activeFilterGroups() {
     var n = 0;
@@ -1196,12 +1196,12 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (dateDirty) n++;
     if (state.soon || state.isNewFilter) n++;
     if (state.age != null) n++;
-    if (state.ecsMaxMonths != null) n++;
+    if (state.escMaxMonths != null) n++;
     return n;
   }
 
-  function saveSharedFilters(){try{localStorage.setItem("corradi-filters",JSON.stringify({q:state.q,type:state.types.size===1?Array.from(state.types)[0]:"",types:Array.from(state.types),countries:sameSet(state.countries,defaultCountrySet())?[]:Array.from(state.countries),age:state.age,ecsMaxMonths:state.ecsMaxMonths,soon:state.soon,saved:!!state.only}))}catch(e){}}
-  function restoreSharedFilters(raw){var saved;try{saved=raw?JSON.parse(raw):{}}catch(e){saved={}}var params=new URLSearchParams(location.search),queryCountries=params.getAll("country"),savedTypes=saved.types||[];state.q=params.has("q")?(params.get("q")||""):(saved.q||"");document.getElementById("q").value=state.q;var queryType=params.get("type"),types=queryType?[queryType]:(savedTypes.length?savedTypes:(saved.type?[saved.type]:[]));if(types.length)state.types=new Set(types);var countries=queryCountries.length?queryCountries:(saved.countries||[]);if(countries.length)state.countries=new Set(countries);var age=params.has("age")?params.get("age"):saved.age;if(age){state.age=Number(age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}var ecsMax=params.has("ecs_max")?params.get("ecs_max"):saved.ecsMaxMonths;if(ecsMax){state.ecsMaxMonths=Number(ecsMax);document.getElementById("ecsMaxMonths").value=String(ecsMax)}state.soon=params.get("soon")==="1"||(!params.has("soon")&&!!saved.soon);if(saved.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
+  function saveSharedFilters(){try{localStorage.setItem("corradi-filters",JSON.stringify({q:state.q,type:state.types.size===1?Array.from(state.types)[0]:"",types:Array.from(state.types),countries:sameSet(state.countries,defaultCountrySet())?[]:Array.from(state.countries),age:state.age,escMaxMonths:state.escMaxMonths,soon:state.soon,saved:!!state.only}))}catch(e){}}
+  function restoreSharedFilters(raw){var saved;try{saved=raw?JSON.parse(raw):{}}catch(e){saved={}}var params=new URLSearchParams(location.search),queryCountries=params.getAll("country"),savedTypes=saved.types||[];state.q=params.has("q")?(params.get("q")||""):(saved.q||"");document.getElementById("q").value=state.q;var queryType=params.get("type"),types=queryType?[queryType]:(savedTypes.length?savedTypes:(saved.type?[saved.type]:[]));if(types.length)state.types=new Set(types);var countries=queryCountries.length?queryCountries:(saved.countries||[]);if(countries.length)state.countries=new Set(countries);var age=params.has("age")?params.get("age"):saved.age;if(age){state.age=Number(age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}var escMax=params.get("esc_max")||params.get("ecs_max")||saved.escMaxMonths||saved.ecsMaxMonths;if(escMax){state.escMaxMonths=Number(escMax);document.getElementById("escMaxMonths").value=String(escMax)}state.soon=params.get("soon")==="1"||(!params.has("soon")&&!!saved.soon);if(saved.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
 
   // "Últimas subidas": por fecha de creación, la más reciente primero (created es ISO,
   // compara bien como string). "Cierran antes": por fecha límite, sin ella al final (una
@@ -1238,12 +1238,12 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
 
   function apply() {
-    var durationFilter = document.getElementById("ecsDurationFilter");
-    var ecsSelected = state.types.has("VOLUNTEERING");
-    durationFilter.hidden = !ecsSelected;
-    if (!ecsSelected && state.ecsMaxMonths != null) {
-      state.ecsMaxMonths = null;
-      document.getElementById("ecsMaxMonths").value = "";
+    var durationFilter = document.getElementById("escDurationFilter");
+    var escSelected = state.types.has("VOLUNTEERING");
+    durationFilter.hidden = !escSelected;
+    if (!escSelected && state.escMaxMonths != null) {
+      state.escMaxMonths = null;
+      document.getElementById("escMaxMonths").value = "";
     }
     shown = sortShown(all.filter(matches));
     saveSharedFilters();
@@ -1407,7 +1407,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     for (var id in markers) bounds.push(markers[id].getLatLng());
     if (!bounds.length) return;
     map.invalidateSize({ animate: false });
-    // Durante la carga nunca encajamos todos los pines: con ECS en varios continentes eso
+    // Durante la carga nunca encajamos todos los pines: con ESC en varios continentes eso
     // alejaba el mapa aunque initMap ya hubiera fijado el zoom. Una ficha ?o= se enfoca
     // después con focusOpportunity; el resto empieza siempre cerca de Europa.
     var _p = new URLSearchParams(location.search);
@@ -1602,7 +1602,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
 
   function resetFilters() {
-    state = { q: "", types: defaultTypeSet(), countries: defaultCountrySet(), topics: new Set(), months: defaultMonthSet(), dateFrom: null, dateTo: null, ecsMaxMonths: null, soon: false, isNewFilter: false, age: null, only: null };
+    state = { q: "", types: defaultTypeSet(), countries: defaultCountrySet(), topics: new Set(), months: defaultMonthSet(), dateFrom: null, dateTo: null, escMaxMonths: null, soon: false, isNewFilter: false, age: null, only: null };
     dateMode = "months";
     document.getElementById("q").value = "";
     document.getElementById("ageInput").value = "";
@@ -1612,7 +1612,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     Array.prototype.forEach.call(document.querySelectorAll("#topicChips .chip"), function (c) { c.setAttribute("aria-pressed", "false"); });
     document.getElementById("dateFrom").value = "";
     document.getElementById("dateTo").value = "";
-    document.getElementById("ecsMaxMonths").value = "";
+    document.getElementById("escMaxMonths").value = "";
     document.getElementById("monthChips").hidden = false;
     document.getElementById("rangeInputs").hidden = true;
     Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function (b) { b.setAttribute("aria-pressed", String(b.dataset.mode === "months")); });
@@ -1833,9 +1833,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     }
     document.getElementById("ageMinus").addEventListener("click", function () { stepAge(-1); });
     document.getElementById("agePlus").addEventListener("click", function () { stepAge(1); });
-    document.getElementById("ecsMaxMonths").addEventListener("change", function (e) {
+    document.getElementById("escMaxMonths").addEventListener("change", function (e) {
       var value = parseFloat(e.target.value);
-      state.ecsMaxMonths = isFinite(value) ? value : null;
+      state.escMaxMonths = isFinite(value) ? value : null;
       apply();
     });
 

@@ -30,7 +30,7 @@
   --line: rgba(17,17,19,.08); --line-soft: rgba(17,17,19,.05);
   --glass: rgba(255,255,255,.78); --glass-strong: rgba(255,255,255,.92);
   --brand: #14265e; --brand-ink: #0c1a45; --brass: #a9803f;
-  --ye: #35588f; --tc: #a9803f; --ecs: #3e6b4c; --other: #8d8e93;
+  --ye: #35588f; --tc: #a9803f; --esc: #3e6b4c; --other: #8d8e93;
   --critical: #a83e37; --good: #2f7a4d;
   --radius-sm: 14px; --radius: 22px; --radius-lg: 30px;
   --shadow-1: 0 1px 2px rgba(17,17,19,.04), 0 2px 6px rgba(17,17,19,.04);
@@ -204,7 +204,7 @@ a.hot-title:hover { color: var(--brand); text-decoration: underline; }
 .assoc-name { flex: 1; min-width: 0; font-weight: 650; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .assoc-counts { display: flex; gap: 6px; flex: none; align-items: center; }
 .assoc-pill { font: 700 11px var(--font-body); padding: 4px 10px; border-radius: 999px; background: var(--surface-sunk); color: var(--ink-soft); white-space: nowrap; }
-.assoc-pill.open { background: color-mix(in srgb, var(--ecs) 15%, transparent); color: var(--ecs); }
+.assoc-pill.open { background: color-mix(in srgb, var(--esc) 15%, transparent); color: var(--esc); }
 .assoc-chevron { flex: none; color: var(--ink-faint); transition: transform .2s var(--ease); font-size: 11px; }
 .assoc-item[data-open="true"] .assoc-chevron { transform: rotate(90deg); }
 .assoc-projects { display: none; flex-direction: column; gap: 6px; padding: 2px 4px 14px 52px; }
@@ -216,10 +216,10 @@ a.hot-title:hover { color: var(--brand); text-decoration: underline; }
 .assoc-proj::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--c, var(--other)); }
 .assoc-proj[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
 .assoc-proj[data-type="TRAINING_COURSE"] { --c: var(--tc); }
-.assoc-proj[data-type="VOLUNTEERING"] { --c: var(--ecs); }
+.assoc-proj[data-type="VOLUNTEERING"] { --c: var(--esc); }
 .assoc-proj .p-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .assoc-proj .p-status { flex: none; font: 700 10px var(--font-body); text-transform: uppercase; letter-spacing: .03em; padding: 3px 8px; border-radius: 999px; color: var(--ink-faint); background: var(--surface); }
-.assoc-proj .p-status.open { color: var(--ecs); }
+.assoc-proj .p-status.open { color: var(--esc); }
 .assoc-proj .p-map {
   flex: none; display: inline-flex; align-items: center; gap: 4px; font: 700 11px var(--font-body); color: var(--brand);
   background: color-mix(in srgb, var(--brand) 10%, var(--surface)); padding: 4px 10px; border-radius: 999px; text-decoration: none;
@@ -260,7 +260,7 @@ a.hot-title:hover { color: var(--brand); text-decoration: underline; }
 .arch-card::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--c, var(--other)); }
 .arch-card[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
 .arch-card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
-.arch-card[data-type="VOLUNTEERING"] { --c: var(--ecs); }
+.arch-card[data-type="VOLUNTEERING"] { --c: var(--esc); }
 .arch-card .badge { display: inline-block; font: 700 10.5px var(--font-body); padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--c, var(--other)) 15%, transparent); color: var(--c, var(--other)); margin-bottom: 8px; }
 .arch-card .title { font-weight: 700; font-size: 13.5px; margin-bottom: 5px; line-height: 1.35; }
 .arch-card .meta { font-size: 12px; color: var(--ink-faint); }
@@ -485,7 +485,7 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
 <script>
 var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
 var DIAS = ["dom","lun","mar","mié","jue","vie","sáb"];
-var TIPOS = { YOUTH_EXCHANGE: "Youth Exchange", TRAINING_COURSE: "Training Course", VOLUNTEERING: "ECS" };
+var TIPOS = { YOUTH_EXCHANGE: "Youth Exchange", TRAINING_COURSE: "Training Course", VOLUNTEERING: "ESC" };
 
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -521,7 +521,7 @@ function render(data) {
   STATE.daily = data.daily_visits || [];
 
   document.getElementById("tiles").innerHTML =
-    tile(data.total_open, "Abiertas ahora mismo", "var(--ecs)") +
+    tile(data.total_open, "Abiertas ahora mismo", "var(--esc)") +
     tile(data.total_published, "Proyectos publicados (histórico)", "var(--brand)") +
     tile(data.total_clicks, "Clics a enlaces (info/form/infopack)", "var(--brass)") +
     tile(data.total_visits, "Visitas totales (histórico)", "var(--ye)");

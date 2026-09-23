@@ -44,9 +44,9 @@ _DEFAULT_PRICE = _PRICES_USD_PER_1M["gemini-2.5-flash-lite"]
 _warned_unknown_price = False
 
 # Abreviaturas de tipo para el catálogo (ahorran tokens frente al nombre completo del enum;
-# mismas etiquetas que ya usa el front en mapa.html, salvo VOLUNTEERING -> "ECS").
+# mismas etiquetas que ya usa el front en mapa.html, salvo VOLUNTEERING -> "ESC").
 _TYPE_ABBR = {
-    "YOUTH_EXCHANGE": "YE", "TRAINING_COURSE": "TC", "VOLUNTEERING": "ECS",
+    "YOUTH_EXCHANGE": "YE", "TRAINING_COURSE": "TC", "VOLUNTEERING": "ESC",
 }
 
 

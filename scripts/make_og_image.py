@@ -68,7 +68,7 @@ def main() -> None:
     # Subtítulo
     d.text((x0, 372), "Intercambios juveniles, training courses,",
            font=font("Arial.ttf", 34), fill=MUTED)
-    d.text((x0, 416), "voluntariado ECS y workshops por toda Europa.",
+    d.text((x0, 416), "voluntariado ESC y workshops por toda Europa.",
            font=font("Arial.ttf", 34), fill=MUTED)
 
     # Pie: para quién es

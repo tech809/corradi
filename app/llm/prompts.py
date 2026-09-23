@@ -122,7 +122,7 @@ RULES:
   opportunities), the rest are secondary themes in descending relevance. Judge which theme the activity is
   actually about, don't just list themes in the order they happen to appear in the text. You MAY keep a
   term in English only if its Spanish translation would sound awkward or unnatural. Do NOT translate the
-  keywords "youth exchange", "training course" or "ECS" (leave them as-is if they appear).
+  keywords "youth exchange", "training course" or "ESC" (leave them as-is if they appear).
 - max_participants / ages = integers as strings; cost = signup fee in euros (number) or null.
 - organiser_name = the name of the organisation/association/entity RUNNING the opportunity
   (e.g. "Asociación Xanela", "COSI", a school, a municipality), NOT the project title and NOT

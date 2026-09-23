@@ -36,7 +36,7 @@ def test_home_has_compact_flow_and_mobile_navigation():
     assert 'id="rowYE"' in html
     assert 'id="rowTC"' in html
     assert 'id="rowESC"' in html
-    assert '["rowESC",ecs]' in html
+    assert '["rowESC",escOpps]' in html
     assert 'href="/guia"' in html
     assert 'data-product-open="profile"' in html
     assert 'href="/world"' not in html
@@ -126,17 +126,17 @@ def test_catalog_and_map_can_sort_by_affinity():
     assert 'sortMode === "affinity"' in mapa
 
 
-def test_ecs_duration_filter_is_contextual_in_catalog_and_map():
+def test_esc_duration_filter_is_contextual_in_catalog_and_map():
     discover = (STATIC / "discover.html").read_text(encoding="utf-8")
     mapa = (STATIC / "mapa.html").read_text(encoding="utf-8")
-    assert 'id="ecsDuration"' in discover or 'select.id="ecsDuration"' in discover
+    assert 'id="escDuration"' in discover or 'select.id="escDuration"' in discover
     assert "durationMonths" in discover
-    assert 'id="ecsMaxMonths"' in mapa
-    assert 'id="ecsDurationFilter"' in mapa
-    assert "state.ecsMaxMonths" in mapa
-    assert 'var ecsSelected = state.types.has("VOLUNTEERING")' in mapa
-    assert 'params.has("ecs_max")' in mapa
-    assert 'params.set("ecs_max"' in discover
+    assert 'id="escMaxMonths"' in mapa
+    assert 'id="escDurationFilter"' in mapa
+    assert "state.escMaxMonths" in mapa
+    assert 'var escSelected = state.types.has("VOLUNTEERING")' in mapa
+    assert 'params.get("esc_max")||params.get("ecs_max")' in mapa
+    assert 'params.set("esc_max"' in discover
     assert 'types:Array.from(state.types)' in mapa
 
 

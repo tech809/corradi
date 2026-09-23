@@ -4,7 +4,7 @@ Diferencias con el v1 (`opportunity_card.py`, banner plano de color):
   - usa la FOTO de la oportunidad (image_url de Pexels/subida, o el pool de reserva) de fondo
   - el texto (categoría + título) va superpuesto sobre la foto, con degradado para leerse
   - formato un poco más horizontal
-  - marco de color según el tipo de evento (azul YE · amarillo TC · verde ECS)
+  - marco de color según el tipo de evento (azul YE · amarillo TC · verde ESC)
 
 `render(opp)` es drop-in de `opportunity_card.render`: baja la foto por su cuenta y nunca
 lanza (una foto rota cae al pool y luego a un degradado del color del tipo).

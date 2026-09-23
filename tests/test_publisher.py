@@ -35,14 +35,14 @@ def test_format_opportunity_whatsapp_bold():
 
 
 def test_official_eyp_message_has_duration_and_points_to_full_web_catalogue():
-    ecs = {
+    esc_opp = {
         **OPP, "type": "VOLUNTEERING", "source": "eyp",
         "duration_days": 183, "duration_months": 6.0,
     }
-    telegram = pub.format_opportunity(ecs)
-    whatsapp = pub.format_opportunity_whatsapp(ecs)
+    telegram = pub.format_opportunity(esc_opp)
+    whatsapp = pub.format_opportunity_whatsapp(esc_opp)
     assert "⏱️ Duración: 6 meses" in telegram
-    assert "otros ECS nuevos" in telegram
+    assert "otros ESC nuevos" in telegram
     assert "⏱️ Duración: 6 meses" in whatsapp
     assert "mapa.proactivefuture.eu" in whatsapp
 
@@ -203,12 +203,12 @@ def test_deadline_estimada_labels():
 
 def test_daily_summary_groups_by_type():
     training = {**OPP, "identifier": "CORRADI-2026-0002", "title": "TC Test", "type": "TRAINING_COURSE"}
-    ecs = {**OPP, "identifier": "CORRADI-2026-0003", "title": "ECS Test", "type": "VOLUNTEERING"}
-    t = pub.format_daily_summary([OPP, training, ecs], today=date(2026, 7, 21))
+    esc_opp = {**OPP, "identifier": "CORRADI-2026-0003", "title": "ESC Test", "type": "VOLUNTEERING"}
+    t = pub.format_daily_summary([OPP, training, esc_opp], today=date(2026, 7, 21))
     assert "🎒 Youth Exchange (1)" in t
     assert "🎓 Training Course (1)" in t
-    assert "🤝 ECS (1)" in t
-    assert t.index("Youth Exchange") < t.index("Training Course") < t.index("ECS")
+    assert "🤝 ESC (1)" in t
+    assert t.index("Youth Exchange") < t.index("Training Course") < t.index("ESC")
 
 
 def test_short_map_link():

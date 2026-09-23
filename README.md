@@ -231,13 +231,13 @@ python -m app.scheduler.scrape_salto_world --limit 5
 
 El Portal Europeo de la Juventud alimenta el catálogo principal con una selección
 conservadora: residentes en España admitidos, inicio futuro, deadline explícita y dentro de
-los próximos `MAX_DEADLINE_MONTHS`. Todas las fichas entran en la web. Solo los ECS nuevos
+los próximos `MAX_DEADLINE_MONTHS`. Todas las fichas entran en la web. Solo los ESC nuevos
 descubiertos en el pase actual pueden entrar al flujo Telegram/WhatsApp/Instagram, con un
 máximo diario configurable mediante `EYP_SOCIAL_DAILY_CAP` (2 por defecto); el lote histórico
-no se publica retroactivamente. Los mensajes sociales remiten al catálogo ECS completo.
+no se publica retroactivamente. Los mensajes sociales remiten al catálogo ESC completo.
 
 La duración se normaliza como `duration_days` y `duration_months`. La portada y el mapa
-muestran un filtro contextual de duración máxima cuando se selecciona ECS.
+muestran un filtro contextual de duración máxima cuando se selecciona ESC.
 
 ```bash
 python -m app.scheduler.scrape_eyp --dry-run
@@ -459,7 +459,7 @@ Mapa interactivo de las oportunidades **abiertas**, servido por la propia API en
 sin claves de API ni coste). `MAP_PUBLIC_URL` es también la base del enlace corto que
 lleva cada oportunidad en el texto de WhatsApp (ver "Reenvío a WhatsApp").
 
-**Qué hace:** pines por categoría (Youth Exchange azul · Training Course amarillo · ECS verde),
+**Qué hace:** pines por categoría (Youth Exchange azul · Training Course amarillo · ESC verde),
 filtros agrupados en un solo panel — texto, categoría, edad, país, fechas
 (meses o rango de deadline) y "cierran pronto" (≤7 días) —, lista lateral sincronizada con el
 mapa (clic en tarjeta → vuela al pin y abre su ficha), badge "🆕 Nuevo" en lo publicado en las

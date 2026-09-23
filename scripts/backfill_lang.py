@@ -21,7 +21,7 @@ PROMPT = """Traduce al español (castellano) los campos "topic" y "summary" de e
 Reglas:
 - Si ya están en español, devuélvelos IGUAL.
 - No traduzcas nombres propios, títulos de proyecto ni las claves "youth exchange",
-  "training course", "ECS".
+  "training course", "ESC".
 - En "topic" (lista de temáticas separadas por comas) puedes dejar un término en inglés SOLO
   si su traducción al español suena forzada o cutre; el resto, en español.
 - "summary": 1-2 frases naturales en español.
