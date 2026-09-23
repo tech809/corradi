@@ -813,11 +813,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     <button type="button" class="sheet-close" id="profileClose" aria-label="Cerrar"></button>
   </div>
   <div class="fp-pane" data-shown="true">
-    <p class="fp-hint" style="margin:0 0 18px">Edad y residencia comprueban requisitos oficiales. El resto son preferencias que solo afectan a la afinidad, nunca a si puedes participar.</p>
+    <p class="fp-hint" style="margin:0 0 18px">La edad comprueba los requisitos oficiales. El resto son preferencias que solo afectan a la afinidad, nunca a si puedes participar.</p>
     <form id="profileForm">
       <div class="profile-grid">
         <label>Edad<input type="number" id="profileAge" min="13" max="99"></label>
-        <label>Residencia<select id="profileResidence"><option value="">Selecciona</option></select></label>
       </div>
       <label class="profile-full">Formato preferido<select id="profileType"><option value="">Me interesan todos</option><option value="YOUTH_EXCHANGE">Youth Exchange</option><option value="TRAINING_COURSE">Training Course</option><option value="VOLUNTEERING">ESC</option></select></label>
       <p class="fp-hint" style="margin:18px 0 8px"><b>Prioridades temáticas</b> · ++ muy importante, + me interesa, − evitar</p>
@@ -825,7 +824,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       <p class="fp-hint" style="margin:18px 0 4px"><b>Esto tiene que aparecer sí o sí</b> — se comprueba en la ficha extendida, no en el resumen</p>
       <label class="profile-full">Imprescindible que la oportunidad incluya (máx. 3 palabras)<input type="text" id="profileRequiredText" maxlength="140" placeholder="Ej. deporte, aire libre"></label>
       <div class="affinity-help"><button type="button" class="info-q" data-note="affinityNote" aria-expanded="false" aria-label="Cómo se calcula la afinidad">?</button><span>¿Cómo se calcula el % de afinidad?</span></div>
-      <p class="info-note" id="affinityNote">El % dice qué parte de lo que buscas cubre cada oportunidad:<br><br>&bull; <b>Me interesa</b> cuenta 1 y <b>Muy importante</b> cuenta 2. El texto de <b>Imprescindible</b> también cuenta 2.<br>&bull; Cuenta entero si es el tema principal, un 60 % si sale en el título o los objetivos y un 25 % si solo se menciona de pasada.<br>&bull; Si falta algo muy importante o imprescindible, la afinidad no pasa del 40 %.<br>&bull; Cada tema marcado como <b>Evitar</b> que sea central resta 30 puntos.<br>&bull; Si la ficha tiene poca información, no pasa del 70 %.<br><br>El formato no suma: sirve para filtrar. Y la afinidad nunca decide si puedes participar: eso solo lo deciden tu edad y tu país de residencia.<br><br>Consejo: marca pocas cosas, pero las que de verdad te importen.</p>
+      <p class="info-note" id="affinityNote">El % dice qué parte de lo que buscas cubre cada oportunidad:<br><br>&bull; <b>Me interesa</b> cuenta 1 y <b>Muy importante</b> cuenta 2. El texto de <b>Imprescindible</b> también cuenta 2.<br>&bull; Cuenta entero si es el tema principal, un 60 % si sale en el título o los objetivos y un 25 % si solo se menciona de pasada.<br>&bull; Si falta algo muy importante o imprescindible, la afinidad no pasa del 40 %.<br>&bull; Cada tema marcado como <b>Evitar</b> que sea central resta 30 puntos.<br>&bull; Si la ficha tiene poca información, no pasa del 70 %.<br><br>El formato no suma: sirve para filtrar. Y la afinidad nunca decide si puedes participar: eso solo lo decide tu edad.<br><br>Consejo: marca pocas cosas, pero las que de verdad te importen.</p>
     </form>
   </div>
   <div class="sheet-foot">
@@ -954,7 +953,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"
         integrity="sha256-Hk4dIpcqOSb0hZjgyvFOP+cEmDXUKKNE/tT542ZbNQg=" crossorigin=""></script>
-<script src="/assets/compatibility.js?v=20260923c"></script>
+<script src="/assets/compatibility.js?v=20260923d"></script>
 <script>
 (function () {
   "use strict";
@@ -1703,14 +1702,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   function populateProfileDialog() {
     var p = window.CorradiCompatibility.readProfile();
     document.getElementById("profileAge").value = p.age || "";
-    var residenceSel = document.getElementById("profileResidence");
-    if (!residenceSel.dataset.built) {
-      residenceSel.dataset.built = "1";
-      Object.keys(COUNTRIES).sort(function (a, b) { return COUNTRIES[a].localeCompare(COUNTRIES[b], "es"); }).forEach(function (code) {
-        var opt = document.createElement("option"); opt.value = code; opt.textContent = COUNTRIES[code]; residenceSel.appendChild(opt);
-      });
-    }
-    residenceSel.value = p.residence || "ES";
     document.getElementById("profileType").value = p.type || "";
     document.getElementById("profileRequiredText").value = p.requiredText || "";
     var priorities = p.priorities || {};
@@ -1741,7 +1732,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     Array.prototype.forEach.call(document.querySelectorAll("#profilePreferenceList .preference-row"), function (row) { if (row.dataset.state) selected[row.dataset.concept] = row.dataset.state; });
     var next = {
       age: document.getElementById("profileAge").value,
-      residence: document.getElementById("profileResidence").value,
+      residence: "ES",
       type: document.getElementById("profileType").value,
       priorities: selected,
       requiredText: document.getElementById("profileRequiredText").value.trim()

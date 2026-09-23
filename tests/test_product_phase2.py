@@ -74,7 +74,8 @@ def test_compatibility_profile_only_persists_relevant_fields():
     script = (STATIC / "discover-product.js").read_text(encoding="utf-8")
     profile_block = script[script.index("function openProfile"):script.index("function addApplication")]
     assert "productAge" in profile_block
-    assert "productResidence" in profile_block
+    assert "productResidence" not in profile_block
+    assert 'residence:"ES"' in profile_block
     assert "productType" in profile_block
     assert "priorities:selected" in profile_block
     assert "pref-btn" in profile_block

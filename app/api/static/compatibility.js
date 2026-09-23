@@ -50,7 +50,8 @@
     } catch (_) {}
     var priorities = cleanPriorities(raw.priorities);
     if (!Object.keys(priorities).length && raw.interests) priorities = migrateInterests(raw.interests);
-    var safe = {age:raw.age || "", residence:raw.residence || "", type:raw.type || "", priorities:priorities, requiredText:typeof raw.requiredText === "string" ? raw.requiredText.slice(0, 140) : ""};
+    // Corradi es solo para residentes en España: la residencia ya no se pregunta.
+    var safe = {age:raw.age || "", residence:"ES", type:raw.type || "", priorities:priorities, requiredText:typeof raw.requiredText === "string" ? raw.requiredText.slice(0, 140) : ""};
     if (legacy || raw.interests || Object.keys(raw).some(function (key) { return ["age","residence","type","priorities","requiredText"].indexOf(key) < 0; })) {
       localStorage.setItem(KEY, JSON.stringify(safe));
       if (legacy) localStorage.removeItem(LEGACY_KEY);
@@ -102,9 +103,9 @@
       // pasó con un curso en Turquía que en teoría también admitía España. No lo tratamos
       // como un "no" verificado hasta que el infopack confirme la lista completa.
       if (!project.infopack_enriched) return {score:null,state:"warn",label:"Revisa requisitos",confidence:"baja",reasons:["Aún no hemos confirmado todos los países admitidos"]};
-      return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["Tu país no figura entre los admitidos"]};
+      return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["España no figura entre los países admitidos"]};
     }
-    reasons.push("Tu país figura en la convocatoria");
+    reasons.push("España figura entre los países admitidos");
     var min = Number(project.participant_min_age || 0), max = Number(project.participant_max_age || 0);
     if ((min && age < min) || (max && age > max)) return {score:0,state:"no",label:"Revisa requisitos",confidence:"alta",reasons:["Tu edad no entra en el rango publicado"]};
     reasons.push(min || max ? "Tu edad encaja" : "La convocatoria no concreta el rango de edad");
