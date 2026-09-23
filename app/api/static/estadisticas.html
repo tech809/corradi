@@ -345,6 +345,7 @@ footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; pa
 @media(max-width:760px){.insights-zone .grid-2{grid-template-columns:1fr}.insights-intro{align-items:start;flex-direction:column;gap:10px}.insights-intro p{max-width:58ch}}
 @media(max-width:560px){.insights-zone{margin:26px -8px 0;padding:30px 8px 18px;border-radius:22px}.insights-intro{margin:0 10px 18px}.insights-zone>.card{padding:22px 18px}.insights-zone .timeline{min-width:560px}.insights-zone .grid-2 .card:first-child{overflow-x:auto}.insights-zone #heatmap{height:360px}}
 </style>
+<script src="/assets/corradi-core.js?v=20260923i"></script>
 </head>
 <body>
 <header class="top">
@@ -491,11 +492,7 @@ var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov",
 var DIAS = ["dom","lun","mar","mié","jue","vie","sáb"];
 var TIPOS = { YOUTH_EXCHANGE: "Youth Exchange", TRAINING_COURSE: "Training Course", VOLUNTEERING: "ESC" };
 
-function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-    return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
-  });
-}
+var esc = window.Corradi.esc;
 function parseDay(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
 function monthLabel(key) { var p = key.split("-"); return MESES[Number(p[1]) - 1] + " " + p[0].slice(2); }
 function initials(name) {

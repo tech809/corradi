@@ -9,8 +9,9 @@
     snapshots: "corradi-opportunity-snapshots-v1",
     changes: "corradi-opportunity-changes-v1",
   };
-  const TYPES = {YOUTH_EXCHANGE: "Youth Exchange", TRAINING_COURSE: "Training Course", VOLUNTEERING: "ESC", ESC: "ESC"};
-  const COUNTRIES = {ES:"España",IT:"Italia",RO:"Rumanía",GR:"Grecia",PL:"Polonia",DE:"Alemania",PT:"Portugal",FR:"Francia",HR:"Croacia",BG:"Bulgaria",HU:"Hungría",LT:"Lituania",LV:"Letonia",SK:"Eslovaquia",SI:"Eslovenia",EE:"Estonia",NL:"Países Bajos",BE:"Bélgica",CZ:"Chequia",AT:"Austria",SE:"Suecia",FI:"Finlandia",DK:"Dinamarca",MT:"Malta",IE:"Irlanda",CY:"Chipre",TR:"Turquía",MK:"Macedonia del Norte",RS:"Serbia",BA:"Bosnia y Herzegovina",AL:"Albania",ME:"Montenegro",GE:"Georgia",NO:"Noruega",IS:"Islandia",UA:"Ucrania",GB:"Reino Unido"};
+  const K = window.Corradi;
+  const TYPES = {YOUTH_EXCHANGE: K.typeLabel("YOUTH_EXCHANGE"), TRAINING_COURSE: K.typeLabel("TRAINING_COURSE"), VOLUNTEERING: K.typeLabel("VOLUNTEERING"), ESC: K.typeLabel("VOLUNTEERING")};
+  const COUNTRIES = K.COUNTRIES;
   const STATUS = {saved:"Guardada",preparing:"Preparando",sent:"Enviada",interview:"Entrevista",accepted:"Aceptada",rejected:"No seleccionada"};
   const ORIGINS = {madrid:[40.4168,-3.7038],barcelona:[41.3874,2.1686],valencia:[39.4699,-0.3763],sevilla:[37.3891,-5.9845],bilbao:[43.263,-2.935]};
   const DEFAULT_DOCS = ["Documento de identidad en vigor", "Formulario de solicitud", "Carta o respuestas de motivación", "Confirmación de selección", "Billetes y justificantes de pago", "Tarjeta sanitaria o seguro", "Datos bancarios para el reembolso"];
@@ -24,7 +25,7 @@
     try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (_) { return fallback; }
   }
   function write(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
-  function esc(value) { const node = document.createElement("div"); node.textContent = value == null ? "" : String(value); return node.innerHTML; }
+  const esc = K.esc;
   function fmt(value) { return value ? new Intl.DateTimeFormat("es", {day:"numeric", month:"short", year:"numeric"}).format(new Date(value + "T12:00:00")) : "Por confirmar"; }
   function projectUrl(project) { return "/proyecto/" + encodeURIComponent(project.identifier); }
   function byId(identifier) { return catalog.find(project => project.identifier === identifier); }
@@ -96,38 +97,12 @@
     renderTopMatches();
   }
 
-  const QUICK_TOPICS = ["outdoor","sport","sustainability","wellbeing","creative","intercultural","inclusion","digital","leadership","rights"];
   const TYPE_SHORT = {YOUTH_EXCHANGE:"Youth Exchange", TRAINING_COURSE:"Training Course", VOLUNTEERING:"ESC", ESC:"ESC"};
-  function daysLeft(project) {
-    if (!project.application_deadline) return null;
-    return Math.ceil((new Date(project.application_deadline + "T23:59:59") - new Date()) / 86400000);
-  }
-  function deadlineLabel(days) {
-    if (days == null) return "Sin fecha límite";
-    if (days <= 0) return "Cierra hoy";
-    if (days === 1) return "Cierra mañana";
-    return "Cierra en " + days + " días";
-  }
-  function flag(code) {
-    return code && /^[A-Z]{2}$/i.test(code) ? String.fromCodePoint.apply(null, code.toUpperCase().split("").map(ch => 127397 + ch.charCodeAt(0))) : "";
-  }
+  const daysLeft = project => K.daysLeft(project.application_deadline);
+  const deadlineLabel = K.deadlineLabel, flag = K.flag;
   function imageFor(project) {
     return project.image_url || (window.CorradiImageFor ? window.CorradiImageFor(project) : "");
   }
-  let saveTimer = null;
-  function saveQuick(patch, immediate) {
-    write(KEYS.profile, Object.assign({}, profile(), patch));
-    scheduleRender();
-    clearTimeout(saveTimer);
-    // Sincronizar el catálogo de abajo es caro (re-render entero): lo diferimos mientras se arrastra.
-    saveTimer = setTimeout(() => {
-      const p = profile(), age = document.getElementById("age");
-      if (age && age.value !== String(p.age || "")) { age.value = p.age || ""; age.dispatchEvent(new Event("input", {bubbles:true})); }
-      updateSummaries(); enhanceCards();
-    }, immediate ? 0 : 350);
-  }
-  const PREF_LABEL = {avoid:"Evitar", positive:"Me interesa", required:"Muy importante"};
-  function requiredWords(p) { return String((p || profile()).requiredText || "").split(",").map(w => w.trim()).filter(Boolean).slice(0, 3); }
   // Un render por frame como máximo: el deslizador de edad dispara decenas de eventos por segundo.
   let renderQueued = false;
   function scheduleRender() {
@@ -135,99 +110,31 @@
     renderQueued = true;
     requestAnimationFrame(() => { renderQueued = false; renderTopMatches(); });
   }
-  function setupQuickProfile() {
-    const form = document.getElementById("quickProfile");
-    if (!form || form.dataset.ready) return;
-    form.dataset.ready = "1";
-    const ageInput = form.querySelector("#qpAge");
-    ageInput.addEventListener("input", () => saveQuick({age: ageInput.value}));
-    const typeHolder = form.querySelector("#qpType");
-    typeHolder.innerHTML = [["", "Todo", "Todos los formatos"], ["YOUTH_EXCHANGE", "YE", "Youth Exchange"], ["TRAINING_COURSE", "TC", "Training Course"], ["VOLUNTEERING", "ESC", "Voluntariado ESC"]]
-      .map(([value, label, title]) => '<button type="button" class="qp-chip" data-type="' + value + '" title="' + title + '">' + label + '</button>').join("");
-    typeHolder.addEventListener("click", event => {
-      const chip = event.target.closest(".qp-chip"); if (!chip) return;
-      let types = (profile().types || []).slice();
-      if (!chip.dataset.type) types = [];
-      else if (types.includes(chip.dataset.type)) types = types.filter(t => t !== chip.dataset.type);
-      else types.push(chip.dataset.type);
-      if (types.length === 3) types = [];
-      saveQuick({types, type: types.length === 1 ? types[0] : ""}, true);
-    });
-
-    // Palabras imprescindibles: cada palabra se convierte en etiqueta al pulsar Enter o coma.
-    const wordInput = form.querySelector("#qpWordInput"), tags = form.querySelector("#qpTags");
-    const addWord = () => {
-      const word = wordInput.value.replace(/,/g, " ").trim().slice(0, 30);
-      wordInput.value = "";
-      if (!word) return;
-      const words = requiredWords();
-      if (words.some(w => w.toLowerCase() === word.toLowerCase())) return;
-      if (words.length >= 3) { toast("Máximo 3 palabras imprescindibles"); return; }
-      saveQuick({requiredText: words.concat(word).join(", ")}, true);
-    };
-    wordInput.addEventListener("keydown", event => {
-      if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addWord(); }
-      else if (event.key === "Backspace" && !wordInput.value) {
-        const words = requiredWords(); if (words.length) saveQuick({requiredText: words.slice(0, -1).join(", ")}, true);
-      }
-    });
-    wordInput.addEventListener("blur", addWord);
-    tags.addEventListener("click", event => {
-      const remove = event.target.closest("[data-remove-word]");
-      if (remove) { saveQuick({requiredText: requiredWords().filter(w => w !== remove.dataset.removeWord).join(", ")}, true); return; }
-      if (event.target === tags) wordInput.focus();
-    });
-
-    // Temas: la misma lista con −/+/++ que en los ajustes finos.
-    const prefs = form.querySelector("#qpPrefs");
-    prefs.innerHTML = window.CorradiCompatibility.taxonomy.map(concept =>
-      '<div class="qp-pref" data-concept="' + concept.id + '"><span class="qp-pref-name">' + esc(concept.label) + '</span><span class="qp-pref-state"></span><span class="qp-pref-btns">' +
-      '<button type="button" data-mode="avoid" title="Evitar" aria-label="Evitar ' + esc(concept.label) + '">−</button>' +
-      '<button type="button" data-mode="positive" title="Me interesa" aria-label="Me interesa ' + esc(concept.label) + '">+</button>' +
-      '<button type="button" data-mode="required" title="Muy importante" aria-label="Muy importante ' + esc(concept.label) + '">++</button></span></div>').join("");
-    prefs.addEventListener("scroll", () => prefs.classList.toggle("at-end", prefs.scrollTop + prefs.clientHeight >= prefs.scrollHeight - 4), {passive:true});
-    prefs.addEventListener("click", event => {
-      const button = event.target.closest("button[data-mode]"); if (!button) return;
-      const id = button.closest(".qp-pref").dataset.concept, mode = button.dataset.mode;
-      const priorities = Object.assign({}, profile().priorities || {});
-      if (priorities[id] === mode) delete priorities[id];
-      else {
-        if (mode === "required" || mode === "positive") {
-          const limit = mode === "required" ? 2 : 5;
-          if (Object.keys(priorities).filter(k => k !== id && priorities[k] === mode).length >= limit) { toast(mode === "required" ? "Máximo 2 temas muy importantes" : "Máximo 5 temas en «me interesa»"); return; }
-        }
-        priorities[id] = mode;
-      }
-      saveQuick({priorities}, true);
-    });
-    form.querySelector("#qpReset").onclick = () => { localStorage.removeItem(KEYS.profile); saveQuick({}, true); toast("Perfil borrado"); };
-    syncQuickProfile();
-  }
-  function syncQuickProfile() {
-    const form = document.getElementById("quickProfile");
-    if (!form || !form.dataset.ready) return;
-    const p = profile(), priorities = p.priorities || {};
-    const ageInput = form.querySelector("#qpAge"), out = form.querySelector("#qpAgeOut");
-    if (document.activeElement !== ageInput) ageInput.value = p.age || 22;
-    out.textContent = p.age ? p.age + " años" : "Sin indicar";
-    form.classList.toggle("no-age", !p.age);
-    const types = p.types || [];
-    form.querySelectorAll("[data-type]").forEach(chip => chip.setAttribute("aria-pressed", String(chip.dataset.type ? types.includes(chip.dataset.type) : !types.length)));
-    const words = requiredWords(p), tags = form.querySelector("#qpTags"), input = form.querySelector("#qpWordInput");
-    tags.querySelectorAll(".qp-tag").forEach(tag => tag.remove());
-    input.insertAdjacentHTML("beforebegin", words.map(w => '<span class="qp-tag"><span aria-hidden="true">★</span>' + esc(w) + '<button type="button" data-remove-word="' + esc(w) + '" aria-label="Quitar ' + esc(w) + '">×</button></span>').join(""));
-    input.hidden = words.length >= 3;
-    form.querySelector("#qpWordCount").textContent = words.length + "/3";
-    form.querySelectorAll(".qp-pref").forEach(row => {
-      const state = priorities[row.dataset.concept] || "";
-      row.dataset.state = state;
-      row.querySelector(".qp-pref-state").textContent = PREF_LABEL[state] || "";
-      row.querySelectorAll("button[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === state)));
-    });
-    const topics = Object.values(priorities).filter(v => v !== "avoid").length;
+  // El editor de perfil es compartido (profile-editor.js); aquí solo se monta y se escucha.
+  let catalogSyncTimer = null;
+  function onProfileChange() {
+    scheduleRender();
     const summary = document.getElementById("qpSummary");
-    if (summary) summary.textContent = (p.age || topics || words.length || (p.types || []).length) ? [p.age ? p.age + " años" : "Sin edad", (p.types || []).length ? p.types.map(t => TYPE_SHORT[t] === "Youth Exchange" ? "YE" : TYPE_SHORT[t] === "Training Course" ? "TC" : "ESC").join(" + ") : "Todo", topics ? topics + (topics === 1 ? " tema" : " temas") : "", words.length ? words.length + (words.length === 1 ? " palabra" : " palabras") : ""].filter(Boolean).join(" · ") : "Sin completar";
+    if (summary && window.CorradiProfileEditor) summary.textContent = window.CorradiProfileEditor.summary();
+    // Sincronizar el catálogo de abajo es caro (re-render entero): lo diferimos mientras se arrastra.
+    clearTimeout(catalogSyncTimer);
+    catalogSyncTimer = setTimeout(() => {
+      const p = profile(), age = document.getElementById("age");
+      if (age && age.value !== String(p.age || "")) { age.value = p.age || ""; age.dispatchEvent(new Event("input", {bubbles:true})); }
+      updateSummaries(); enhanceCards();
+    }, 350);
   }
+  function setupQuickProfile() {
+    const holder = document.getElementById("quickProfile");
+    if (holder && !holder.dataset.ready && window.CorradiProfileEditor) {
+      holder.dataset.ready = "1";
+      window.CorradiProfileEditor.mount(holder, {theme: "dark"});
+    }
+    if (!setupQuickProfile.listening) { setupQuickProfile.listening = true; window.addEventListener("corradi:profile-change", onProfileChange); }
+    const summary = document.getElementById("qpSummary");
+    if (summary && window.CorradiProfileEditor) summary.textContent = window.CorradiProfileEditor.summary();
+  }
+  function openProfile() { if (window.CorradiProfileEditor) window.CorradiProfileEditor.openDialog(); }
   function showInCatalog() {
     const p = profile(), type = document.getElementById("type"), age = document.getElementById("age");
     if (type) { type.value = p.type || ""; type.dispatchEvent(new Event("change", {bubbles:true})); }
@@ -253,7 +160,6 @@
       '<span class="qp-card-body"><span class="qp-card-title">' + esc(project.title) + '</span><span class="qp-card-meta">' + flag(project.country_code) + ' ' + esc(COUNTRIES[project.country_code] || project.country_code || "") + ' · ' + deadlineLabel(days) + '</span></span></a>';
   }
   function renderTopMatches() {
-    syncQuickProfile();
     const holder = document.getElementById("productMatches");
     if (!holder || !catalog.length) return;
     const p = profile();
@@ -361,69 +267,6 @@
     modal.showModal();
     requestAnimationFrame(() => { const focus = modal.querySelector("input,select,textarea,button:not(.product-close)"); if (focus) focus.focus(); });
     return modal;
-  }
-
-  function openProfile() {
-    const p = profile();
-    const priorities = p.priorities || {};
-    const stateLabel = state => ({avoid:"Evitar", positive:"Me interesa", required:"Muy importante"})[state] || "Indiferente";
-    const preferenceRows = window.CorradiCompatibility.taxonomy.map(concept => {
-      const state = priorities[concept.id] || "";
-      const btn = (mode, text, title) => '<button type="button" class="pref-btn" data-mode="' + mode + '" aria-pressed="' + (state === mode) + '" title="' + title + '">' + text + '</button>';
-      return '<div class="preference-row" data-concept="' + concept.id + '" data-state="' + state + '"><strong>' + esc(concept.label) + '</strong><div class="pref-buttons">' + btn("avoid", "−", "Evitar") + '<span class="pref-current">' + stateLabel(state) + '</span>' + btn("positive", "+", "Me interesa") + btn("required", "++", "Muy importante") + '</div></div>';
-    }).join("");
-    const body = '<p class="product-intro">Tu edad comprueba si eres elegible. Tus prioridades, después, calculan cuánto te encaja — nunca al revés.</p><form id="profileForm"><div class="product-grid profile-basics"><div class="product-field"><label for="productAge">Edad · requisito</label><input id="productAge" type="number" min="13" max="99" value="' + esc(p.age || "") + '" required></div><div class="product-field full"><label for="productType">Formato preferido</label><select id="productType"><option value="">Me interesan todos</option>' + Object.keys(TYPES).filter(x => x !== "ESC").map(type => '<option value="' + type + '"' + (p.type === type ? " selected" : "") + '>' + TYPES[type] + '</option>').join("") + '</select></div></div><div class="priority-heading"><div><span>Prioridades temáticas</span><h3>Indica qué debe pesar de verdad.</h3></div><p><b>Muy importante</b> baja mucho la afinidad si falta · <b>Me interesa</b> suma · <b>Evitar</b> resta si aparece. Máximo 2 muy importantes y 5 interesantes.</p></div><div class="preference-list">' + preferenceRows + '</div><div class="required-heading"><div><span>Nivel máximo</span><h3>Esto tiene que aparecer sí o sí.</h3></div><p>No es una prioridad más: si no lo encontramos en la ficha extendida o el infopack, la afinidad baja fuerte.</p></div><div class="product-field full required-field"><label for="productWordInput">Imprescindible que la oportunidad incluya <span class="word-count" id="productWordCount">0/3</span></label><input type="hidden" id="productRequiredText" value="' + esc(p.requiredText || "") + '"><div class="word-tags" id="productWordTags"><input id="productWordInput" maxlength="30" placeholder="Escribe y pulsa Enter"></div><small>Una palabra o expresión por etiqueta. Máximo 3.</small></div><div class="privacy-note"><b>Guardado local:</b><span>Permanece solo en este navegador y dispositivo. No se envía al servidor. “Evitar” expresa una preferencia, nunca un requisito oficial de participación.</span></div><div class="affinity-help"><button type="button" class="info-q" data-note="affinityNote" aria-expanded="false" aria-label="Cómo se calcula la afinidad">?</button><span>¿Cómo se calcula el % de afinidad?</span></div><p class="info-note" id="affinityNote">El % dice qué parte de lo que buscas cubre cada oportunidad:<br><br>&bull; <b>Me interesa</b> cuenta 1 y <b>Muy importante</b> cuenta 2. El texto de <b>Imprescindible</b> también cuenta 2.<br>&bull; Cuenta entero si es el tema principal, un 60 % si sale en el título o los objetivos y un 25 % si solo se menciona de pasada.<br>&bull; Si falta algo muy importante o imprescindible, la afinidad no pasa del 40 %.<br>&bull; Cada tema marcado como <b>Evitar</b> que sea central resta 30 puntos.<br>&bull; Si la ficha tiene poca información, no pasa del 70 %.<br><br>El formato no suma: sirve para filtrar. Y la afinidad nunca decide si puedes participar: eso solo lo decide tu edad.<br><br>Consejo: marca pocas cosas, pero las que de verdad te importen.</p><div class="product-form-actions"><button class="product-button danger" id="clearProfile" type="button">Borrar datos</button><button class="product-button primary" type="submit">Guardar y recalcular</button></div></form>';
-    const modal = modalShell("profile", "Compatibilidad sin registro", "Mi compatibilidad", body);
-    // Palabras imprescindibles como etiquetas (igual que en el panel de la home).
-    const hiddenWords = modal.querySelector("#productRequiredText"), wordTags = modal.querySelector("#productWordTags"), wordInput = modal.querySelector("#productWordInput");
-    const dialogWords = () => hiddenWords.value.split(",").map(w => w.trim()).filter(Boolean).slice(0, 3);
-    const paintWords = () => {
-      const words = dialogWords();
-      wordTags.querySelectorAll(".word-tag").forEach(tag => tag.remove());
-      wordInput.insertAdjacentHTML("beforebegin", words.map(w => '<span class="word-tag"><span aria-hidden="true">★</span>' + esc(w) + '<button type="button" data-remove-word="' + esc(w) + '" aria-label="Quitar ' + esc(w) + '">×</button></span>').join(""));
-      wordInput.hidden = words.length >= 3;
-      modal.querySelector("#productWordCount").textContent = words.length + "/3";
-    };
-    const addDialogWord = () => {
-      const word = wordInput.value.replace(/,/g, " ").trim().slice(0, 30); wordInput.value = "";
-      if (!word) return;
-      const words = dialogWords();
-      if (words.some(w => w.toLowerCase() === word.toLowerCase())) return;
-      if (words.length >= 3) { toast("Máximo 3 palabras imprescindibles"); return; }
-      hiddenWords.value = words.concat(word).join(", "); paintWords();
-    };
-    wordInput.addEventListener("keydown", event => {
-      if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addDialogWord(); }
-      else if (event.key === "Backspace" && !wordInput.value) { hiddenWords.value = dialogWords().slice(0, -1).join(", "); paintWords(); }
-    });
-    wordInput.addEventListener("blur", addDialogWord);
-    wordTags.addEventListener("click", event => {
-      const remove = event.target.closest("[data-remove-word]");
-      if (remove) { hiddenWords.value = dialogWords().filter(w => w !== remove.dataset.removeWord).join(", "); paintWords(); }
-      else if (event.target === wordTags) wordInput.focus();
-    });
-    paintWords();
-    modal.querySelectorAll(".info-q").forEach(q => q.onclick = () => {
-      const note = modal.querySelector("#" + q.dataset.note), open = note.getAttribute("data-open") !== "true";
-      note.setAttribute("data-open", String(open)); q.setAttribute("aria-expanded", String(open));
-    });
-    modal.querySelectorAll(".pref-btn").forEach(button => button.onclick = () => {
-      const row = button.closest(".preference-row"), mode = button.dataset.mode, current = row.dataset.state, next = current === mode ? "" : mode;
-      if (next === "required" || next === "positive") {
-        const limit = next === "required" ? 2 : 5;
-        const used = Array.from(modal.querySelectorAll(".preference-row")).filter(other => other !== row && other.dataset.state === next).length;
-        if (used >= limit) { toast(next === "required" ? "Elige como máximo 2 muy importantes" : "Elige como máximo 5 en 'Me interesa'"); return; }
-      }
-      row.dataset.state = next;
-      row.querySelectorAll(".pref-btn").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === next)));
-      row.querySelector(".pref-current").textContent = stateLabel(next);
-    });
-    modal.querySelector("#profileForm").onsubmit = event => {
-      event.preventDefault(); addDialogWord(); const selected = {}; modal.querySelectorAll(".preference-row").forEach(row => { if (row.dataset.state) selected[row.dataset.concept] = row.dataset.state; });
-      const next = {age:modal.querySelector("#productAge").value,residence:"ES",type:modal.querySelector("#productType").value,types:modal.querySelector("#productType").value ? [modal.querySelector("#productType").value] : (p.types || []),priorities:selected,requiredText:modal.querySelector("#productRequiredText").value.trim()};
-      write(KEYS.profile, next); const age = document.getElementById("age"); if (age && next.age) { age.value = next.age; age.dispatchEvent(new Event("input", {bubbles:true})); } updateSummaries(); enhanceCards(); modal.close(); toast("Perfil guardado en este dispositivo");
-    };
-    modal.querySelector("#clearProfile").onclick = () => { localStorage.removeItem(KEYS.profile); localStorage.removeItem("corradi-profile-v2"); updateSummaries(); enhanceCards(); modal.close(); toast("Perfil eliminado"); };
   }
 
   function addApplication(project) {
@@ -567,6 +410,6 @@
   }
 
   const projectMatch = location.pathname.match(/^\/proyecto\/(CORRADI-\d{4}-\d{4})$/);
-  const request = projectMatch ? fetch("/opportunities/" + encodeURIComponent(projectMatch[1])).then(r => r.ok ? r.json() : Promise.reject()) : fetch("/api/map").then(r => r.ok ? r.json() : Promise.reject());
+  const request = projectMatch ? fetch("/opportunities/" + encodeURIComponent(projectMatch[1])).then(r => r.ok ? r.json() : Promise.reject()) : K.catalog();
   request.then(data => projectMatch ? initProject(data) : initHome(data)).catch(() => {});
 })();

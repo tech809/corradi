@@ -30,7 +30,8 @@ def test_home_has_compact_flow_and_mobile_navigation():
     assert 'href="/organizaciones"' in html
     assert 'id="productMatches"' in html
     assert 'id="quickProfile"' in html
-    assert 'id="qpAge"' in html
+    assert "/assets/profile-editor.js" in html
+    assert "/assets/profile-editor.css" in html
     assert 'id="installApp"' not in html
     assert 'class="wrap weekly-top"' not in html
     assert 'id="rowSoon"' in html
@@ -71,21 +72,29 @@ def test_world_is_not_linked_or_allowed_by_public_proxy():
 
 
 def test_compatibility_profile_only_persists_relevant_fields():
-    script = (STATIC / "discover-product.js").read_text(encoding="utf-8")
-    profile_block = script[script.index("function openProfile"):script.index("function addApplication")]
-    assert "productAge" in profile_block
-    assert "productResidence" not in profile_block
-    assert 'residence:"ES"' in profile_block
-    assert "productType" in profile_block
-    assert "priorities:selected" in profile_block
-    assert "pref-btn" in profile_block
-    assert "Indiferente" in profile_block
-    assert 'data-note="affinityNote"' in profile_block
-    assert "productRequiredText" in profile_block
-    assert "requiredText:" in profile_block
-    assert "productLanguages" not in profile_block
-    assert "productExperience" not in profile_block
-    assert "productStrengths" not in profile_block
+    editor = (STATIC / "profile-editor.js").read_text(encoding="utf-8")
+    compatibility = (STATIC / "compatibility.js").read_text(encoding="utf-8")
+    assert "corradi:profile-change" in editor
+    assert 'data-mode="required"' in editor and 'data-mode="avoid"' in editor
+    assert "requiredText:" in editor
+    assert "types:" in editor
+    assert "¿Cómo se calcula el % de afinidad?" in editor
+    assert 'residence:"ES"' in compatibility
+    for field in ("productLanguages", "productExperience", "productStrengths", "productResidence"):
+        assert field not in editor
+
+
+def test_profile_editor_is_shared_and_not_duplicated():
+    """Home, fichas y mapa usan el mismo editor: ningún formulario de perfil propio."""
+    product = (STATIC / "discover-product.js").read_text(encoding="utf-8")
+    for name in ("discover.html", "project.html", "mapa.html"):
+        html = (STATIC / name).read_text(encoding="utf-8")
+        assert "/assets/profile-editor.js" in html, name
+        assert "/assets/corradi-core.js" in html, name
+        assert 'id="profileForm"' not in html, name
+        assert "preference-row" not in html, name
+    assert "preference-row" not in product
+    assert "CorradiProfileEditor.openDialog" in product
 
 
 def test_secondary_pages_share_the_same_back_navigation():

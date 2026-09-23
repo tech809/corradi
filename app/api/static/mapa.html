@@ -424,6 +424,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 .sw-row .lbl { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; }
 .sw-row .lbl svg { color: var(--ink-faint); }
 .info-q { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--ink-faint); font: 700 10.5px var(--font-body); cursor: pointer; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: none; }
+.link-btn { padding: 0; border: 0; background: none; color: var(--brand); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
 .info-q:hover, .info-q[aria-expanded="true"] { border-color: var(--brand); color: var(--brand); }
 .switch { width: 44px; height: 26px; border-radius: 999px; background: var(--line); position: relative; cursor: pointer; flex: none; transition: background .2s var(--ease); border: 0; padding: 0; }
 .switch[aria-pressed="true"] { background: var(--brand); }
@@ -431,8 +432,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 .switch[aria-pressed="true"] i { transform: translateX(18px); }
 .info-note { margin: -2px 0 12px; font-size: 12px; color: var(--ink-faint); padding: 0 2px; display: none; }
 .info-note[data-open="true"] { display: block; }
-.affinity-help { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
-.affinity-help span { color: var(--ink-soft); font-size: 12px; font-weight: 600; }
 
 .age-stepper { display: flex; align-items: center; gap: 18px; }
 .step-btn { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-sunk); font: 650 18px var(--font-body); cursor: pointer; color: var(--brand); transition: all .15s var(--ease); }
@@ -465,20 +464,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 .esc-duration-filter[hidden] { display: none; }
 .esc-duration-filter label { display: grid; gap: 7px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
 .esc-duration-filter select { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
-#profileForm label { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
-#profileForm input, #profileForm select { font: inherit; font-size: 13px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink); }
-.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.profile-full { grid-column: 1 / -1; }
-.preference-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-.preference-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-sunk); }
-.preference-row strong { font-size: 11px; font-weight: 650; }
-.pref-buttons { display: flex; align-items: center; gap: 5px; flex: none; }
-.pref-current { min-width: 66px; color: var(--ink-faint); font: 700 9px var(--font-body); text-align: center; }
-.pref-btn { min-width: 26px; min-height: 26px; padding: 0 5px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink-faint); font: 800 11px var(--font-body); cursor: pointer; }
-.pref-btn[aria-pressed="true"][data-mode="required"] { border-color: #36543d; background: #dfead2; color: #274634; }
-.pref-btn[aria-pressed="true"][data-mode="positive"] { border-color: #53679e; background: #e6eaf4; color: #263c73; }
-.pref-btn[aria-pressed="true"][data-mode="avoid"] { border-color: #a85b52; background: #f4e2df; color: #8d3832; }
-@media (max-width: 620px) { .profile-grid, .preference-list { grid-template-columns: 1fr; } }
 
 .sheet-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--line-soft); position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
 .sheet-foot .btn.primary { padding: 12px 22px; font-size: 13.5px; }
@@ -587,7 +572,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   body.searching .quick-filters { display: none; }
   .top-actions { top: calc(18px + env(safe-area-inset-top)); right: 12px; display: flex; }
   .top-actions #contribute, .top-actions #infoBtn, .top-actions #igTopBtn { display: none; }
-  .top-actions a[href="/guia"], .top-actions a[href="/?profile=1"] { display:flex; }
+  .top-actions a[href="/guia"] { display:flex; }
   .top-actions .mobile-symbol{display:inline}
   .top-actions .pill-btn .label { display: none; }
   .top-actions .pill-btn { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
@@ -616,6 +601,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   .leaflet-control-zoom { margin-bottom: calc(124px + env(safe-area-inset-bottom)) !important; }
 }
 </style>
+<link rel="stylesheet" href="/assets/profile-editor.css?v=20260923i">
+<script src="/assets/corradi-core.js?v=20260923i"></script>
 </head>
 <body>
 <a href="#listMobile" class="skip-map">Saltar a resultados</a>
@@ -807,31 +794,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   </div>
 </dialog>
 
-<dialog id="profileDialog" class="sheet-dialog" aria-labelledby="profileTitle">
-  <div class="sheet-head">
-    <h2 id="profileTitle">Mi compatibilidad</h2>
-    <button type="button" class="sheet-close" id="profileClose" aria-label="Cerrar"></button>
-  </div>
-  <div class="fp-pane" data-shown="true">
-    <p class="fp-hint" style="margin:0 0 18px">La edad comprueba los requisitos oficiales. El resto son preferencias que solo afectan a la afinidad, nunca a si puedes participar.</p>
-    <form id="profileForm">
-      <div class="profile-grid">
-        <label>Edad<input type="number" id="profileAge" min="13" max="99"></label>
-      </div>
-      <label class="profile-full">Formato preferido<select id="profileType"><option value="">Me interesan todos</option><option value="YOUTH_EXCHANGE">Youth Exchange</option><option value="TRAINING_COURSE">Training Course</option><option value="VOLUNTEERING">ESC</option></select></label>
-      <p class="fp-hint" style="margin:18px 0 8px"><b>Prioridades temáticas</b> · ++ muy importante, + me interesa, − evitar</p>
-      <div class="preference-list" id="profilePreferenceList"></div>
-      <p class="fp-hint" style="margin:18px 0 4px"><b>Esto tiene que aparecer sí o sí</b> — se comprueba en la ficha extendida, no en el resumen</p>
-      <label class="profile-full">Imprescindible que la oportunidad incluya (máx. 3 palabras)<input type="text" id="profileRequiredText" maxlength="140" placeholder="Ej. deporte, aire libre"></label>
-      <div class="affinity-help"><button type="button" class="info-q" data-note="affinityNote" aria-expanded="false" aria-label="Cómo se calcula la afinidad">?</button><span>¿Cómo se calcula el % de afinidad?</span></div>
-      <p class="info-note" id="affinityNote">El % dice qué parte de lo que buscas cubre cada oportunidad:<br><br>&bull; <b>Me interesa</b> cuenta 1 y <b>Muy importante</b> cuenta 2. El texto de <b>Imprescindible</b> también cuenta 2.<br>&bull; Cuenta entero si es el tema principal, un 60 % si sale en el título o los objetivos y un 25 % si solo se menciona de pasada.<br>&bull; Si falta algo muy importante o imprescindible, la afinidad no pasa del 40 %.<br>&bull; Cada tema marcado como <b>Evitar</b> que sea central resta 30 puntos.<br>&bull; Si la ficha tiene poca información, no pasa del 70 %.<br><br>El formato no suma: sirve para filtrar. Y la afinidad nunca decide si puedes participar: eso solo lo decide tu edad.<br><br>Consejo: marca pocas cosas, pero las que de verdad te importen.</p>
-    </form>
-  </div>
-  <div class="sheet-foot">
-    <button type="button" class="reset" id="profileClear">Borrar datos</button>
-    <button type="button" class="btn primary" id="profileSave">Guardar y recalcular</button>
-  </div>
-</dialog>
 
 <dialog id="infoDialog" class="sheet-dialog" aria-labelledby="infoTitle">
   <div class="sheet-head">
@@ -953,7 +915,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"
         integrity="sha256-Hk4dIpcqOSb0hZjgyvFOP+cEmDXUKKNE/tT542ZbNQg=" crossorigin=""></script>
-<script src="/assets/compatibility.js?v=20260923g"></script>
+<script src="/assets/compatibility.js?v=20260923i"></script>
+<script src="/assets/profile-editor.js?v=20260923i"></script>
 <script>
 (function () {
   "use strict";
@@ -990,16 +953,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   };
   var OTHER = { label: "Otras", colorVar: "--other", icon: ICON.tag };
   var AGE_DEFAULTS = { YOUTH_EXCHANGE: { min: 18, max: 30 }, TRAINING_COURSE: { min: 18, max: null } };
-  var COUNTRIES = {
-    ES:"España", PT:"Portugal", FR:"Francia", IT:"Italia", DE:"Alemania", AT:"Austria",
-    BE:"Bélgica", NL:"Países Bajos", LU:"Luxemburgo", IE:"Irlanda", PL:"Polonia",
-    CZ:"Chequia", SK:"Eslovaquia", HU:"Hungría", RO:"Rumanía", BG:"Bulgaria", GR:"Grecia",
-    HR:"Croacia", SI:"Eslovenia", EE:"Estonia", LV:"Letonia", LT:"Lituania", FI:"Finlandia",
-    SE:"Suecia", DK:"Dinamarca", NO:"Noruega", IS:"Islandia", MT:"Malta", CY:"Chipre",
-    TR:"Turquía", RS:"Serbia", MK:"Macedonia del Norte", ME:"Montenegro",
-    BA:"Bosnia y Herzegovina", AL:"Albania", XK:"Kosovo", GE:"Georgia", AM:"Armenia",
-    UA:"Ucrania", MD:"Moldavia", CH:"Suiza", GB:"Reino Unido", LI:"Liechtenstein", AZ:"Azerbaiyán"
-  };
+  var COUNTRIES = window.Corradi.COUNTRIES;
   var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
   var SOON_DAYS = 2;
 
@@ -1038,21 +992,14 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   var favourites = new Set(JSON.parse(localStorage.getItem("corradi-favourites") || "[]"));
   var isMobileQuery = window.matchMedia && window.matchMedia("(max-width: 880px)");
 
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
-    });
-  }
+  var esc = window.Corradi.esc;
   function typeOf(o) { return TYPES[o.type] || OTHER; }
   function typeColor(o) { return "var(" + typeOf(o).colorVar + ")"; }
   function hasCoords(o) {
     return o.latitude !== null && o.latitude !== undefined && isFinite(Number(o.latitude)) &&
            o.longitude !== null && o.longitude !== undefined && isFinite(Number(o.longitude));
   }
-  function flag(cc) {
-    if (!cc || cc.length !== 2) return "";
-    return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) { return 0x1f1e6 + c.charCodeAt(0) - 65; }));
-  }
+  var flag = window.Corradi.flag;
   function countryName(cc) { return COUNTRIES[cc] || cc || ""; }
   function locationName(o) {
     var loc = o.location || "", country = countryName(o.country_code);
@@ -1091,7 +1038,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (c.state === "unknown") return '<button type="button" class="compat-badge unknown" title="'+esc(c.reasons.join(' · '))+'" onclick="event.stopPropagation();openProfileDialog()">'+esc(c.label)+'</button>';
     return '<span class="compat-badge '+c.state+'" title="'+esc(c.reasons.join(' · '))+'">'+esc(c.label)+'</span>';
   }
-  function compatibilityDetail(o) { var c=compatibility(o),action=c.score==null?'<br><a href="/?profile=1">Configurar mi compatibilidad →</a>':'';return '<div class="compat-detail '+c.state+'"><strong>'+esc(c.label)+'</strong>'+(c.score==null?'':' · confianza '+esc(c.confidence))+'<br>'+esc(c.reasons.slice(0,3).join(' · '))+action+'</div>'; }
+  function compatibilityDetail(o) { var c=compatibility(o),action=c.score==null?'<br><button type="button" class="link-btn" data-open-profile>Configurar mi compatibilidad →</button>':'';return '<div class="compat-detail '+c.state+'"><strong>'+esc(c.label)+'</strong>'+(c.score==null?'':' · confianza '+esc(c.confidence))+'<br>'+esc(c.reasons.slice(0,3).join(' · '))+action+'</div>'; }
   function gcalUrl(o) {
     if (!o.application_deadline) return null;
     var start = o.application_deadline.replace(/-/g, "");
@@ -1697,53 +1644,12 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     }
   });
 
-  // Diálogo de compatibilidad propio del mapa: no carga discover-product.js (duplicaría el
-  // fetch de /api/map y tocaría ids que no existen aquí), así que reimplementa el formulario
-  // de perfil en el idioma propio de esta página, leyendo/escribiendo el mismo localStorage.
-  function preferenceStateLabel(state) { return {avoid:"Evitar", positive:"Me interesa", required:"Muy importante"}[state] || "Indiferente"; }
-  function populateProfileDialog() {
-    var p = window.CorradiCompatibility.readProfile();
-    document.getElementById("profileAge").value = p.age || "";
-    document.getElementById("profileType").value = p.type || "";
-    document.getElementById("profileRequiredText").value = p.requiredText || "";
-    var priorities = p.priorities || {};
-    var list = document.getElementById("profilePreferenceList");
-    list.innerHTML = window.CorradiCompatibility.taxonomy.map(function (concept) {
-      var st = priorities[concept.id] || "";
-      function btn(mode, text, title) { return '<button type="button" class="pref-btn" data-mode="' + mode + '" aria-pressed="' + (st === mode) + '" title="' + title + '">' + text + '</button>'; }
-      return '<div class="preference-row" data-concept="' + concept.id + '" data-state="' + st + '"><strong>' + esc(concept.label) + '</strong><div class="pref-buttons">' + btn("avoid", "−", "Evitar") + '<span class="pref-current">' + preferenceStateLabel(st) + '</span>' + btn("positive", "+", "Me interesa") + btn("required", "++", "Muy importante") + '</div></div>';
-    }).join("");
-    Array.prototype.forEach.call(list.querySelectorAll(".pref-btn"), function (button) {
-      button.onclick = function () {
-        var row = button.closest(".preference-row"), mode = button.dataset.mode, current = row.dataset.state, next = current === mode ? "" : mode;
-        if (next === "required" || next === "positive") {
-          var limit = next === "required" ? 2 : 5;
-          var used = Array.prototype.filter.call(list.querySelectorAll(".preference-row"), function (r) { return r !== row && r.dataset.state === next; }).length;
-          if (used >= limit) { toast(next === "required" ? "Elige como máximo 2 muy importantes" : "Elige como máximo 5 en 'Me interesa'"); return; }
-        }
-        row.dataset.state = next;
-        Array.prototype.forEach.call(row.querySelectorAll(".pref-btn"), function (b) { b.setAttribute("aria-pressed", String(b.dataset.mode === next)); });
-        row.querySelector(".pref-current").textContent = preferenceStateLabel(next);
-      };
-    });
-  }
-  function openProfileDialog() { populateProfileDialog(); document.getElementById("profileDialog").showModal(); }
+  // "Mi compatibilidad" usa el mismo editor que la home (profile-editor.js). Al cambiar el
+  // perfil se recalculan afinidad y orden del mapa.
+  function openProfileDialog() { window.CorradiProfileEditor.openDialog(); }
   window.openProfileDialog = openProfileDialog;
-  function saveProfileDialog() {
-    var selected = {};
-    Array.prototype.forEach.call(document.querySelectorAll("#profilePreferenceList .preference-row"), function (row) { if (row.dataset.state) selected[row.dataset.concept] = row.dataset.state; });
-    var next = {
-      age: document.getElementById("profileAge").value,
-      residence: "ES",
-      type: document.getElementById("profileType").value,
-      priorities: selected,
-      requiredText: document.getElementById("profileRequiredText").value.trim()
-    };
-    localStorage.setItem(window.CorradiCompatibility.key, JSON.stringify(next));
-    document.getElementById("profileDialog").close();
-    apply();
-    toast("Perfil guardado en este dispositivo");
-  }
+  var profileApplyTimer = null;
+  window.addEventListener("corradi:profile-change", function () { clearTimeout(profileApplyTimer); profileApplyTimer = setTimeout(apply, 120); });
 
   function wire() {
     document.getElementById("igPopupClose").addEventListener("click", function () { document.getElementById("igPopup").classList.remove("show"); });
@@ -1780,14 +1686,6 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     document.getElementById("infoBtn").addEventListener("click", function () { document.getElementById("infoDialog").showModal(); });
 
     document.getElementById("openProfileDialog").addEventListener("click", openProfileDialog);
-    document.getElementById("profileClose").addEventListener("click", function () { document.getElementById("profileDialog").close(); });
-    document.getElementById("profileSave").addEventListener("click", saveProfileDialog);
-    document.getElementById("profileClear").addEventListener("click", function () {
-      localStorage.removeItem(window.CorradiCompatibility.key);
-      document.getElementById("profileDialog").close();
-      apply();
-      toast("Perfil eliminado");
-    });
 
     document.getElementById("dockCollapse").addEventListener("click", function () {
       document.getElementById("dock").classList.add("collapsed");

@@ -178,6 +178,7 @@ textarea::placeholder { color: var(--ink-faint); }
   .who .nm { display: none; }
 }
 </style>
+<script src="/assets/corradi-core.js?v=20260923i"></script>
 </head>
 <body>
 
@@ -271,22 +272,11 @@ textarea::placeholder { color: var(--ink-faint); }
   "use strict";
 
   var TYPES = { YOUTH_EXCHANGE: "Youth Exchange", TRAINING_COURSE: "Training Course", VOLUNTEERING: "ESC" };
-  var COUNTRIES = {
-    ES:"España", IT:"Italia", PT:"Portugal", FR:"Francia", DE:"Alemania", GR:"Grecia", PL:"Polonia",
-    RO:"Rumanía", BG:"Bulgaria", HR:"Croacia", SI:"Eslovenia", SK:"Eslovaquia", CZ:"Chequia",
-    HU:"Hungría", AT:"Austria", BE:"Bélgica", NL:"Países Bajos", DK:"Dinamarca", SE:"Suecia",
-    FI:"Finlandia", EE:"Estonia", LV:"Letonia", LT:"Lituania", IE:"Irlanda", CY:"Chipre",
-    MT:"Malta", LU:"Luxemburgo", TR:"Turquía", NO:"Noruega", IS:"Islandia", RS:"Serbia",
-    MK:"Macedonia del Norte", AL:"Albania", GE:"Georgia", AM:"Armenia", UA:"Ucrania", MD:"Moldavia"
-  };
+  var COUNTRIES = window.Corradi.COUNTRIES;
   var MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 
   var $ = function (id) { return document.getElementById(id); };
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
-    });
-  }
+  var esc = window.Corradi.esc;
   function show(el, on) { el.classList.toggle("hidden", !on); }
   function fmtDate(iso) {
     if (!iso) return null;
@@ -294,12 +284,7 @@ textarea::placeholder { color: var(--ink-faint); }
     if (p.length < 3) return iso;
     return parseInt(p[2], 10) + " " + MONTHS[parseInt(p[1], 10) - 1] + " " + p[0];
   }
-  function flag(cc) {
-    if (!cc || cc.length !== 2) return "";
-    return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) {
-      return 0x1f1a5 + c.charCodeAt(0);
-    }));
-  }
+  var flag = window.Corradi.flag;
 
   // ── Red ────────────────────────────────────────────────────────────────
   function api(path, body) {
