@@ -96,19 +96,124 @@
     renderTopMatches();
   }
 
+  const QUICK_TOPICS = ["outdoor","sport","sustainability","wellbeing","creative","intercultural","inclusion","digital","leadership","rights"];
+  function daysLeft(project) {
+    if (!project.application_deadline) return null;
+    const end = new Date(project.application_deadline + "T23:59:59"), now = new Date();
+    return Math.ceil((end - now) / 86400000);
+  }
+  function deadlineLabel(days) {
+    if (days == null) return "Sin fecha límite publicada";
+    if (days <= 0) return "Cierra hoy";
+    if (days === 1) return "Cierra mañana";
+    return "Cierra en " + days + " días";
+  }
+  function saveQuick(patch) {
+    const next = Object.assign({}, profile(), patch);
+    write(KEYS.profile, next);
+    const age = document.getElementById("age");
+    if (age && "age" in patch && age.value !== String(next.age || "")) { age.value = next.age || ""; age.dispatchEvent(new Event("input", {bubbles:true})); }
+    updateSummaries(); enhanceCards();
+  }
+  function setupQuickProfile() {
+    const form = document.getElementById("quickProfile");
+    if (!form || form.dataset.ready) return;
+    form.dataset.ready = "1";
+    const p = profile();
+    const ageInput = form.querySelector("#qpAge"), residence = form.querySelector("#qpResidence");
+    residence.innerHTML = Object.keys(COUNTRIES).sort((a,b) => COUNTRIES[a].localeCompare(COUNTRIES[b], "es")).map(code => '<option value="' + code + '">' + esc(COUNTRIES[code]) + '</option>').join("");
+    let ageTimer = null;
+    ageInput.addEventListener("input", () => {
+      clearTimeout(ageTimer);
+      ageTimer = setTimeout(() => {
+        const value = parseInt(ageInput.value, 10);
+        saveQuick({age: value >= 13 && value <= 99 ? String(value) : "", residence: residence.value || "ES"});
+      }, 250);
+    });
+    residence.addEventListener("change", () => saveQuick({residence: residence.value}));
+    const typeHolder = form.querySelector("#qpType");
+    typeHolder.innerHTML = [["", "Todo"], ["YOUTH_EXCHANGE", "Youth Exchange"], ["TRAINING_COURSE", "Training Course"], ["VOLUNTEERING", "Voluntariado ESC"]]
+      .map(([value, label]) => '<button type="button" class="qp-chip" data-type="' + value + '">' + label + '</button>').join("");
+    typeHolder.addEventListener("click", event => {
+      const chip = event.target.closest(".qp-chip"); if (!chip) return;
+      saveQuick({type: chip.dataset.type});
+    });
+    const topicHolder = form.querySelector("#qpTopics");
+    topicHolder.innerHTML = QUICK_TOPICS.map(id => window.CorradiCompatibility.taxonomy.find(c => c.id === id)).filter(Boolean)
+      .map(concept => '<button type="button" class="qp-chip" data-topic="' + concept.id + '">' + esc(concept.label) + '</button>').join("");
+    topicHolder.addEventListener("click", event => {
+      const chip = event.target.closest(".qp-chip"); if (!chip) return;
+      const priorities = Object.assign({}, profile().priorities || {}), id = chip.dataset.topic;
+      if (priorities[id]) delete priorities[id];
+      else {
+        const used = Object.values(priorities).filter(v => v === "positive").length;
+        if (used >= 5) { toast("Elige como máximo 5 temas"); return; }
+        priorities[id] = "positive";
+      }
+      saveQuick({priorities});
+    });
+    ageInput.value = p.age || "";
+    syncQuickProfile();
+  }
+  function syncQuickProfile() {
+    const form = document.getElementById("quickProfile");
+    if (!form || !form.dataset.ready) return;
+    const p = profile(), priorities = p.priorities || {};
+    const ageInput = form.querySelector("#qpAge");
+    if (document.activeElement !== ageInput) ageInput.value = p.age || "";
+    form.querySelector("#qpResidence").value = p.residence || "ES";
+    form.querySelectorAll("[data-type]").forEach(chip => chip.setAttribute("aria-pressed", String((p.type || "") === chip.dataset.type)));
+    form.querySelectorAll("[data-topic]").forEach(chip => {
+      const state = priorities[chip.dataset.topic];
+      chip.setAttribute("aria-pressed", String(!!state && state !== "avoid"));
+      chip.classList.toggle("is-required", state === "required");
+      chip.classList.toggle("is-avoid", state === "avoid");
+    });
+  }
+  function showInCatalog() {
+    const p = profile(), type = document.getElementById("type"), age = document.getElementById("age");
+    if (type) { type.value = p.type || ""; type.dispatchEvent(new Event("change", {bubbles:true})); }
+    if (age) { age.value = p.age || ""; age.dispatchEvent(new Event("input", {bubbles:true})); }
+    const target = document.getElementById("explorar"); if (target) target.scrollIntoView({behavior:"smooth", block:"start"});
+  }
   function renderTopMatches() {
+    syncQuickProfile();
     const holder = document.getElementById("productMatches");
     if (!holder) return;
     const p = profile();
-    if (!p.age || !p.residence) { holder.innerHTML = '<div class="matches-empty">Configura tu perfil para ver aquí tus mejores oportunidades.</div>'; return; }
-    const top = catalog.map(project => ({project, result: eligibility(project, p)}))
-      .filter(x => x.result.score != null && x.result.state !== "no")
-      .sort((a, b) => b.result.score - a.result.score)
-      .slice(0, 3);
-    if (!top.length) { holder.innerHTML = '<div class="matches-empty">Añade prioridades a tu perfil para ver aquí tus mejores oportunidades.</div>'; return; }
-    holder.innerHTML = '<span class="matches-title">Tus mejores oportunidades ahora mismo</span>' + top.map(({project, result}) =>
-      '<a class="product-match" href="' + projectUrl(project) + '"><span class="product-match-score">' + result.score + '%</span><span class="product-match-title">' + esc(project.title) + '</span></a>'
-    ).join("");
+    const open = catalog.filter(project => { const d = daysLeft(project); return d == null || d >= 0; });
+    const byType = open.filter(project => !p.type || project.type === p.type || (p.type === "VOLUNTEERING" && project.type === "ESC"));
+    const guide = '<a class="directory-link" href="/guia">Antes de solicitar: lee la guía Erasmus+ →</a>';
+    if (!p.age) {
+      const count = type => open.filter(project => project.type === type || (type === "VOLUNTEERING" && project.type === "ESC")).length;
+      holder.innerHTML = '<div class="qp-result is-idle"><span class="matches-title">Ahora mismo en Corradi</span><div class="qp-big"><b>' + open.length + '</b><span>oportunidades abiertas</span></div>' +
+        '<ul class="qp-split"><li><b>' + count("VOLUNTEERING") + '</b> voluntariados ESC</li><li><b>' + count("TRAINING_COURSE") + '</b> training courses</li><li><b>' + count("YOUTH_EXCHANGE") + '</b> youth exchanges</li></ul>' +
+        '<p class="qp-hint">Pon tu edad a la izquierda y verás solo las que admiten tu perfil.</p>' + guide + '</div>';
+      return;
+    }
+    const evaluated = byType.map(project => ({project, result: eligibility(project, p)}));
+    const fits = evaluated.filter(x => x.result.state !== "no");
+    const pending = fits.filter(x => x.result.state === "warn" && x.result.score == null).length;
+    const excluded = evaluated.length - fits.length;
+    const hasTopics = Object.keys(p.priorities || {}).length > 0 || !!(p.requiredText || "").trim();
+    const soonest = (a, b) => { const da = daysLeft(a.project), db = daysLeft(b.project); return (da == null ? 9999 : da) - (db == null ? 9999 : db); };
+    const top = fits.slice().sort((a, b) => hasTopics ? ((b.result.score || 0) - (a.result.score || 0)) || soonest(a, b) : soonest(a, b)).slice(0, 3);
+    const typeLabel = p.type ? {YOUTH_EXCHANGE:"youth exchanges", TRAINING_COURSE:"training courses", VOLUNTEERING:"voluntariados ESC"}[p.type] : "oportunidades";
+    let html = '<div class="qp-result"><span class="matches-title">Con ' + esc(p.age) + ' años y viviendo en ' + esc(COUNTRIES[p.residence || "ES"] || p.residence) + '</span>' +
+      '<div class="qp-big"><b>' + fits.length + '</b><span>' + typeLabel + ' a las que puedes apuntarte</span></div>' +
+      '<p class="qp-note">' + (excluded ? excluded + ' descartadas por edad o país. ' : '') + (pending ? pending + ' tienen requisitos que conviene confirmar en el infopack.' : '') + '</p>';
+    if (top.length) {
+      html += '<span class="matches-title">' + (hasTopics ? 'Las que más encajan con tus temas' : 'Las que cierran antes') + '</span>' + top.map(({project, result}) => {
+        const place = project.location || COUNTRIES[project.country_code] || project.country_code || "";
+        const badge = hasTopics && result.score != null ? '<span class="product-match-score">' + result.score + '%</span>' : '<span class="product-match-score is-date">' + (daysLeft(project) == null ? "—" : Math.max(daysLeft(project), 0) + "d") + '</span>';
+        return '<a class="product-match" href="' + projectUrl(project) + '">' + badge + '<span class="product-match-body"><span class="product-match-title">' + esc(project.title) + '</span><span class="product-match-meta">' + esc(TYPES[project.type] || "") + (place ? ' · ' + esc(place) : '') + ' · ' + deadlineLabel(daysLeft(project)) + '</span></span></a>';
+      }).join("");
+      html += '<button type="button" class="qp-cta" id="qpShowAll">Ver las ' + fits.length + ' en el catálogo →</button>';
+    } else {
+      html += '<p class="qp-hint">Ahora mismo no hay ninguna abierta para tu perfil' + (p.type ? ' en este formato. Prueba con «Todo».' : '. Se añaden nuevas cada día.') + '</p>';
+    }
+    holder.innerHTML = html + guide + '</div>';
+    const cta = holder.querySelector("#qpShowAll"); if (cta) cta.onclick = showInCatalog;
   }
 
   function enhanceCards() {
@@ -338,13 +443,13 @@
   }
   function initHome(data) {
     catalog = data.results || []; generated = data.generated || "";
-    bindGlobal(); setupInstall(); updateSummaries(); updateFilterChips(); enhanceCards(); enhanceDetail();
+    bindGlobal(); setupInstall(); setupQuickProfile(); updateSummaries(); updateFilterChips(); enhanceCards(); enhanceDetail();
     const observer = new MutationObserver(() => { enhanceCards(); enhanceDetail(); updateFilterChips(); });
     ["allCards","urgentCards","weeklyTop","rowSoon","rowYE","rowTC","detail"].forEach(id => { const node = document.getElementById(id); if (node) observer.observe(node, {childList:true, subtree:true}); });
     if (new URLSearchParams(location.search).get("profile") === "1") setTimeout(openProfile, 0);
   }
   function initProject(data) {
-    catalog = [data]; currentProject = data; bindGlobal(); setupInstall(); updateSummaries();
+    catalog = [data]; currentProject = data; bindGlobal(); setupInstall(); setupQuickProfile(); updateSummaries();
     const apply = () => enhanceProjectPage(data); apply();
     const app = document.getElementById("app"); if (app) new MutationObserver(apply).observe(app, {childList:true, subtree:true});
   }

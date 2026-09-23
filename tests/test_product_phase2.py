@@ -29,7 +29,8 @@ def test_home_has_compact_flow_and_mobile_navigation():
     assert 'class="mobile-symbol"' in html
     assert 'href="/organizaciones"' in html
     assert 'id="productMatches"' in html
-    assert 'class="product-edit-btn"' in html
+    assert 'id="quickProfile"' in html
+    assert 'id="qpAge"' in html
     assert 'id="installApp"' not in html
     assert 'class="wrap weekly-top"' not in html
     assert 'id="rowSoon"' in html
