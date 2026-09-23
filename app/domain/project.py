@@ -179,10 +179,20 @@ def make_hash(title: str | None, country_code: str | None, start_date: date | No
     return hashlib.md5(content.encode()).hexdigest()
 
 
-def _future(d: date | None, ref_day: date) -> date | None:
+def _year_written(year: int, raw_text: str) -> bool:
+    """¿El mensaje original escribe ese año? (``2026`` o ``/26``, ``-26``, ``.26`` tras día/mes)."""
+    return bool(raw_text) and bool(re.search(rf"\b{year}\b|[/.\-]{year % 100:02d}\b", raw_text))
+
+
+def _future(d: date | None, ref_day: date, raw_text: str = "") -> date | None:
     """Red de seguridad: si el LLM omite el año y devuelve una fecha ya pasada, la empuja
-    al año siguiente. Son siempre convocatorias abiertas a futuro, nunca eventos pasados."""
+    al año siguiente. Son siempre convocatorias abiertas a futuro, nunca eventos pasados.
+
+    Si el año SÍ aparece escrito en el mensaje, no se toca: una fecha pasada con año
+    explícito es un evento pasado, no un año mal inferido, y moverla lo convertiría en otro."""
     if d is None or d >= ref_day:
+        return d
+    if _year_written(d.year, raw_text):
         return d
     try:
         return d.replace(year=d.year + 1)
@@ -210,8 +220,9 @@ def normalize(
         rechaza el envío — ver `is_online_only`).
     """
     out = dict(fields)
-    out["start_date"] = _future(parse_date(fields.get("start_date")), ref_day)
-    out["end_date"] = _future(parse_date(fields.get("end_date")), ref_day)
+    source_text = raw_text or fields.get("raw_message") or ""
+    out["start_date"] = _future(parse_date(fields.get("start_date")), ref_day, source_text)
+    out["end_date"] = _future(parse_date(fields.get("end_date")), ref_day, source_text)
 
     stated_deadline = parse_date(fields.get("application_deadline"))
     # Se comprueba ANTES de _future: si el mensaje trae una fecha límite ya pasada no hay que
@@ -222,7 +233,7 @@ def normalize(
     last_minute = is_last_minute(raw_text or fields.get("raw_message") or "")
     out["last_minute"] = last_minute
 
-    deadline = _future(stated_deadline, ref_day)
+    deadline = _future(stated_deadline, ref_day, source_text)
     if deadline is None:
         days = last_minute_deadline_days if last_minute else default_deadline_days
         deadline = ref_day + timedelta(days=days)

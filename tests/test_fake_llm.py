@@ -3,9 +3,12 @@ from app.llm import embeddings, extractor
 
 
 def test_extract_opportunity():
+    from datetime import date
+    # Fecha de referencia fija: sin ella el test dependía del día en que se ejecutaba.
     f = extractor.extract(
         'YOUTH EXCHANGE "X"\nSpain, Oviedo\nDates: 12/09/2026 - 20/09/2026\n'
-        "Apply before 25/08/2026: https://forms.gle/x"
+        "Apply before 25/08/2026: https://forms.gle/x",
+        ref_day=date(2026, 7, 23),
     )
     assert f["is_opportunity"] is True
     assert f["country_code"] == "ES"

@@ -953,7 +953,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"
         integrity="sha256-Hk4dIpcqOSb0hZjgyvFOP+cEmDXUKKNE/tT542ZbNQg=" crossorigin=""></script>
-<script src="/assets/compatibility.js?v=20260923f"></script>
+<script src="/assets/compatibility.js?v=20260923g"></script>
 <script>
 (function () {
   "use strict";
@@ -1169,8 +1169,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     }
     return true;
   }
+  // Por defecto el mapa abre con YE y TC; el ESC (más de 200 plazas largas) se activa a mano.
+  var DEFAULT_TYPES = ["YOUTH_EXCHANGE", "TRAINING_COURSE"];
   function defaultTypeSet() {
-    var s = new Set(Object.keys(TYPES));
+    var s = new Set(DEFAULT_TYPES);
     if (all.some(function (o) { return !TYPES[o.type]; })) s.add("OTHER");
     return s;
   }
@@ -1200,7 +1202,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
 
   function saveSharedFilters(){try{localStorage.setItem("corradi-filters",JSON.stringify({q:state.q,type:state.types.size===1?Array.from(state.types)[0]:"",types:Array.from(state.types),countries:sameSet(state.countries,defaultCountrySet())?[]:Array.from(state.countries),age:state.age,escMaxMonths:state.escMaxMonths,soon:state.soon,saved:!!state.only}))}catch(e){}}
-  function restoreSharedFilters(raw){var saved;try{saved=raw?JSON.parse(raw):{}}catch(e){saved={}}var params=new URLSearchParams(location.search),queryCountries=params.getAll("country"),savedTypes=saved.types||[];state.q=params.has("q")?(params.get("q")||""):(saved.q||"");document.getElementById("q").value=state.q;var queryType=params.get("type"),types=queryType?[queryType]:(savedTypes.length?savedTypes:(saved.type?[saved.type]:[]));if(types.length)state.types=new Set(types);var countries=queryCountries.length?queryCountries:(saved.countries||[]);if(countries.length)state.countries=new Set(countries);var age=params.has("age")?params.get("age"):saved.age;if(age){state.age=Number(age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}var escMax=params.get("esc_max")||params.get("ecs_max")||saved.escMaxMonths||saved.ecsMaxMonths;if(escMax){state.escMaxMonths=Number(escMax);document.getElementById("escMaxMonths").value=String(escMax)}state.soon=params.get("soon")==="1"||(!params.has("soon")&&!!saved.soon);if(saved.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
+  function restoreSharedFilters(raw){var saved;try{saved=raw?JSON.parse(raw):{}}catch(e){saved={}}var params=new URLSearchParams(location.search),queryCountries=params.getAll("country"),savedTypes=saved.types||[];state.q=params.has("q")?(params.get("q")||""):(saved.q||"");document.getElementById("q").value=state.q;var queryType=params.get("type"),types=queryType?[queryType]:(savedTypes.length?savedTypes:(saved.type?[saved.type]:[]));if(types.length&&!Object.keys(TYPES).every(function(k){return types.indexOf(k)>=0}))state.types=new Set(types);var countries=queryCountries.length?queryCountries:(saved.countries||[]);if(countries.length)state.countries=new Set(countries);var age=params.has("age")?params.get("age"):saved.age;if(age){state.age=Number(age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}var escMax=params.get("esc_max")||params.get("ecs_max")||saved.escMaxMonths||saved.ecsMaxMonths;if(escMax){state.escMaxMonths=Number(escMax);document.getElementById("escMaxMonths").value=String(escMax)}state.soon=params.get("soon")==="1"||(!params.has("soon")&&!!saved.soon);if(saved.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
 
   // "Últimas subidas": por fecha de creación, la más reciente primero (created es ISO,
   // compara bien como string). "Cierran antes": por fecha límite, sin ella al final (una
@@ -1462,9 +1464,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     Array.prototype.forEach.call(box.querySelectorAll(".qf-chip"), function (chip) {
       chip.addEventListener("click", function () {
         var k = chip.dataset.type;
-        if (sameSet(state.types, defaultTypeSet())) state.types = new Set([k]);
-        else if (state.types.has(k)) state.types.delete(k);
+        if (state.types.has(k)) state.types.delete(k);
         else state.types.add(k);
+        if (!state.types.size) state.types = defaultTypeSet();
         apply();
         syncFilterDialogChips();
       });
@@ -1496,9 +1498,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     Array.prototype.forEach.call(box.querySelectorAll(".cat-chip"), function (chip) {
       chip.addEventListener("click", function () {
         var k = chip.dataset.type;
-        if (sameSet(state.types, defaultTypeSet())) state.types = new Set([k]);
-        else if (state.types.has(k)) state.types.delete(k);
+        if (state.types.has(k)) state.types.delete(k);
         else state.types.add(k);
+        if (!state.types.size) state.types = defaultTypeSet();
         syncFilterDialogChips();
         apply();
       });
@@ -2040,7 +2042,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         if(!params.get("todo")) restoreSharedFilters(sharedFiltersRaw);
         bootingMap = false;
         var wanted = params.get("o");
-        if (wanted && all.some(function (o) { return o.identifier === wanted; })) {
+        var wantedOpp = wanted && all.filter(function (o) { return o.identifier === wanted; })[0];
+        if (wantedOpp) {
+          // Un enlace directo a un ESC debe verse aunque el ESC esté desmarcado por defecto.
+          if (!state.types.has(wantedOpp.type || "OTHER")) { state.types.add(wantedOpp.type || "OTHER"); syncFilterDialogChips(); apply(); syncQuickFilters(); }
           setSheet("peek");
           focusOpportunity(wanted, true, true);
         } else if (wanted) {

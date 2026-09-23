@@ -177,3 +177,20 @@ def test_normalize_sanea_contact_information():
     assert f["contact_information"] is None
     f2 = normalize({"contact_information": "Tel: +34 600 111 222"}, date(2026, 7, 22), 5)
     assert f2["contact_information"] == "+34 600 111 222"
+
+
+def test_past_date_with_explicit_year_is_not_moved_to_next_year():
+    f = normalize({"start_date": "2026-09-12", "end_date": "2026-09-20"}, date(2026, 9, 23), 5,
+                  raw_text="Dates: 12/09/2026 - 20/09/2026")
+    assert f["start_date"] == date(2026, 9, 12)
+    assert f["end_date"] == date(2026, 9, 20)
+
+
+def test_past_date_without_year_in_message_rolls_to_next_year():
+    f = normalize({"start_date": "2026-03-10"}, date(2026, 9, 23), 5, raw_text="Starts 10 March")
+    assert f["start_date"] == date(2027, 3, 10)
+
+
+def test_two_digit_year_counts_as_explicit():
+    f = normalize({"start_date": "2026-09-12"}, date(2026, 9, 23), 5, raw_text="12/09/26 - 20/09/26")
+    assert f["start_date"] == date(2026, 9, 12)
