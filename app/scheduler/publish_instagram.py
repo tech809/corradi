@@ -12,6 +12,7 @@ import asyncio
 import logging
 
 from app import alerts
+from app import instagram_auth
 from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
@@ -26,6 +27,12 @@ async def run() -> None:
         return
     await open_pool()
     try:
+        try:
+            await instagram.check_token()
+        except instagram.InstagramTokenExpired:
+            log.error("El token de Instagram ha caducado; la cola queda intacta")
+            await instagram_auth.notify_expired()
+            return
         pending = await repo.list_pending_instagram(cfg.instagram_max_attempts)
         if not pending:
             log.info("Cola de Instagram vacía.")
@@ -42,6 +49,10 @@ async def run() -> None:
                 media_id, story_media_id = await instagram.publish_opportunity(row)
                 await repo.mark_instagram_published(row["queue_id"], media_id, story_media_id)
                 log.info("Publicada en Instagram: %s", row["identifier"])
+            except instagram.InstagramTokenExpired:
+                log.error("El token de Instagram ha caducado; la cola queda intacta")
+                await instagram_auth.notify_expired()
+                break
             except Exception as e:  # noqa: BLE001
                 log.exception("Fallo publicando %s en Instagram", row["identifier"])
                 await repo.mark_instagram_failed(row["queue_id"], f"{type(e).__name__}: {e}")
@@ -60,4 +71,5 @@ async def run() -> None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # El URL de /me lleva el token.
     asyncio.run(run())

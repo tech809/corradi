@@ -30,10 +30,12 @@ Corradi sí lo tiene (EC2 24/7, Postgres, API con dominio público), así que aq
 1. `pipeline.commit()` publica en Telegram (como siempre) y, si sale bien, encola la
    oportunidad en `instagram_posts` (`status='pending'`) **e intenta publicarla ya mismo**
    si Instagram está configurado. Un fallo aquí nunca afecta a Telegram — ya se publicó.
-2. `app/scheduler/publish_instagram.py`, por cron cada 2 horas, recoge lo que siga
+2. `app/scheduler/publish_instagram.py`, por cron cada 2 horas, verifica el token y recoge lo que siga
    `pending` o `failed` (sin agotar los reintentos) y lo publica — es la red de seguridad
-   para lo que falló al instante (token caducado, un pico de la API, etc.). Sin tope diario
-   de publicaciones; prioriza lo que cierra antes.
+   para lo que falló al instante. Si el token ha caducado, avisa a
+   `INSTAGRAM_ALERT_TELEGRAM_ID` (Pachu), no gasta intentos y deja intacta la cola.
+   El aviso se repite como máximo una vez cada 24 horas mientras siga caducado.
+   Sin tope diario de publicaciones; prioriza lo que cierra antes.
 3. Las imágenes las genera `app/publisher/instagram_card.py` (Pillow, reutiliza la paleta
    de `opportunity_card.py`) y las sirve `app/api/main.py` bajo demanda — Instagram las
    descarga de esa URL pública al crear cada contenedor de media.
@@ -76,6 +78,7 @@ Corradi sí lo tiene (EC2 24/7, Postgres, API con dominio público), así que aq
    "Session key invalid" que ya os pasó con tur-app).
 6. Poner en `.env` (o en el `.env` del EC2): `INSTAGRAM_LONG_LIVED_TOKEN`,
    `INSTAGRAM_BUSINESS_ACCOUNT_ID`, `INSTAGRAM_IMAGE_BASE_URL=https://mapa.proactivefuture.eu`.
+   En producción, `INSTAGRAM_ALERT_TELEGRAM_ID=4120346` dirige el aviso a Pachu.
 7. `docker exec -i corradi-db psql -U corradi -d corradi < db/migrations/0009_instagram.sql`
    (crea la tabla de cola — solo hace falta una vez).
 8. Reconstruir `api` y `bot`, y añadir el cron cada 2h (ver más abajo).
@@ -88,7 +91,7 @@ que tiene tur-app, así que aquí sería más simple).
 ## Cron (EC2, añadir junto a los que ya hay)
 
 ```
-0 */2 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.publish_instagram >> /tmp/corradi_instagram.log 2>&1
+7 */2 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.publish_instagram >> /tmp/corradi_instagram.log 2>&1
 ```
 
 ## Probar sin publicar de verdad

@@ -1082,6 +1082,18 @@ async def set_salto_scan_cursor(last_checked_id: int) -> None:
 # Una fila por oportunidad (UNIQUE project_id): 'pending' recién encolada, 'published' ya
 # salió, 'failed' se rindió tras agotar los intentos. En Postgres, no en un JSON en git.
 
+async def claim_instagram_auth_alert(fingerprint: str) -> bool:
+    """Permite un aviso de credencial inválida cada 24 h, incluso entre procesos cron."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "INSERT INTO instagram_auth_alerts (id, token_fingerprint) VALUES (TRUE, %s) "
+            "ON CONFLICT (id) DO UPDATE SET token_fingerprint = EXCLUDED.token_fingerprint, "
+            "last_sent = now() WHERE instagram_auth_alerts.token_fingerprint <> EXCLUDED.token_fingerprint "
+            "OR instagram_auth_alerts.last_sent < now() - interval '24 hours' RETURNING id",
+            (fingerprint,),
+        )
+        return await cur.fetchone() is not None
+
 async def enqueue_instagram(project_id: str) -> None:
     async with get_pool().connection() as conn:
         await conn.execute(

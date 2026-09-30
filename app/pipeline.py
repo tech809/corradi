@@ -194,6 +194,11 @@ async def _publish_reel_background(opp: dict[str, Any]) -> None:
     del pipeline (Telegram y el feed/story de Instagram ya se publicaron)."""
     try:
         await instagram.publish_reel(opp)
+    except instagram.InstagramTokenExpired:
+        from app import instagram_auth
+
+        log.error("Reel de %s no publicado: token de Instagram caducado", opp["identifier"])
+        await instagram_auth.notify_expired()
     except Exception:  # noqa: BLE001
         log.exception(
             "Reel de Instagram falló para %s (feed/story ya publicados; sin reintento para el Reel)",
@@ -222,6 +227,11 @@ async def _publish_instagram_background(opp: dict[str, Any]) -> None:
                     ig_media_id, ig_story_id = await instagram.publish_opportunity(opp)
                     await repo.mark_instagram_published(queue_id, ig_media_id, ig_story_id)
                     await _publish_reel_background(opp)
+                except instagram.InstagramTokenExpired:
+                    from app import instagram_auth
+
+                    log.error("Instagram: token caducado; %s sigue en cola", opp["identifier"])
+                    await instagram_auth.notify_expired()
                 except Exception as e:  # noqa: BLE001
                     log.warning(
                         "Instagram: fallo publicando %s al instante, queda para el barrido: %s",

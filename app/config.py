@@ -122,6 +122,10 @@ class Config:
     # sin más (no rompe nada, el resto del pipeline sigue igual — mismo patrón que WhatsApp).
     instagram_token: str = os.getenv("INSTAGRAM_LONG_LIVED_TOKEN", "")
     instagram_business_id: str = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
+    instagram_alert_telegram_id: int | None = (
+        int(os.environ["INSTAGRAM_ALERT_TELEGRAM_ID"])
+        if os.getenv("INSTAGRAM_ALERT_TELEGRAM_ID") else None
+    )
     # Base pública desde la que la Graph API descarga las imágenes (nuestra propia API,
     # GET /ig/{identifier}/post.png y /story.png) — no un repo aparte, como hacía tur-app.
     instagram_image_base_url: str = os.getenv("INSTAGRAM_IMAGE_BASE_URL", "")

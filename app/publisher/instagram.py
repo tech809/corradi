@@ -26,6 +26,28 @@ log = logging.getLogger("corradi.instagram")
 
 GRAPH = "https://graph.instagram.com"
 
+
+class InstagramTokenExpired(RuntimeError):
+    """Meta rechazó la credencial; no se debe consumir un intento de la cola."""
+
+
+def _raise_for_graph_error(response) -> None:
+    if response.status_code == 200:
+        return
+    try:
+        error = response.json().get("error", {})
+    except ValueError:
+        error = {}
+    if error.get("code") == 190:
+        raise InstagramTokenExpired("Meta rechazó el token de Instagram (código 190)")
+    message = str(error.get("message") or "error sin detalle")
+    raise RuntimeError(f"Instagram Graph API HTTP {response.status_code}: {message[:300]}")
+
+
+async def check_token() -> None:
+    """Verifica la credencial incluso cuando no hay publicaciones en cola."""
+    await _get("me", {"fields": "id"})
+
 _MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
           "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
@@ -126,18 +148,21 @@ async def _post(path: str, data: dict) -> dict:
 
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(f"{GRAPH}/{path}", data={**data, "access_token": cfg.instagram_token})
-        if r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+        _raise_for_graph_error(r)
         return r.json()
 
 
 async def _get(path: str, params: dict) -> dict:
     import httpx
 
+    # httpx registra la URL completa en INFO; aquí lleva el token en la query.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(f"{GRAPH}/{path}", params={**params, "access_token": cfg.instagram_token})
-        if r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
+        try:
+            r = await client.get(f"{GRAPH}/{path}", params={**params, "access_token": cfg.instagram_token})
+        except httpx.RequestError:
+            raise RuntimeError("No se pudo conectar con Instagram Graph API") from None
+        _raise_for_graph_error(r)
         return r.json()
 
 
@@ -168,6 +193,11 @@ async def publish_opportunity(opp: dict[str, Any]) -> tuple[str, str | None]:
     try:
         story_media_id = await _create_and_publish(story_url, {"media_type": "STORIES"})
         log.info("Publicado en Instagram (story): %s (%s)", story_media_id, opp["identifier"])
+    except InstagramTokenExpired:
+        from app import instagram_auth
+
+        await instagram_auth.notify_expired()
+        log.error("La story de %s no salió: token de Instagram caducado", opp["identifier"])
     except Exception as e:  # noqa: BLE001
         log.warning("El feed se publicó pero la story falló (%s): %s", opp["identifier"], e)
 
