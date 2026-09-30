@@ -1151,6 +1151,39 @@ async def mark_instagram_published(queue_id: int, media_id: str, story_media_id:
         )
 
 
+async def list_missing_instagram_stories(max_attempts: int, limit: int = 20) -> list[dict[str, Any]]:
+    """Stories fallidas recientemente; el feed ya salió y no debe repetirse."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT ip.id AS queue_id, ip.attempts, p.* "
+                "FROM instagram_posts ip JOIN projects p ON p.id = ip.project_id "
+                "WHERE ip.status = 'published' AND ip.story_media_id IS NULL "
+                "AND ip.attempts < %s AND ip.updated > now() - interval '2 days' "
+                "AND ip.updated < now() - CASE WHEN ip.attempts >= 2 "
+                "THEN interval '24 hours' ELSE interval '1 hour' END "
+                "ORDER BY ip.updated ASC LIMIT %s",
+                (max_attempts, limit),
+            )
+            return await cur.fetchall()
+
+
+async def mark_instagram_story_published(queue_id: int, story_media_id: str) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "UPDATE instagram_posts SET story_media_id = %s, last_error = NULL, updated = now() WHERE id = %s",
+            (story_media_id, queue_id),
+        )
+
+
+async def mark_instagram_story_failed(queue_id: int, error: str) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "UPDATE instagram_posts SET attempts = attempts + 1, last_error = %s, updated = now() WHERE id = %s",
+            (error[:2000], queue_id),
+        )
+
+
 async def mark_instagram_failed(queue_id: int, error: str) -> None:
     async with get_pool().connection() as conn:
         await conn.execute(

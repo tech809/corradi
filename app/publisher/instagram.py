@@ -177,13 +177,19 @@ async def _create_and_publish(image_url: str, extra: dict) -> str:
     return publish["id"]
 
 
+async def publish_story(opp: dict[str, Any]) -> str:
+    """Publica solo la story, para recuperarla sin duplicar el post del feed."""
+    _, story_url = image_urls(opp["identifier"])
+    return await _create_and_publish(story_url, {"media_type": "STORIES"})
+
+
 async def publish_opportunity(opp: dict[str, Any]) -> tuple[str, str | None]:
     """Publica feed + story. Devuelve (media_id, story_media_id) — story_media_id es None
     si falló (un fallo de story NO revierte el post del feed, mismo criterio que tur-app)."""
     if not is_configured():
         raise RuntimeError("Instagram no configurado (falta token/business_id/image_base_url)")
 
-    post_url, story_url = image_urls(opp["identifier"])
+    post_url, _ = image_urls(opp["identifier"])
     caption = build_caption(opp)
 
     media_id = await _create_and_publish(post_url, {"caption": caption})
@@ -191,7 +197,7 @@ async def publish_opportunity(opp: dict[str, Any]) -> tuple[str, str | None]:
 
     story_media_id = None
     try:
-        story_media_id = await _create_and_publish(story_url, {"media_type": "STORIES"})
+        story_media_id = await publish_story(opp)
         log.info("Publicado en Instagram (story): %s (%s)", story_media_id, opp["identifier"])
     except InstagramTokenExpired:
         from app import instagram_auth

@@ -36,6 +36,10 @@ Corradi sí lo tiene (EC2 24/7, Postgres, API con dominio público), así que aq
    `INSTAGRAM_ALERT_TELEGRAM_ID` (Pachu), no gasta intentos y deja intacta la cola.
    El aviso se repite como máximo una vez cada 24 horas mientras siga caducado.
    Sin tope diario de publicaciones; prioriza lo que cierra antes.
+   Si el feed sale pero Meta rechaza la story, el barrido reintenta solo la story,
+   sin duplicar el post. Espera al menos una hora y, si Meta sigue limitando acciones,
+   vuelve a probar al día siguiente.
+   Un bloqueo en Postgres impide que dos barridos simultáneos publiquen la misma cola.
 3. Las imágenes las genera `app/publisher/instagram_card.py` (Pillow, reutiliza la paleta
    de `opportunity_card.py`) y las sirve `app/api/main.py` bajo demanda — Instagram las
    descarga de esa URL pública al crear cada contenedor de media.
