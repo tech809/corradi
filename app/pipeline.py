@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from app import geo, images
 from app.config import cfg
 from app.db import repository as repo
+from app.db.pool import get_pool
 from app.domain.project import canonicalize_organiser, make_hash
 from app.llm import embeddings, extractor
 from app.publisher import handoff
@@ -220,28 +221,43 @@ async def _publish_instagram_background(opp: dict[str, Any]) -> None:
     """
     try:
         await repo.enqueue_instagram(opp["id"])
-        if instagram.is_configured() and await instagram.gap_ok():
-            queue_id = await repo.get_instagram_queue_id(opp["id"])
-            if queue_id:
-                try:
-                    ig_media_id, ig_story_id = await instagram.publish_opportunity(opp)
-                    await repo.mark_instagram_published(queue_id, ig_media_id, ig_story_id)
-                    await _publish_reel_background(opp)
-                except instagram.InstagramTokenExpired:
-                    from app import instagram_auth
-
-                    log.error("Instagram: token caducado; %s sigue en cola", opp["identifier"])
-                    await instagram_auth.notify_expired()
-                except Exception as e:  # noqa: BLE001
-                    log.warning(
-                        "Instagram: fallo publicando %s al instante, queda para el barrido: %s",
-                        opp["identifier"], e,
-                    )
-                    await repo.mark_instagram_failed(queue_id, f"{type(e).__name__}: {e}")
+        if not instagram.is_configured():
+            return
+        async with get_pool().connection() as lock_conn:
+            cur = await lock_conn.execute(
+                "SELECT pg_try_advisory_xact_lock(%s)", (repo.INSTAGRAM_PUBLISH_LOCK_ID,)
+            )
+            if not (await cur.fetchone())[0]:
+                log.info("Instagram: publicación de %s queda para el barrido (otra en curso)", opp["identifier"])
+                return
+            await _publish_instagram_now(opp)
         # Si no ha pasado el espaciado mínimo, se queda 'pending' tal cual — el barrido de
         # cada 2h (o el siguiente commit(), si el hueco ya se abrió) la publicará después.
     except Exception:  # noqa: BLE001
         log.exception("Error encolando/publicando en Instagram (%s)", opp["identifier"])
+
+
+async def _publish_instagram_now(opp: dict[str, Any]) -> None:
+    if not await instagram.gap_ok():
+        return
+    queue_id = await repo.get_instagram_queue_id(opp["id"])
+    if not queue_id:
+        return
+    try:
+        ig_media_id, ig_story_id = await instagram.publish_opportunity(opp)
+        await repo.mark_instagram_published(queue_id, ig_media_id, ig_story_id)
+        await _publish_reel_background(opp)
+    except instagram.InstagramTokenExpired:
+        from app import instagram_auth
+
+        log.error("Instagram: token caducado; %s sigue en cola", opp["identifier"])
+        await instagram_auth.notify_expired()
+    except Exception as e:  # noqa: BLE001
+        log.warning(
+            "Instagram: fallo publicando %s al instante, queda para el barrido: %s",
+            opp["identifier"], e,
+        )
+        await repo.mark_instagram_failed(queue_id, f"{type(e).__name__}: {e}")
 
 
 async def publish_existing_eyp(opp: dict[str, Any]) -> dict[str, Any]:

@@ -1082,6 +1082,8 @@ async def set_salto_scan_cursor(last_checked_id: int) -> None:
 # Una fila por oportunidad (UNIQUE project_id): 'pending' recién encolada, 'published' ya
 # salió, 'failed' se rindió tras agotar los intentos. En Postgres, no en un JSON en git.
 
+INSTAGRAM_PUBLISH_LOCK_ID = 2813192449053234
+
 async def claim_instagram_auth_alert(fingerprint: str) -> bool:
     """Permite un aviso de credencial inválida cada 24 h, incluso entre procesos cron."""
     async with get_pool().connection() as conn:

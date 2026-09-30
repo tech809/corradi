@@ -30,7 +30,9 @@ async def run() -> None:
         # Una conexión mantiene el bloqueo durante todo el barrido. Así cron y una
         # ejecución manual no publican simultáneamente las mismas filas.
         async with get_pool().connection() as lock_conn:
-            cur = await lock_conn.execute("SELECT pg_try_advisory_xact_lock(2813192449053234)")
+            cur = await lock_conn.execute(
+                "SELECT pg_try_advisory_xact_lock(%s)", (repo.INSTAGRAM_PUBLISH_LOCK_ID,)
+            )
             if not (await cur.fetchone())[0]:
                 log.info("Ya hay otro barrido de Instagram en marcha.")
                 return

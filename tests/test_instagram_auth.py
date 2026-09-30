@@ -6,24 +6,25 @@ import httpx
 import pytest
 
 from app import instagram_auth
+from app import pipeline
 from app.publisher import instagram
 from app.scheduler import publish_instagram
 
 
-def _mock_sweep_lock(monkeypatch, granted=True):
+def _mock_sweep_lock(monkeypatch, granted=True, module=publish_instagram):
     class Cursor:
         async def fetchone(self):
             return (granted,)
 
     class Connection:
-        async def execute(self, _sql):
+        async def execute(self, _sql, _params):
             return Cursor()
 
     @asynccontextmanager
     async def connection():
         yield Connection()
 
-    monkeypatch.setattr(publish_instagram, "get_pool", lambda: SimpleNamespace(connection=connection))
+    monkeypatch.setattr(module, "get_pool", lambda: SimpleNamespace(connection=connection))
 
 
 def test_meta_code_190_is_a_distinct_auth_failure():
@@ -125,3 +126,21 @@ def test_second_sweep_exits_when_first_holds_lock(monkeypatch):
 
     asyncio.run(publish_instagram.run())
     assert calls == ["open", "close"]
+
+
+def test_immediate_post_waits_in_queue_during_sweep(monkeypatch):
+    calls = []
+
+    async def enqueue(_id):
+        calls.append("queued")
+
+    async def publish(_opp):
+        calls.append("published")
+
+    monkeypatch.setattr(pipeline.repo, "enqueue_instagram", enqueue)
+    monkeypatch.setattr(pipeline.instagram, "is_configured", lambda: True)
+    monkeypatch.setattr(pipeline, "_publish_instagram_now", publish)
+    _mock_sweep_lock(monkeypatch, granted=False, module=pipeline)
+
+    asyncio.run(pipeline._publish_instagram_background({"id": "test", "identifier": "CORRADI-TEST"}))
+    assert calls == ["queued"]
