@@ -25,6 +25,7 @@ import httpx
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 from app.config import cfg
+from app.publisher.card_v2 import pool_photo
 from app.publisher.opportunity_card import CAT_COLORS, CAT_LABELS, WHITE, _flag, _wrap
 from app.publisher.telegram_publisher import _compact_dates
 
@@ -82,8 +83,6 @@ def _participant_country_codes(value: Any, limit: int = 9) -> tuple[list[str], i
 def _project_photo(opp: dict[str, Any], size: tuple[int, int]) -> Image.Image | None:
     """Carga la foto editorial; un fallo de red nunca bloquea la publicación."""
     url = str(opp.get("image_url") or "").strip()
-    if not url:
-        return None
     try:
         if url.startswith("/media/"):
             raw = (Path(cfg.media_dir) / url.removeprefix("/media/")).read_bytes()
@@ -92,14 +91,21 @@ def _project_photo(opp: dict[str, Any], size: tuple[int, int]) -> Image.Image | 
             response.raise_for_status()
             raw = response.content
             if len(raw) > 20 * 1024 * 1024:
-                return None
+                raise ValueError("Foto editorial demasiado grande")
         else:
-            return None
+            raw = None
+        if raw is None:
+            raise ValueError("No hay foto editorial")
         with Image.open(io.BytesIO(raw)) as source:
             photo = ImageOps.exif_transpose(source).convert("RGB")
             return ImageOps.fit(photo, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.46))
     except Exception:  # noqa: BLE001
-        return None
+        raw = pool_photo(opp.get("identifier"))
+        if raw is None:
+            return None
+        with Image.open(io.BytesIO(raw)) as source:
+            photo = ImageOps.exif_transpose(source).convert("RGB")
+            return ImageOps.fit(photo, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.46))
 
 
 def _hex_to_rgb(h: str) -> tuple[int, int, int]:

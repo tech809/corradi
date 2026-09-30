@@ -132,7 +132,7 @@ def test_cap_summary_texto_corto_no_se_toca():
 
 
 def test_format_opportunity_whatsapp_bloque_de_enlaces():
-    """📄 Info es el enlace corto de Corradi en crudo (abre la ficha en el mapa) y NO se
+    """📄 Infopack es el enlace corto de Corradi en crudo (abre la ficha en el mapa) y NO se
     repite la URL cruda del infopack. El Form SÍ conserva https:// (si no, WhatsApp no lo
     hace tocable). Cada línea solo sale si hay dato."""
     completa = {
@@ -142,15 +142,19 @@ def test_format_opportunity_whatsapp_bloque_de_enlaces():
         "contact_information": "info@ejemplo.eu",
     }
     t = pub.format_opportunity_whatsapp(completa)
-    assert "📄 Info: mapa.proactivefuture.eu/2026-0001" in t   # sin esquema
+    assert "📄 Infopack: mapa.proactivefuture.eu/2026-0001" in t   # sin esquema
     assert "✍️ Form: https://forms.gle/xyz" in t              # CON esquema
     assert "✉️ Contacto: info@ejemplo.eu" in t
     assert "salto-youth.net" not in t                          # infopack crudo fuera
-    assert "Info: https://" not in t                           # la línea Info sigue sin esquema
+    assert "Infopack: https://" not in t                       # el enlace corto sigue sin esquema
+    assert t.index("*Green Roots*") < t.index("\n\n🎒 Youth Exchange")
+    assert t.index("📄 Infopack:") < t.index("Intercambio sobre sostenibilidad.")
+    assert t.index("✍️ Form:") < t.index("Intercambio sobre sostenibilidad.")
+    assert t.index("Intercambio sobre sostenibilidad.") < t.index("✉️ Contacto:")
 
     solo_form = {**OPP, "infopack_url": None, "contact_information": None}
     t2 = pub.format_opportunity_whatsapp(solo_form)
-    assert "📄 Info: mapa.proactivefuture.eu/2026-0001" in t2  # el enlace corto sale siempre que hay identifier
+    assert "📄 Infopack: mapa.proactivefuture.eu/2026-0001" in t2  # el enlace corto sale siempre que hay identifier
     assert "✍️ Form: https://forms.gle/x" in t2                # OPP trae application_url = https://forms.gle/x
     assert "✉️ Contacto:" not in t2
 
@@ -158,7 +162,7 @@ def test_format_opportunity_whatsapp_bloque_de_enlaces():
 def test_format_opportunity_whatsapp_sin_enlaces_conserva_fecha_limite():
     sin_enlaces = {k: v for k, v in OPP.items() if k not in ("identifier", "application_url")}
     t = pub.format_opportunity_whatsapp(sin_enlaces)
-    assert "📄 Info:" not in t and "✍️ Form:" not in t and "✉️ Contacto:" not in t
+    assert "📄 Infopack:" not in t and "✍️ Form:" not in t and "✉️ Contacto:" not in t
     assert "⏳ Fecha límite: 25 ago" in t  # la fecha límite sí sigue saliendo
 
 

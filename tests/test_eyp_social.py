@@ -2,6 +2,7 @@ import asyncio
 from datetime import date
 
 from app.scheduler import scrape_eyp
+from app import pipeline
 
 
 def test_only_new_eyp_rows_fill_remaining_daily_social_slots(monkeypatch):
@@ -87,3 +88,39 @@ def test_updated_eyp_rows_never_drain_into_social_backlog(monkeypatch):
     assert published == []
     assert result["updated"] == 1
     assert result["social_published"] == 0
+
+
+def test_social_eyp_guarda_foto_editorial_antes_de_publicar(monkeypatch):
+    project = {"id": "project-id", "identifier": "CORRADI-2026-0612", "image_url": None}
+    saved = []
+    rendered = []
+
+    def enrich(row):
+        return {**row, "image_url": "https://images.pexels.com/photo.jpg", "image_origin": "pexels"}
+
+    async def update(_identifier, fields):
+        saved.append(fields)
+        return {**project, **fields}
+
+    async def publish(_image, _caption, **_kwargs):
+        return 123
+
+    async def noop(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(pipeline.images, "enrich", enrich)
+    monkeypatch.setattr(pipeline.repo, "update_project", update)
+    monkeypatch.setattr(pipeline.repo, "mark_published", noop)
+    monkeypatch.setattr(pipeline.repo, "mark_eyp_social_published", noop)
+    monkeypatch.setattr(pipeline.pub, "format_opportunity", lambda *_args, **_kwargs: "caption")
+    monkeypatch.setattr(pipeline.pub, "opportunity_keyboard", lambda *_args: None)
+    monkeypatch.setattr(pipeline.pub, "publish_photo_to_channel", publish)
+    monkeypatch.setattr(pipeline.card_v2, "render", lambda row: rendered.append(row) or b"photo")
+    monkeypatch.setattr(pipeline.handoff, "opportunity", noop)
+    monkeypatch.setattr(pipeline, "_publish_instagram_background", noop)
+
+    result = asyncio.run(pipeline.publish_existing_eyp(project))
+
+    assert result["published"] is True
+    assert saved[0]["image_url"] == "https://images.pexels.com/photo.jpg"
+    assert rendered[0]["image_url"] == saved[0]["image_url"]

@@ -35,8 +35,10 @@ def today() -> date:
 
 
 async def _spam_check(user_id: int, username: str | None = None) -> dict[str, bool]:
-    """Sistema de 2 avisos: al 1er mensaje seguido que no es oportunidad, aviso; al 2º
-    consecutivo, bloqueo automático (indefinido, hasta que un admin lo desbloquee a mano)."""
+    """Avisa por los rechazos consecutivos y bloquea al alcanzar el umbral configurado.
+
+    El bloqueo es indefinido hasta que un admin lo levante a mano.
+    """
     recent = await repo.recent_statuses(user_id, cfg.spam_block_threshold)
     blocked = len(recent) >= cfg.spam_block_threshold and all(s == "not_opportunity" for s in recent)
     if not blocked:
@@ -239,6 +241,19 @@ async def publish_existing_eyp(opp: dict[str, Any]) -> dict[str, Any]:
     el handoff a WhatsApp y se encola/publica Instagram. Un fallo social nunca retira la
     ficha del catálogo web.
     """
+    # Las fichas EYP se importan sin foto. Elegimos y guardamos una imagen editorial solo
+    # para las seleccionadas para redes; así Telegram e Instagram comparten la misma foto.
+    if not opp.get("image_url"):
+        enriched = await asyncio.to_thread(images.enrich, opp)
+        if enriched.get("image_url"):
+            photo_fields = {key: enriched.get(key) for key in (
+                "image_url", "image_credit", "image_source_url", "image_origin",
+            )}
+            try:
+                opp = await repo.update_project(opp["identifier"], photo_fields) or enriched
+            except Exception:  # noqa: BLE001 - no bloquea Telegram ni Instagram
+                log.exception("No pude guardar la foto editorial de ESC %s", opp["identifier"])
+                opp = enriched
     try:
         caption = pub.format_opportunity(opp, buttons=True, show_title=False, show_type=False)
         image = await asyncio.to_thread(card_v2.render, opp)

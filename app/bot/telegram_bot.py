@@ -30,7 +30,7 @@ async def cmd_start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "<b>Cancelar</b>. Solo se publica cuando le das a Enviar.\n\n"
         f"⚠️ Manda solo oportunidades reales, una por mensaje (máximo "
         f"{cfg.max_daily_opportunities} al día). Si mandas algo que no es una oportunidad te "
-        "aviso; si se repite, se bloquea el acceso automáticamente.\n\n"
+        f"aviso; tras {cfg.spam_block_threshold} mensajes seguidos así, se bloquea el acceso automáticamente.\n\n"
         "Usa /ayuda para ver el resto de comandos.",
         parse_mode=ParseMode.HTML,
     )
@@ -48,8 +48,8 @@ async def cmd_ayuda(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "📋 <b>Reglas:</b>\n"
         "• Una oportunidad por mensaje (si tienes varias, mándalas por separado)\n"
         f"• Máximo {cfg.max_daily_opportunities} al día\n"
-        "• Solo oportunidades reales — si mandas algo que no lo es, te aviso; si se repite, "
-        "se bloquea el acceso automáticamente\n\n"
+        "• Solo oportunidades reales — si mandas algo que no lo es, te aviso; tras "
+        f"{cfg.spam_block_threshold} mensajes seguidos así, se bloquea el acceso automáticamente\n\n"
         "📂 <b>/editarmisproyectos</b> — tus oportunidades abiertas: editarlas o eliminarlas\n"
         "📜 <b>/historicomisproyectos</b> — todo lo que has publicado, con su estado\n\n"
         '🌍 Canal de difusión: <a href="https://t.me/erasmuscorradi">t.me/erasmuscorradi</a> · '
@@ -117,11 +117,12 @@ def _reject_text(result: dict) -> str | None:
                 "Vuelve a intentarlo mañana.")
     if status == "not_opportunity":
         if result.get("blocked"):
-            return ("🚫 Se ha bloqueado tu acceso automáticamente por mandar dos mensajes seguidos "
+            return (f"🚫 Se ha bloqueado tu acceso automáticamente por mandar {cfg.spam_block_threshold} mensajes seguidos "
                     f"que no son oportunidades. Si crees que es un error, contacta con {_CONTACT}.")
         text = f"🤔 No parece una oportunidad. Motivo: {result.get('reason') or '—'}"
         if result.get("warn"):
-            text += "\n\n⚠️ Aviso: si vuelve a pasar, se bloqueará tu acceso automáticamente."
+            text += (f"\n\n⚠️ Aviso: tras {cfg.spam_block_threshold} mensajes seguidos que no sean "
+                     "oportunidades, se bloqueará tu acceso automáticamente.")
         return text
     if status == "expired":
         titulo = f"«{result['title']}» " if result.get("title") else ""

@@ -132,11 +132,11 @@ Para que el canal no se llene de spam ni de mensajes fuera de sitio:
 - **Máximo `MAX_DAILY_OPPORTUNITIES` oportunidades al día por persona** (3 por defecto), salvo
   admins (`ADMIN_TELEGRAM_IDS`), que no tienen límite. Al superarlo, el bot responde pidiendo
   que se reintente al día siguiente — no llega a llamar al LLM, así que tampoco cuesta nada.
-- **Sistema de 2 avisos**: si un mensaje no es una oportunidad, el bot avisa (⚠️). Si el
-  *siguiente* mensaje de esa misma persona **tampoco** lo es, se bloquea el acceso
+- **Sistema de avisos**: si un mensaje no es una oportunidad, el bot avisa (⚠️). Al
+  quinto mensaje seguido de esa misma persona que tampoco lo sea, se bloquea el acceso
   automáticamente y se avisa a los admins por Telegram — el bloqueo es indefinido, se
   levanta a mano en la base de datos. Cualquier envío bueno de por medio resetea el contador.
-  El umbral es `SPAM_BLOCK_THRESHOLD` (2 por defecto). Los admins tampoco están sujetos a
+  El umbral es `SPAM_BLOCK_THRESHOLD` (5 por defecto). Los admins tampoco están sujetos a
   este sistema.
 - **Todo envío queda registrado** en la tabla `submissions` (creada, duplicada, no-oportunidad,
   límite superado, error), con el ID de Telegram de quien lo mandó — es la base de datos que
@@ -390,7 +390,7 @@ Variables imprescindibles para el lanzamiento actual (ver `.env.example` para el
 | `DEDUP_THRESHOLD` | Umbral de similitud coseno para considerar duplicado (0.88 por defecto) |
 | `TELEGRAM_CHANNEL_USERNAME` | Username público del canal (sin @); enlaza cada oportunidad a su post original (mapa, resumen semanal) |
 | `MAX_DAILY_OPPORTUNITIES` | Máximo de oportunidades que puede crear un coordinador al día (3 por defecto) |
-| `SPAM_BLOCK_THRESHOLD` | Mensajes seguidos que no son oportunidad antes de bloquear automáticamente (2 por defecto: aviso + bloqueo) |
+| `SPAM_BLOCK_THRESHOLD` | Mensajes seguidos que no son oportunidad para bloquear automáticamente (5 por defecto) |
 
 ### Configurar el canal de difusión (referencia)
 

@@ -208,7 +208,7 @@
   }
 
   function enhanceCards() {
-    document.querySelectorAll(".card[data-id],.top-project[data-id],.mini-card[data-id]").forEach(card => {
+    document.querySelectorAll(".card[data-id],.mini-card[data-id]").forEach(card => {
       const project = byId(card.dataset.id);
       if (!project) return;
       const result = eligibility(project);
@@ -400,7 +400,7 @@
     catalog = data.results || []; generated = data.generated || "";
     bindGlobal(); setupInstall(); setupQuickProfile(); updateSummaries(); updateFilterChips(); enhanceCards(); enhanceDetail();
     const observer = new MutationObserver(() => { enhanceCards(); enhanceDetail(); updateFilterChips(); });
-    ["allCards","urgentCards","weeklyTop","rowSoon","rowYE","rowTC","detail"].forEach(id => { const node = document.getElementById(id); if (node) observer.observe(node, {childList:true, subtree:true}); });
+    ["allCards","urgentCards","rowSoon","rowYE","rowTC","detail"].forEach(id => { const node = document.getElementById(id); if (node) observer.observe(node, {childList:true, subtree:true}); });
     if (new URLSearchParams(location.search).get("profile") === "1") setTimeout(openProfile, 0);
   }
   function initProject(data) {

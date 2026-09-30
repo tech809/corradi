@@ -44,3 +44,12 @@ def test_story_falls_back_without_photo(monkeypatch):
     with Image.open(BytesIO(rendered)) as image:
         assert image.size == instagram_card.STORY_SIZE
         assert image.format == "PNG"
+
+
+def test_esc_without_editorial_photo_uses_pool():
+    photo = instagram_card._project_photo(
+        {"identifier": "CORRADI-2026-0612", "type": "VOLUNTEERING", "image_url": None},
+        (1080, 1350),
+    )
+    assert photo is not None
+    assert photo.size == (1080, 1350)

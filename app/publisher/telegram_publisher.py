@@ -365,14 +365,14 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
     Telegram van en la imagen del post (ver `opportunity_card.py`) y no se repiten en el
     pie, aquí SÍ hay que escribirlas -- si no, se pierden por completo en la copia.
 
-    Bloque final: 📄 Info (enlace corto a la ficha en el mapa), ✍️ Form, ✉️ Contacto y
-    ⏳ Fecha límite. Cada línea SOLO aparece si hay dato (nunca "Form: -" a rellenar a
-    mano). URLs sin esquema (`https://`/`www.`), que se hacen tocables igual."""
+    📄 Infopack (enlace corto a la ficha) y ✍️ Form van antes del resumen;
+    ✉️ Contacto y ⏳ Fecha límite cierran el mensaje. Cada línea solo aparece si hay dato.
+    """
     flag = _flag(o.get("country_code")) or "🌍"
     categoria = _CATEGORIA_WHATSAPP.get(o.get("type"), _OTRAS_CATEGORIA)
     if o.get("topic"):
         categoria = f"{categoria}: {o['topic']}"
-    cabecera = [f"{flag} *{o['title']}*", categoria]
+    cabecera = [f"{flag} *{o['title']}*", "", categoria]
     if _place(o):
         cabecera.append(f"📍 {_place(o)}")
     cabecera.append(f"🗓️ {_compact_dates(o)}")
@@ -381,21 +381,25 @@ def format_opportunity_whatsapp(o: dict[str, Any]) -> str:
 
     bloques = ["\n".join(cabecera)]
 
-    if o.get("summary"):
-        bloques.append(_cap_summary(o["summary"]))
-
-    # Enlaces + fecha límite, todo en un bloque. "Info" es el enlace corto de Corradi:
+    # "Infopack" es el enlace corto de Corradi:
     # abre la ficha completa del proyecto en el mapa (con el infopack dentro), así que no
     # se repite aquí la URL cruda del infopack. URLs sin esquema: quedan más limpias y
     # WhatsApp/Telegram las hacen tocables igual.
-    lineas = []
+    enlaces = []
     short_link = _short_map_link(o.get("identifier"))
     if short_link:
-        lineas.append(f"📄 Info: {_bare_url(short_link)}")
+        enlaces.append(f"📄 Infopack: {_bare_url(short_link)}")
     if o.get("application_url"):
         # El Form SÍ lleva https:// — sin esquema, WhatsApp no lo hace tocable con URLs
-        # de forms.gle o con query/#fragmento. El resto (Info) sí van en crudo.
-        lineas.append(f"✍️ Form: {o['application_url']}")
+        # de forms.gle o con query/#fragmento. El enlace corto sí va en crudo.
+        enlaces.append(f"✍️ Form: {o['application_url']}")
+    if enlaces:
+        bloques.append("\n".join(enlaces))
+
+    if o.get("summary"):
+        bloques.append(_cap_summary(o["summary"]))
+
+    lineas = []
     contacto = clean_contact(o.get("contact_information"))
     if contacto:
         lineas.append(f"✉️ Contacto: {contacto}")

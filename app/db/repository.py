@@ -559,11 +559,10 @@ async def bump_project_interaction(identifier: str, kind: str) -> None:
         return
 
 
-async def list_top_projects(days: int = 7, limit: int = 3) -> list[dict[str, Any]]:
-    """Top de abiertas por suma simple de clics salientes durante la ventana indicada.
+async def list_top_projects(days: int = 7, limit: int = 3, *, kinds: tuple[str, ...] = ("info", "form", "infopack")) -> list[dict[str, Any]]:
+    """Top de abiertas por interacciones de los tipos indicados durante la ventana.
 
-    Las aperturas de ficha (`view`) se conservan como analítica, pero no influyen aquí:
-    el mismo ranking alimenta web, Telegram y WhatsApp.
+    Los resúmenes usan clics salientes por defecto; la portada pide vistas de ficha.
     """
     days = max(1, min(days, 31))
     limit = max(1, min(limit, 10))
@@ -576,10 +575,10 @@ async def list_top_projects(days: int = 7, limit: int = 3) -> list[dict[str, Any
                     "FROM projects p JOIN project_interactions i ON i.project_id = p.id "
                     "WHERE p.status = 'open' "
                     "AND (p.application_deadline IS NULL OR p.application_deadline >= current_date) "
-                    "AND i.kind IN ('info', 'form', 'infopack') "
+                    "AND i.kind = ANY(%s) "
                     "AND i.day >= current_date - %s "
                     "GROUP BY p.id ORDER BY interaction_score DESC, interactions DESC, p.created DESC LIMIT %s",
-                    (days - 1, limit),
+                    (list(kinds), days - 1, limit),
                 )
                 return list(await cur.fetchall())
     except pg_errors.UndefinedTable:
