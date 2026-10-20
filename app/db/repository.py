@@ -199,16 +199,44 @@ async def close_missing_eyp_projects(active_external_ids: list[str], checked_at:
 
 
 async def count_eyp_social_published_on(day: date, timezone_name: str) -> int:
-    """Publicaciones ESC realmente enviadas en el día local indicado."""
+    """Cupo ESC consumido (publicaciones confirmadas o intentos reservados)."""
     async with get_pool().connection() as conn:
         cur = await conn.execute(
-            "SELECT count(*) FROM projects WHERE source='eyp' "
-            "AND social_published_at IS NOT NULL "
-            "AND (social_published_at AT TIME ZONE %s)::date = %s",
+            "SELECT count(*) FROM projects WHERE type='VOLUNTEERING' "
+            "AND (social_reserved_at IS NOT NULL OR social_published_at IS NOT NULL OR published_telegram = TRUE) "
+            "AND (COALESCE(social_published_at, social_reserved_at, created) AT TIME ZONE %s)::date = %s",
             (timezone_name, day),
         )
         row = await cur.fetchone()
         return int(row[0])
+
+
+async def publish_esc_with_daily_cap(project_id, publish) -> int | None:
+    """Serializa todos los orígenes ESC con un bloqueo compartido entre procesos.
+
+    La reserva se confirma ANTES del envío: si Telegram acepta la foto pero la conexión
+    se corta, no arriesgamos una segunda publicación ese día. Un fallo consume el cupo
+    de forma conservadora; la ficha continúa disponible en la web.
+    """
+    async with get_pool().connection() as conn:
+        await conn.execute("SELECT pg_advisory_xact_lock(%s)", (2026102001,))
+        cur = await conn.execute(
+            "SELECT count(*) FROM projects WHERE type='VOLUNTEERING' "
+            "AND (social_reserved_at IS NOT NULL OR social_published_at IS NOT NULL OR published_telegram = TRUE) "
+            "AND (COALESCE(social_published_at, social_reserved_at, created) AT TIME ZONE %s)::date "
+            "= (clock_timestamp() AT TIME ZONE %s)::date",
+            (cfg.timezone, cfg.timezone),
+        )
+        if int((await cur.fetchone())[0]) >= min(1, cfg.eyp_social_daily_cap):
+            return None
+        cur = await conn.execute(
+            "UPDATE projects SET social_reserved_at=clock_timestamp() "
+            "WHERE id=%s AND social_reserved_at IS NULL AND social_published_at IS NULL AND published_telegram=FALSE",
+            (project_id,),
+        )
+        if not cur.rowcount:
+            return None
+    return await publish()
 
 
 async def mark_eyp_social_published(project_id) -> None:
@@ -476,7 +504,8 @@ async def list_open_geo() -> list[dict[str, Any]]:
 async def mark_published(project_id, message_id: int | None = None) -> None:
     async with get_pool().connection() as conn:
         cur = await conn.execute(
-            "UPDATE projects SET published_telegram = TRUE, telegram_message_id = %s, updated = now() "
+            "UPDATE projects SET published_telegram = TRUE, telegram_message_id = %s, updated = now(), "
+            "social_published_at = CASE WHEN type='VOLUNTEERING' THEN clock_timestamp() ELSE social_published_at END "
             "WHERE id = %s AND published_telegram = FALSE",
             (message_id, project_id),
         )

@@ -79,9 +79,9 @@ class Config:
     # envíos consecutivos que no son oportunidad (spam) antes de bloquear automáticamente
     # (con 5: los 4 primeros avisan, el 5º seguido bloquea).
     max_daily_opportunities: int = int(os.getenv("MAX_DAILY_OPPORTUNITIES", "3"))
-    # Nuevos ESC oficiales que entran en Telegram/WhatsApp/Instagram cada día. El resto
-    # permanece en el catálogo web; nunca se drena el lote histórico.
-    eyp_social_daily_cap: int = int(os.getenv("EYP_SOCIAL_DAILY_CAP", "2"))
+    # Máximo un ESC al día entre todos los orígenes (0 pausa los envíos).
+    # El resto permanece en el catálogo web; nunca se drena el lote histórico.
+    eyp_social_daily_cap: int = min(1, max(0, int(os.getenv("EYP_SOCIAL_DAILY_CAP", "1"))))
     spam_block_threshold: int = int(os.getenv("SPAM_BLOCK_THRESHOLD", "5"))
     timezone: str = os.getenv("TIMEZONE", "Europe/Madrid")
     summary_hour: int = int(os.getenv("SUMMARY_HOUR", "20"))

@@ -260,6 +260,19 @@ async def _publish_instagram_now(opp: dict[str, Any]) -> None:
         await repo.mark_instagram_failed(queue_id, f"{type(e).__name__}: {e}")
 
 
+async def _publish_telegram_opportunity(opp: dict[str, Any]) -> int | None:
+    async def send():
+        caption = pub.format_opportunity(opp, buttons=True, show_title=False, show_type=False)
+        image = await asyncio.to_thread(card_v2.render, opp)
+        return await pub.publish_photo_to_channel(
+            image, caption, reply_markup=pub.opportunity_keyboard(opp)
+        )
+
+    if opp.get("type") in ("VOLUNTEERING", "ESC") or opp.get("source") == "eyp":
+        return await repo.publish_esc_with_daily_cap(opp["id"], send)
+    return await send()
+
+
 async def publish_existing_eyp(opp: dict[str, Any]) -> dict[str, Any]:
     """Mete una ficha EYP ya guardada en el flujo social completo, sin recrearla.
 
@@ -281,13 +294,9 @@ async def publish_existing_eyp(opp: dict[str, Any]) -> dict[str, Any]:
                 log.exception("No pude guardar la foto editorial de ESC %s", opp["identifier"])
                 opp = enriched
     try:
-        caption = pub.format_opportunity(opp, buttons=True, show_title=False, show_type=False)
-        image = await asyncio.to_thread(card_v2.render, opp)
-        message_id = await pub.publish_photo_to_channel(
-            image, caption, reply_markup=pub.opportunity_keyboard(opp)
-        )
+        message_id = await _publish_telegram_opportunity(opp)
         if not message_id:
-            return {"published": False, "error": "Telegram no devolvió message_id"}
+            return {"published": False, "error": "Cupo ESC agotado o Telegram no devolvió message_id"}
         await repo.mark_published(opp["id"], message_id)
         await repo.mark_eyp_social_published(opp["id"])
         opp = {**opp, "telegram_message_id": message_id, "publication_scope": "all"}
@@ -346,11 +355,9 @@ async def commit(
     # Publicar (canal Telegram, como foto+pie — bandera/título/categoría van en la imagen,
     # el resto en el pie) + handoff (WhatsApp)
     try:
-        caption = pub.format_opportunity(opp, buttons=True, show_title=False, show_type=False)
-        image = await asyncio.to_thread(card_v2.render, opp)
-        message_id = await pub.publish_photo_to_channel(
-            image, caption, reply_markup=pub.opportunity_keyboard(opp)
-        )
+        message_id = await _publish_telegram_opportunity(opp)
+        if not message_id and opp.get("type") in ("VOLUNTEERING", "ESC"):
+            return {"status": "created", "opp": opp, "published": False}
         if message_id:
             await repo.mark_published(opp["id"], message_id)
         await handoff.opportunity(opp)
@@ -361,7 +368,8 @@ async def commit(
         # "ya existe" — dejándolo atascado sin la oportunidad publicada y sin poder
         # reintentarlo. Cerrada, un reenvío genera una ficha nueva sin chocar con esta.
         try:
-            await repo.close_project(opp["identifier"])
+            if opp.get("type") not in ("VOLUNTEERING", "ESC"):
+                await repo.close_project(opp["identifier"])
         except Exception:  # noqa: BLE001
             log.exception("No pude cerrar %s tras el fallo de publicación", opp["identifier"])
         return {"status": "created_no_publish", "opp": opp, "error": str(e)}

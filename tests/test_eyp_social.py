@@ -1,11 +1,13 @@
 import asyncio
+import pytest
 from datetime import date
 
 from app.scheduler import scrape_eyp
 from app import pipeline
 
 
-def test_only_new_eyp_rows_fill_remaining_daily_social_slots(monkeypatch):
+@pytest.mark.parametrize("used, expected", [(0, ["EYP-1"]), (1, []), (2, [])])
+def test_only_new_eyp_rows_fill_remaining_daily_social_slots(monkeypatch, used, expected):
     rows = [{"id": 1}, {"id": 2}, {"id": 3}]
     projects = {
         1: {"id": "p1", "identifier": "EYP-1", "application_deadline": date(2026, 10, 1),
@@ -32,7 +34,7 @@ def test_only_new_eyp_rows_fill_remaining_daily_social_slots(monkeypatch):
         return 0
 
     async def already_published(*_args, **_kwargs):
-        return 1  # con tope 2 solo queda una plaza hoy
+        return used
 
     monkeypatch.setattr(scrape_eyp.eyp, "fetch_open", fetch_open)
     monkeypatch.setattr(scrape_eyp.eyp, "select_candidates", lambda data, *_args: data)
@@ -49,9 +51,9 @@ def test_only_new_eyp_rows_fill_remaining_daily_social_slots(monkeypatch):
 
     result = asyncio.run(scrape_eyp.run())
 
-    assert published == ["EYP-1"]
+    assert published == expected
     assert result["created"] == 3
-    assert result["social_published"] == 1
+    assert result["social_published"] == len(expected)
 
 
 def test_updated_eyp_rows_never_drain_into_social_backlog(monkeypatch):

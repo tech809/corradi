@@ -1,7 +1,8 @@
-"""Ingesta web-only de oportunidades oficiales ESC del Portal Europeo de la Juventud.
+"""Ingesta de oportunidades oficiales ESC del Portal Europeo de la Juventud.
 
-No llama al pipeline editorial y no publica en Telegram, Instagram ni WhatsApp. Solo
-acepta fichas con deadline explícita, España elegible e inicio futuro.
+Todas entran en la web; como máximo una nueva al día entra en el flujo social, sujeto
+al cupo compartido con otros orígenes. Solo acepta fichas con deadline explícita,
+España elegible e inicio futuro.
 """
 from __future__ import annotations
 

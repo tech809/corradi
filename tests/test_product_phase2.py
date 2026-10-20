@@ -33,7 +33,9 @@ def test_home_has_compact_flow_and_mobile_navigation():
     assert "/assets/profile-editor.js" in html
     assert "/assets/profile-editor.css" in html
     assert 'id="installApp"' not in html
-    assert 'class="wrap weekly-top"' not in html
+    assert 'class="wrap weekly-top"' in html
+    assert 'class="hero-map-cta" href="/mapa"' in html
+    assert 'id="heroForm"' not in html
     assert 'id="rowSoon"' in html
     assert 'id="rowYE"' in html
     assert 'id="rowTC"' in html
@@ -108,13 +110,13 @@ def test_secondary_pages_share_the_same_back_navigation():
     assert 'href="/mapa"' in estadisticas
 
 
-def test_detail_dialog_has_single_full_page_action():
-    script = (STATIC / "discover-product.js").read_text(encoding="utf-8")
-    detail_block = script[script.index("function enhanceDetail"):script.index("function updateFilterChips")]
-    assert "detail-product-bar" not in detail_block
-    assert 'data-product-open="profile"' not in detail_block
-    assert "Abrir ficha completa" in detail_block
-    assert "trace-note" in detail_block
+def test_opportunities_open_full_page_and_map_pins_keep_sheet_collapsed():
+    home = (STATIC / "discover.html").read_text(encoding="utf-8")
+    map_page = (STATIC / "mapa.html").read_text(encoding="utf-8")
+    assert 'function openDetail(id){if(id)location.assign("/proyecto/"+encodeURIComponent(id))}' in home
+    assert 'id="dialog" aria-label="Detalle de la oportunidad"' not in home
+    assert 'if(directId){openDetail(directId);return}' in home
+    assert '.on("click", function () { setActive(o.identifier, false); if(isMobileQuery&&isMobileQuery.matches)setSheet("peek"); });' in map_page
 
 
 def test_country_flags_cover_non_striped_designs():

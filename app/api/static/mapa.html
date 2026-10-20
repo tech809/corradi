@@ -1344,7 +1344,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       var lat = Number(o.latitude), lon = Number(o.longitude);
       var m = L.marker([lat, lon], { icon: pinIcon(o, false), title: o.title, riseOnHover: true })
         .bindPopup(popupHtml(o), { closeButton: true, autoPanPadding: [30, 30] })
-        .on("click", function () { setActive(o.identifier, true); if(isMobileQuery&&isMobileQuery.matches)setSheet("full"); });
+        .on("click", function () { setActive(o.identifier, false); if(isMobileQuery&&isMobileQuery.matches)setSheet("peek"); });
       markers[o.identifier] = m; batch.push(m);
     });
     layer.addLayers(batch);

@@ -40,3 +40,25 @@ def test_pool_photo_es_determinista_por_identificador():
     a = card_v2.pool_photo("CORRADI-2026-0123")
     b = card_v2.pool_photo("CORRADI-2026-0123")
     assert a == b and a is not None
+
+
+def test_invalid_remote_photo_falls_back_to_pool(monkeypatch):
+    import httpx
+    from types import SimpleNamespace
+    monkeypatch.setattr(httpx, "get", lambda *a, **kw: SimpleNamespace(
+        content=b"<html>not an image</html>", raise_for_status=lambda: None,
+    ))
+    assert card_v2._fetch_photo({**BASE, "image_url": "https://example.org/broken.jpg"}) == card_v2.pool_photo(BASE["identifier"])
+
+
+def test_flags_preserve_original_proportions_and_details():
+    from app.publisher.opportunity_card import _flag, FLAG_DIR
+    for code in ("GR", "ES", "PT", "CY", "CZ", "CH", "HR", "SK", "SI"):
+        with Image.open(FLAG_DIR / (code.lower() + ".png")) as source:
+            from PIL import ImageOps
+            expected = ImageOps.contain(source.convert("RGBA"), (120, 80), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (140, 100), "#999999")
+        _flag(canvas, 10, 10, 120, 80, code.lower())
+        left = 10 + (120 - expected.width) // 2
+        top = 10 + (80 - expected.height) // 2
+        assert canvas.crop((left, top, left + expected.width, top + expected.height)).tobytes() == expected.convert("RGB").tobytes()

@@ -229,22 +229,6 @@
     });
   }
 
-  function enhanceDetail() {
-    const detail = document.getElementById("detail");
-    if (!detail || !detail.children.length || detail.querySelector(".trace-note")) return;
-    const identifier = new URLSearchParams(location.search).get("o");
-    const project = byId(identifier);
-    if (!project) return;
-    const result = eligibility(project);
-    const head = detail.querySelector(".detail-head");
-    if (head) head.insertAdjacentHTML("afterend", '<div class="project-eligibility ' + result.state + '"><strong>' + esc(result.label) + '</strong>' + (result.score == null ? "" : '<span class="compat-confidence">Confianza ' + esc(result.confidence) + '</span>') + '<br>' + esc(result.reasons.slice(0, 3).join(" · ")) + '</div>');
-    const actions = detail.querySelector(".detail-actions");
-    if (actions) actions.insertAdjacentHTML("beforeend", '<a class="btn" href="' + projectUrl(project) + '">Abrir ficha completa</a>');
-    const trace = document.createElement("div"); trace.className = "trace-note";
-    trace.innerHTML = "<i></i><span>" + esc(project.infopack_enriched ? "Datos ampliados desde el infopack oficial" : "Ficha estructurada y revisada por Corradi") + " · Actualizada " + esc(fmt((project.updated || project.created || "").slice(0, 10))) + "</span>";
-    if (actions) actions.after(trace); else detail.appendChild(trace);
-  }
-
   function updateFilterChips() {
     const holder = document.getElementById("activeFilters"); if (!holder) return;
     const search = document.getElementById("search"), type = document.getElementById("type"), country = document.getElementById("country"), age = document.getElementById("age");
@@ -398,9 +382,9 @@
   }
   function initHome(data) {
     catalog = data.results || []; generated = data.generated || "";
-    bindGlobal(); setupInstall(); setupQuickProfile(); updateSummaries(); updateFilterChips(); enhanceCards(); enhanceDetail();
-    const observer = new MutationObserver(() => { enhanceCards(); enhanceDetail(); updateFilterChips(); });
-    ["allCards","urgentCards","rowSoon","rowYE","rowTC","detail"].forEach(id => { const node = document.getElementById(id); if (node) observer.observe(node, {childList:true, subtree:true}); });
+    bindGlobal(); setupInstall(); setupQuickProfile(); updateSummaries(); updateFilterChips(); enhanceCards();
+    const observer = new MutationObserver(() => { enhanceCards(); updateFilterChips(); });
+    ["allCards","urgentCards","rowSoon","rowYE","rowTC"].forEach(id => { const node = document.getElementById(id); if (node) observer.observe(node, {childList:true, subtree:true}); });
     if (new URLSearchParams(location.search).get("profile") === "1") setTimeout(openProfile, 0);
   }
   function initProject(data) {

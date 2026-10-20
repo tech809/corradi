@@ -102,10 +102,14 @@ def _fetch_photo(opp: dict[str, Any]) -> bytes | None:
             r = httpx.get(url, timeout=15, follow_redirects=True,
                           headers={"User-Agent": "corradi-bot"})
             r.raise_for_status()
+            with Image.open(io.BytesIO(r.content)) as source:
+                source.verify()
             return r.content
         if url.startswith("/media/opportunities/"):
             p = Path(cfg.media_dir) / "opportunities" / url.rsplit("/", 1)[-1]
             if p.is_file():
+                with Image.open(p) as source:
+                    source.verify()
                 return p.read_bytes()
     except Exception:  # noqa: BLE001 — una foto nunca bloquea la publicación
         log.warning("card_v2: no pude cargar %s, uso el pool", url, exc_info=True)
@@ -128,7 +132,7 @@ def _render(opp: dict[str, Any], photo_bytes: bytes | None) -> bytes:
     # ── Foto de fondo ──────────────────────────────────────────────────────────
     if photo_bytes:
         try:
-            photo = Image.open(io.BytesIO(photo_bytes)).convert("RGB")
+            photo = ImageOps.exif_transpose(Image.open(io.BytesIO(photo_bytes))).convert("RGB")
         except Exception:
             photo = None
     else:

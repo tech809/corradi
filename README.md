@@ -233,8 +233,16 @@ El Portal Europeo de la Juventud alimenta el catálogo principal con una selecci
 conservadora: residentes en España admitidos, inicio futuro, deadline explícita y dentro de
 los próximos `MAX_DEADLINE_MONTHS`. Todas las fichas entran en la web. Solo los ESC nuevos
 descubiertos en el pase actual pueden entrar al flujo Telegram/WhatsApp/Instagram, con un
-máximo diario configurable mediante `EYP_SOCIAL_DAILY_CAP` (2 por defecto); el lote histórico
-no se publica retroactivamente. Los mensajes sociales remiten al catálogo ESC completo.
+máximo diario de un ESC, compartido por todos los orígenes; `EYP_SOCIAL_DAILY_CAP=0` permite
+pausar los envíos. El lote histórico no se publica retroactivamente. Los mensajes sociales
+remiten al catálogo ESC completo.
+
+Antes de desplegar este límite en una BD existente, aplicar
+`db/migrations/0023_esc_daily_reservation.sql`. El día se calcula en `TIMEZONE` (Europe/Madrid
+por defecto). Se reserva el cupo antes del envío para impedir duplicados entre procesos:
+si Telegram devuelve un error incierto, el intento consume el cupo de ese día y la ficha
+sigue en la web. ESC aparece en su colección, catálogo, mapa y más visitados, pero se
+excluye de «Últimos publicados» y «Cierran antes».
 
 La duración se normaliza como `duration_days` y `duration_months`. La portada y el mapa
 muestran un filtro contextual de duración máxima cuando se selecciona ESC.
