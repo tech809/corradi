@@ -163,7 +163,11 @@
     const holder = document.getElementById("productMatches");
     if (!holder || !catalog.length) return;
     const p = profile();
-    const open = catalog.filter(project => { const d = daysLeft(project); return d == null || d >= 0; });
+    const open = catalog.filter(project => {
+      if (project.type === "VOLUNTEERING" || project.type === "ESC") return false;
+      const d = daysLeft(project);
+      return d == null || d >= 0;
+    });
     const wanted = p.types || [];
     const byType = open.filter(project => !wanted.length || wanted.includes(project.type) || (wanted.includes("VOLUNTEERING") && project.type === "ESC"));
     // Desempate: con la misma afinidad, primero lo que cierra antes y después lo que está más
@@ -196,7 +200,7 @@
     if (grid.dataset.signature === signature) return;
     grid.dataset.signature = signature;
     grid.querySelectorAll(".qp-card").forEach(card => { before[card.dataset.id] = card.getBoundingClientRect(); });
-    grid.innerHTML = top.length ? top.map(x => matchCard(x.project, x.result, hasTopics)).join("") : '<div class="qp-empty">No hay ninguna abierta para este perfil ahora mismo. Prueba con otro formato: se añaden nuevas cada día.</div>';
+    grid.innerHTML = top.length ? top.map(x => matchCard(x.project, x.result, hasTopics)).join("") : '<div class="qp-empty">No hay intercambios ni formaciones abiertos para este perfil ahora mismo. En el catálogo también puedes consultar los voluntariados ESC.</div>';
     if (document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     grid.querySelectorAll(".qp-card").forEach(card => {
       const old = before[card.dataset.id], now = card.getBoundingClientRect();
