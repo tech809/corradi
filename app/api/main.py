@@ -974,220 +974,47 @@ async def sitemap_xml() -> Response:
     return Response(content=xml, media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})
 
 
-_MESES_ABBR = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"]
-
-
-def _fecha_larga(d: date | None) -> str:
-    return f"{d.day} {_MESES_ABBR[d.month - 1]} {d.year}" if d else "por confirmar"
-
-
-def _flag_emoji(cc: str | None) -> str:
-    cc = (cc or "").upper()
-    if len(cc) != 2 or not cc.isalpha():
-        return "🌍"
-    return "".join(chr(0x1F1E6 + ord(c) - 65) for c in cc)
-
-
-_SHORT_PAGE_CSS = """
-@font-face{font-family:Sora;font-weight:700;src:url('/fonts/Sora-Bold.ttf')}
-@font-face{font-family:Sora;font-weight:800;src:url('/fonts/Sora-ExtraBold.ttf')}
-@font-face{font-family:Manrope;font-weight:400;src:url('/fonts/Manrope-Regular.ttf')}
-@font-face{font-family:Manrope;font-weight:600;src:url('/fonts/Manrope-SemiBold.ttf')}
-@font-face{font-family:Manrope;font-weight:700;src:url('/fonts/Manrope-Bold.ttf')}
-:root{--navy:#0d1d4e;--lime:#d8ee78;--ink:#0b0d12;--muted:#5b5f68;--line:rgba(11,13,18,.12);--paper:#f4f2ec}
-*{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.6 Manrope,system-ui,sans-serif}
-.wrap{max-width:760px;margin:0 auto;padding:22px 22px 60px}
-.brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font:800 17px Sora,sans-serif;letter-spacing:-.02em}
-.brand .g{width:36px;height:36px;border-radius:11px;background:var(--navy);color:#fff;display:grid;place-items:center;font:800 15px Sora,sans-serif}
-.brand small{display:block;color:var(--muted);font:700 8.5px Manrope,sans-serif;letter-spacing:.1em}
-.short-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.short-nav{display:flex;gap:8px}.short-nav a{padding:8px 10px;border-radius:9px;color:var(--navy);font-size:11px;font-weight:700;text-decoration:none}.short-nav a:last-child{background:#e8edda}
-article{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;margin-top:20px;box-shadow:0 20px 60px rgba(16,22,39,.08)}
-.photo{height:min(46vw,320px);background:#dfe4dc center/cover no-repeat}
-.body{padding:26px 28px}
-.badges{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted);font-weight:600}
-.badge{background:var(--navy);color:#fff;border-radius:999px;padding:5px 12px;font:700 11px Manrope,sans-serif;letter-spacing:.04em;text-transform:uppercase}
-h1{font:800 clamp(26px,4vw,38px)/1.12 Sora,sans-serif;letter-spacing:-.035em;margin:14px 0 6px}
-.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:22px 0}
-.facts>div{background:var(--paper);border-radius:13px;padding:12px 14px}
-.facts small{display:block;color:var(--muted);font:700 10px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase}
-.facts b{font:700 14px Manrope,sans-serif}
-.lead{font-size:17px;color:#2a2d34}
-h2{font:700 15px Sora,sans-serif;margin:26px 0 8px}
-.body p{white-space:pre-line}
-.actions{display:flex;flex-wrap:wrap;gap:10px;margin:28px 0 4px}
-.btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;font:700 14px Manrope,sans-serif;padding:13px 20px;border-radius:13px;border:1px solid var(--line);color:var(--ink);background:#fff}
-.btn.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
-.btn.lime{background:var(--lime);color:#14213f;border-color:var(--lime)}
-.back{margin-top:26px;font-size:14px}
-.back a{color:var(--navy);font-weight:700;text-decoration:none}
-footer{max-width:760px;margin:0 auto;padding:0 22px 40px;color:var(--muted);font-size:12.5px}
-.compat{margin-left:auto;border-radius:999px;padding:6px 11px;background:#ececef;color:#535966;font-size:11px;font-weight:700}
-.compat.yes{background:#e5f1e8;color:#2f6545}.compat.warn{background:#f7eedb;color:#805b23}.compat.no{background:#f5e7e4;color:#983d38}
-.map-section{max-width:1000px;margin:24px auto 0;padding:0 22px 60px}
-.map-copy{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:13px}.map-copy h2{margin:0;font:700 20px Sora,sans-serif}.map-copy p{margin:4px 0 0;color:var(--muted);font-size:13px}.map-copy a{color:var(--navy);font-weight:700;text-decoration:none;white-space:nowrap}
-#opportunityMap{height:390px;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#dfe4dc;box-shadow:0 18px 50px rgba(16,22,39,.08)}
-.short-pin{width:28px;height:28px;border:3px solid #fff;border-radius:50% 50% 50% 0;background:var(--navy);transform:rotate(-45deg);box-shadow:0 4px 14px rgba(13,29,78,.3)}.short-pin.current{width:34px;height:34px;background:#c6df57;box-shadow:0 0 0 5px rgba(216,238,120,.35),0 4px 14px rgba(13,29,78,.3)}
-@media(max-width:640px){.body{padding:22px 19px}.short-nav a:first-child{display:none}.short-nav a{font-size:10px}.map-copy{align-items:start;flex-direction:column}#opportunityMap{height:330px}}
-"""
-
-
 def _short_link_page(row: dict[str, Any], origin: str) -> str:
+    """Preview específica para redes; la navegación humana abre la ficha del mapa."""
     identifier = row["identifier"]
     short_id = identifier.removeprefix("CORRADI-")
-    e = html.escape
-    title = row.get("title") or identifier
-    tipo = _TIPOS_ES.get(row.get("type"), row.get("type") or "Erasmus+")
-    cc = (row.get("country_code") or "").upper()
-    pais = _PAISES_ES.get(cc, cc)
-    lugar = row.get("location") or pais
-    summary = " ".join((row.get("summary") or "").split())
-    detail = (row.get("detailed_description") or "").strip()
-    deadline = row.get("application_deadline")
-    start, end = row.get("start_date"), row.get("end_date")
+    target = f"/mapa?o={identifier}"
     canonical = f"{origin}/{short_id}"
-
+    title = row.get("title") or identifier
+    kind = _TIPOS_ES.get(row.get("type"), row.get("type") or "Erasmus+")
+    place = row.get("location") or _PAISES_ES.get((row.get("country_code") or "").upper(), "")
+    summary = " ".join((row.get("summary") or "").split())
+    description = f"{kind} en {place}. {summary}" if place else f"{kind}. {summary}"
+    description = description[:180].strip()
+    image = row.get("image_url") or f"{origin}/og.png"
+    if image.startswith("/"):
+        image = origin + image
+    deadline = row.get("application_deadline")
     is_open = row.get("status") == "open" and (deadline is None or deadline >= date.today())
     robots = "index,follow,max-image-preview:large" if is_open else "noindex,follow"
-
-    img = row.get("image_url") or ""
-    if img.startswith("/"):
-        img = origin + img
-    og_image = img or f"{origin}/og.png"
-
-    desc_bits = [tipo]
-    if lugar:
-        desc_bits.append(f"en {lugar}")
-    if start:
-        desc_bits.append(f"del {_fecha_larga(start)}")
-    base_desc = " ".join(desc_bits) + "."
-    description = e((f"{base_desc} {summary}" if summary else f"{base_desc} Convocatoria Erasmus+ verificada en Corradi.")[:180].strip())
-
-    edad = ""
-    if row.get("participant_min_age") or row.get("participant_max_age"):
-        edad = f"{row.get('participant_min_age') or '—'}–{row.get('participant_max_age') or '+'} años"
-
-    facts = []
-    facts.append(("Fechas", f"{_fecha_larga(start)} – {_fecha_larga(end)}" if start or end else "por confirmar"))
-    if deadline:
-        facts.append(("Plazo de inscripción", _fecha_larga(deadline) + (" (estimada)" if row.get("deadline_estimated") else "")))
-    if edad:
-        facts.append(("Participantes", edad))
-    if row.get("organiser_name"):
-        facts.append(("Organiza", row["organiser_name"]))
-    if row.get("cost"):
-        facts.append(("Coste", str(row["cost"])))
-    facts_html = "".join(f"<div><small>{e(k)}</small><b>{e(str(v))}</b></div>" for k, v in facts)
-
-    secciones = ""
-    for label, key in (("Sobre el proyecto", "detailed_description"), ("Programa y actividades", "programme_details"),
-                       ("Qué aprenderás", "learning_outcomes"), ("A quién buscan", "participant_profile"),
-                       ("Países participantes", "eligibility_countries"), ("Alojamiento y comidas", "accommodation_details"),
-                       ("Costes y cobertura", "covered_costs")):
-        val = (row.get(key) or "").strip()
-        if val and key != "detailed_description":
-            secciones += f"<h2>{e(label)}</h2><p>{e(val)}</p>"
-
-    acciones = ""
-    if row.get("application_url"):
-        acciones += f'<a class="btn primary" href="{e(row["application_url"])}" target="_blank" rel="nofollow noopener">Solicitar plaza →</a>'
-    if row.get("infopack_url"):
-        acciones += f'<a class="btn" href="{e(row["infopack_url"])}" target="_blank" rel="nofollow noopener">Ver infopack</a>'
-    acciones += f'<a class="btn lime" href="/mapa?o={e(identifier)}">Ver en el mapa interactivo</a>'
-
-    ld = {
-        "@context": "https://schema.org", "@type": "EducationEvent", "name": title,
-        "description": (summary or base_desc)[:300], "url": canonical, "image": [og_image],
-        "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-        "eventStatus": "https://schema.org/EventScheduled",
-        "inLanguage": "es", "isAccessibleForFree": True,
+    event = {
+        "@context": "https://schema.org", "@type": "EducationEvent",
+        "name": title, "description": description, "url": canonical,
+        "image": [image], "inLanguage": "es",
     }
-    if start:
-        ld["startDate"] = start.isoformat()
-    if end:
-        ld["endDate"] = end.isoformat()
-    if lugar:
-        ld["location"] = {"@type": "Place", "name": lugar,
-                          "address": {"@type": "PostalAddress", "addressCountry": cc or None}}
-    if row.get("organiser_name"):
-        ld["organizer"] = {"@type": "Organization", "name": row["organiser_name"]}
-    offer = {"@type": "Offer", "price": 0, "priceCurrency": "EUR",
-             "availability": "https://schema.org/InStock",
-             "url": row.get("application_url") or canonical}
-    if deadline:
-        offer["validThrough"] = deadline.isoformat()
-    ld["offers"] = offer
-    ld_json = json.dumps(ld, ensure_ascii=False)
-    opportunity_json = json.dumps(_serialize(row), ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
-
-    detail_html = "".join(f"<p>{e(p.strip())}</p>" for p in re.split(r"\n{2,}", detail) if p.strip()) if detail else (f"<p class=\"lead\">{e(summary)}</p>" if summary else "")
-
+    if row.get("start_date"):
+        event["startDate"] = row["start_date"].isoformat()
+    if row.get("end_date"):
+        event["endDate"] = row["end_date"].isoformat()
+    event_json = json.dumps(event, ensure_ascii=False).replace("<", "\\u003c")
+    e = html.escape
     return f"""<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<title>{e(title)} · {e(tipo)}{(' en ' + e(pais)) if pais else ''} · Corradi Erasmus+</title>
-<meta name="description" content="{description}">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="{robots}">
-<link rel="canonical" href="{canonical}">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 3'><rect width='4' height='3' fill='%23AA151B'/><rect y='.75' width='4' height='1.5' fill='%23F1BF00'/></svg>">
-<meta property="og:type" content="article">
-<meta property="og:title" content="{e(title)}">
-<meta property="og:description" content="{description}">
-<meta property="og:url" content="{canonical}">
-<meta property="og:image" content="{e(og_image)}">
-<meta property="og:locale" content="es_ES">
-<meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynhtPKq30aZTi6MZbYVz1n9WgCig=" crossorigin="">
-<script type="application/ld+json">{ld_json}</script>
-<style>{_SHORT_PAGE_CSS}</style>
-</head>
-<body>
-<div class="wrap">
-<header class="short-head"><a class="brand" href="/"><span class="g">C</span><span>Corradi<small>OPORTUNIDADES ERASMUS+</small></span></a><nav class="short-nav" aria-label="Navegación"><a href="/guia">Guía</a><a href="/?profile=1">Mi compatibilidad</a></nav></header>
-<article>
-<div class="photo"{f' style="background-image:url(&quot;{e(img)}&quot;)"' if img else ''}></div>
-<div class="body">
-<div class="badges"><span class="badge">{e(tipo)}</span><span>{_flag_emoji(cc)} {e(lugar or pais)}</span><span class="compat" id="shortCompatibility">Configura tu perfil</span></div>
-<h1>{e(title)}</h1>
-<div class="facts">{facts_html}</div>
-{detail_html}
-{(f'<h2>Temática</h2><p>{e(row["topic"])}</p>') if row.get("topic") else ''}
-{secciones}
-<div class="actions">{acciones}</div>
-<p class="back"><a href="/">← Ver todas las oportunidades Erasmus+ abiertas</a></p>
-</div>
-</article>
-</div>
-<section class="map-section" aria-labelledby="nearbyTitle">
-<div class="map-copy"><div><h2 id="nearbyTitle">Esta oportunidad en el mapa</h2><p>Aleja el zoom para descubrir otras convocatorias abiertas.</p></div><a href="/mapa?o={e(identifier)}">Abrir el mapa completo →</a></div>
-<div id="opportunityMap" role="region" aria-label="Mapa de oportunidades Erasmus+"></div>
-</section>
-<footer>Corradi reúne convocatorias Erasmus+ (intercambios juveniles, training courses y ESC) con inscripción abierta, verificadas y explicadas con claridad, para personas residentes en España.</footer>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/assets/compatibility.js"></script>
-<script>
-(function(){{
-  var current={opportunity_json}, badge=document.getElementById("shortCompatibility");
-  if(window.CorradiCompatibility){{var result=window.CorradiCompatibility.evaluate(current);badge.textContent=result.label;badge.className="compat "+result.state;badge.title=result.reasons.join(" · ");badge.onclick=function(){{if(result.score==null)location.href="/?profile=1"}};}}
-  if(!window.L)return;
-  var hasCurrent=Number.isFinite(Number(current.latitude))&&Number.isFinite(Number(current.longitude));
-  var centre=hasCurrent?[Number(current.latitude),Number(current.longitude)]:[46.4,8.8];
-  var map=L.map("opportunityMap",{{scrollWheelZoom:false}}).setView(centre,hasCurrent?7:4);
-  L.tileLayer("https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png",{{maxZoom:18,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}}).addTo(map);
-  function icon(isCurrent){{return L.divIcon({{className:"",html:'<div class="short-pin'+(isCurrent?' current':'')+'"></div>',iconSize:isCurrent?[34,34]:[28,28],iconAnchor:isCurrent?[17,30]:[14,25]}})}}
-  fetch("/api/map").then(function(r){{return r.ok?r.json():Promise.reject()}}).then(function(data){{(data.results||[]).forEach(function(o){{
-    if(!Number.isFinite(Number(o.latitude))||!Number.isFinite(Number(o.longitude)))return;
-    var selected=o.identifier===current.identifier, marker=L.marker([Number(o.latitude),Number(o.longitude)],{{icon:icon(selected),zIndexOffset:selected?1000:0}}).addTo(map);
-    marker.bindTooltip(o.title||"Oportunidad Erasmus+",{{direction:"top",offset:[0,-20]}});
-    marker.on("click",function(){{location.href="/mapa?o="+encodeURIComponent(o.identifier)}});
-    if(selected)marker.openTooltip();
-  }})}}).catch(function(){{if(hasCurrent)L.marker(centre,{{icon:icon(true)}}).addTo(map).on("click",function(){{location.href="/mapa?o="+encodeURIComponent(current.identifier)}})}});
-}})();
-</script>
-</body>
-</html>"""
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{e(title)} · Corradi Erasmus+</title>
+<meta name="description" content="{e(description, quote=True)}">
+<meta name="robots" content="{robots}"><link rel="canonical" href="{e(canonical, quote=True)}">
+<meta property="og:type" content="article"><meta property="og:title" content="{e(title, quote=True)}">
+<meta property="og:description" content="{e(description, quote=True)}">
+<meta property="og:url" content="{e(canonical, quote=True)}"><meta property="og:image" content="{e(image, quote=True)}">
+<meta property="og:locale" content="es_ES"><meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{event_json}</script>
+<script>location.replace({json.dumps(target)});</script>
+</head><body><p>Abriendo la oportunidad en el mapa… <a href="{e(target, quote=True)}">Continuar</a></p></body></html>"""
 
 
 # Enlace corto para compartir a mano (WhatsApp, etc.): "mapa.proactivefuture.eu/2026-0040"
@@ -1197,10 +1024,9 @@ def _short_link_page(row: dict[str, Any], origin: str) -> str:
 # (/mapa, /health, /opportunities...) gana siempre; esta solo atrapa lo que sobra Y además
 # encaja en el patrón, así que no puede colisionar con nada existente ni futuro razonable.
 #
-# Sirve una página propia y completa de ESA oportunidad (título/descripción/OG reales,
-# contenido indexable, JSON-LD de tipo EducationEvent) en vez de un 302 directo al mapa:
-# un 302 no lleva metadatos, así que Google y las previsualizaciones de enlace solo veían
-# el título genérico del mapa entero. Es la URL que va en el sitemap y la que se comparte.
+# El HTML conserva los metadatos de la oportunidad para las previsualizaciones de WhatsApp.
+# En un navegador, JavaScript lleva al mapa sin dejar una página intermedia en el historial.
+# Un 302 haría que los lectores de enlaces vieran los metadatos genéricos del mapa.
 @app.get("/{short_id}", include_in_schema=False)
 async def short_link(short_id: str) -> Response:
     if not _SHORT_ID_RE.fullmatch(short_id):
