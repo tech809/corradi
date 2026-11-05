@@ -2,13 +2,13 @@
 (function () {
   "use strict";
   var TYPES = [
-    { key: "YOUTH_EXCHANGE", label: "Youth Exchange", title: "Intercambio juvenil", img: "/assets/proactive-ye.jpg",
+    { key: "YOUTH_EXCHANGE", label: "Youth Exchange", title: "Intercambio juvenil", img: "/assets/photo-ye.jpg",
       text: "Grupos de jóvenes de varios países conviven y trabajan un tema con educación no formal.",
       facts: [["Edad", "13–30 años"], ["Duración", "5–21 días"], ["Ideal para", "Primera experiencia"]] },
-    { key: "TRAINING_COURSE", label: "Training Course", title: "Curso de formación", img: "/assets/proactive-tc.jpg",
+    { key: "TRAINING_COURSE", label: "Training Course", title: "Curso de formación", img: "/assets/photo-tc.jpg",
       text: "Formación práctica para quienes trabajan con jóvenes: técnicos, monitores, voluntariado y docentes.",
       facts: [["Perfil", "Trabajo juvenil"], ["Duración", "De 2 días a 2 meses"], ["Ideal para", "Ganar competencias"]] },
-    { key: "VOLUNTEERING", label: "Voluntariado ESC", title: "Voluntariado europeo", img: "/assets/pool/12.jpg",
+    { key: "VOLUNTEERING", label: "Voluntariado ESC", title: "Voluntariado europeo", img: "/assets/photo-esc.jpg",
       text: "Colabora con una entidad de otro país dentro del Cuerpo Europeo de Solidaridad.",
       facts: [["Edad", "18–30 años"], ["Duración", "De 2 semanas a 12 meses"], ["Ideal para", "Vivir fuera"]] }
   ];
