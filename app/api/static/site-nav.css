@@ -84,3 +84,4 @@ footer.sf.sf{display:block;margin:96px 0 0;padding:0;background:#1b281e;color:#c
 .sf-legal{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:24px;font-size:12px;color:#8f9784}
 @media(max-width:900px){.sf-grid{grid-template-columns:1fr 1fr}.sf-brand{grid-column:1/-1}}
 @media(max-width:520px){.sf-in{width:calc(100% - 32px);padding-top:56px}.sf-grid{grid-template-columns:1fr;gap:28px}.sf-eu-row{flex-direction:column}}
+.sn-links>a,.sn-drop>button{white-space:nowrap}

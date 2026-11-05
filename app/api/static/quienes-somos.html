@@ -34,7 +34,7 @@
 .method li:before{counter-increment:s;content:"0" counter(s);display:block;font:400 52px/1 var(--serif);color:var(--clay);margin-bottom:20px}
 .method h3{margin-bottom:10px}
 .method p{margin:0;color:var(--muted);font-size:15px}
-.project{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.project{display:grid;grid-template-columns:1fr;gap:26px}.project .partners{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}@media(max-width:760px){.project .partners{grid-template-columns:1fr}}
 .project .card{padding:38px}
 .facts{display:grid;grid-template-columns:auto 1fr;gap:12px 24px;margin:26px 0 0;font-size:15px}
 .facts dt{color:var(--muted)}
@@ -54,7 +54,7 @@
 @media(max-width:1020px){.about-hero-grid,.story,.project,.cta{grid-template-columns:1fr;gap:40px}.pf-grid{grid-template-columns:1fr}.method{grid-template-columns:1fr 1fr}.method li:nth-child(3){border-left:0;padding-left:0}.cta .acts{justify-content:flex-start}}
 @media(max-width:640px){.about-hero{padding-top:46px}.portrait{min-height:340px}.method{grid-template-columns:1fr}.method li,.method li+li{padding:26px 0;border-left:0;border-bottom:1px solid var(--rule)}.project .card{padding:24px 20px}.cta{padding:34px 22px}.story p{font-size:17px}}
 </style>
-<link rel="stylesheet" href="/assets/site-nav.css?v=20261105d"></head>
+<link rel="stylesheet" href="/assets/site-nav.css?v=20261105e"></head>
 <body>
 <div id="site-nav"></div><script src="/assets/site-nav.js?v=20261105d"></script>
 
@@ -106,16 +106,6 @@
 </div></section>
 
 <section class="sec" style="padding-top:0"><div class="wrap project">
-  <div class="card reveal">
-    <span class="kicker">El proyecto</span>
-    <h2 style="margin-top:18px">CORRADI-BOT</h2>
-    <p class="muted" style="margin:14px 0 0">Una plataforma con inteligencia artificial para acercar las oportunidades Erasmus+ a más jóvenes, desarrollada dentro de una asociación a pequeña escala del programa Erasmus+.</p>
-    <dl class="facts">
-      <dt>Programa</dt><dd>Erasmus+ · KA210-YOU</dd>
-      <dt>Duración</dt><dd>Septiembre 2026 – octubre 2027</dd>
-      <dt>Coordina</dt><dd>Proactive Future (España)</dd>
-    </dl>
-  </div>
   <div class="card reveal">
     <span class="kicker">Socios</span>
     <h2 style="margin-top:18px">Tres países, un mismo objetivo.</h2>
