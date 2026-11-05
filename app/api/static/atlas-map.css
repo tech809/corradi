@@ -45,3 +45,6 @@ h1,h2,h3,.popup h3,.dock-head h2,.sheet-head h2{font-family:var(--font-display)!
 .command .ask-btn .icon-slot{width:18px!important;height:18px!important;color:#fff!important}
 .command .ask-btn .icon-slot svg{width:18px;height:18px}
 @media(min-width:881px){.command .ask-btn{padding:9px 16px 9px 13px!important;gap:7px!important}}
+/* Fuera (pedido 2026-11-05): pastilla de estadísticas, aviso de Instagram y botón de Instagram
+   arriba. Se ocultan por CSS porque el JS del mapa sigue escribiendo en esos nodos. */
+#bottomDock,#igPopup,#igTopBtn{display:none!important}

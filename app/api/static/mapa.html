@@ -602,7 +602,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 }
 </style>
 <link rel="stylesheet" href="/assets/profile-editor.css?v=20260923i">
-<link rel="stylesheet" href="/assets/atlas-map.css?v=20261105c">
+<link rel="stylesheet" href="/assets/atlas-map.css?v=20261105d">
 <script src="/assets/corradi-core.js?v=20260923i"></script>
 </head>
 <body>
@@ -1150,7 +1150,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   }
 
   function saveSharedFilters(){try{localStorage.setItem("corradi-filters",JSON.stringify({q:state.q,type:state.types.size===1?Array.from(state.types)[0]:"",types:Array.from(state.types),countries:sameSet(state.countries,defaultCountrySet())?[]:Array.from(state.countries),age:state.age,escMaxMonths:state.escMaxMonths,soon:state.soon,saved:!!state.only}))}catch(e){}}
-  function restoreSharedFilters(raw){var saved;try{saved=raw?JSON.parse(raw):{}}catch(e){saved={}}var params=new URLSearchParams(location.search),queryCountries=params.getAll("country"),savedTypes=saved.types||[];state.q=params.has("q")?(params.get("q")||""):(saved.q||"");document.getElementById("q").value=state.q;var queryType=params.get("type"),types=queryType?[queryType]:(savedTypes.length?savedTypes:(saved.type?[saved.type]:[]));if(types.length&&!Object.keys(TYPES).every(function(k){return types.indexOf(k)>=0}))state.types=new Set(types);var countries=queryCountries.length?queryCountries:(saved.countries||[]);if(countries.length)state.countries=new Set(countries);var age=params.has("age")?params.get("age"):saved.age;if(age){state.age=Number(age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}var escMax=params.get("esc_max")||params.get("ecs_max")||saved.escMaxMonths||saved.ecsMaxMonths;if(escMax){state.escMaxMonths=Number(escMax);document.getElementById("escMaxMonths").value=String(escMax)}state.soon=params.get("soon")==="1"||(!params.has("soon")&&!!saved.soon);if(saved.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
+  function restoreSharedFilters(raw){var saved;try{saved=raw?JSON.parse(raw):{}}catch(e){saved={}}var params=new URLSearchParams(location.search),queryCountries=params.getAll("country"),savedTypes=saved.types||[];state.q=params.has("q")?(params.get("q")||""):(saved.q||"");document.getElementById("q").value=state.q;var queryType=params.get("type"),types=queryType?[queryType]:(savedTypes.length?savedTypes:(saved.type?[saved.type]:[]));if(types.length&&!Object.keys(TYPES).every(function(k){return types.indexOf(k)>=0}))state.types=new Set(types);if(queryCountries.length&&!queryType){state.types=defaultTypeSet();Object.keys(TYPES).forEach(function(k){state.types.add(k)})}var countries=queryCountries.length?queryCountries:(saved.countries||[]);if(countries.length)state.countries=new Set(countries);var age=params.has("age")?params.get("age"):saved.age;if(age){state.age=Number(age);ageValue=state.age;document.getElementById("ageInput").value=state.age;renderAge()}var escMax=params.get("esc_max")||params.get("ecs_max")||saved.escMaxMonths||saved.ecsMaxMonths;if(escMax){state.escMaxMonths=Number(escMax);document.getElementById("escMaxMonths").value=String(escMax)}state.soon=params.get("soon")==="1"||(!params.has("soon")&&!!saved.soon);if(saved.saved)state.only=new Set(Array.from(favourites));syncFilterDialogChips();apply()}
 
   // "Últimas subidas": por fecha de creación, la más reciente primero (created es ISO,
   // compara bien como string). "Cierran antes": por fecha límite, sin ella al final (una
