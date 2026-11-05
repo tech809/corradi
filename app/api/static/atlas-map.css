@@ -1,6 +1,5 @@
 /* Mapa con la estética Atlas (papel, tinta verde, arcilla, serif). Solo reasigna los tokens
    del mapa y retoca algunos componentes; el layout y el JS del mapa no cambian. */
-@font-face{font-family:Manrope;font-weight:800;src:url('/fonts/Manrope-ExtraBold.ttf')}
 :root{
   --ink:#263528;--ink-soft:#4f5a4d;--ink-faint:#7d8578;
   --paper:#f7f0e2;--surface:#fffaf1;--surface-sunk:#efe6d5;
