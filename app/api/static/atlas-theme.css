@@ -39,7 +39,7 @@ body.atlas-home .hero .eyebrow:before{background:var(--atlas-clay);box-shadow:no
 body.atlas-home .hero h1{font:400 clamp(62px,6vw,94px)/.99 Georgia,'Times New Roman',serif;letter-spacing:-.075em;max-width:690px;margin:24px 0 22px;text-wrap:balance}
 body.atlas-home .hero h1 em{font-style:italic;color:var(--atlas-clay)}
 body.atlas-home .hero p{color:#4f5a4e;font-size:16px;line-height:1.7;max-width:460px}
-body.atlas-home .hero-visual{min-height:610px;border-radius:0;background:linear-gradient(0deg,#19291f8c,transparent 50%),url('/assets/photo-hero.jpg') 42% 60%/cover;box-shadow:none}
+body.atlas-home .hero-visual{min-height:610px;border-radius:0;background:linear-gradient(0deg,#19291f8c,transparent 50%),url('/assets/photo-hero-group.jpg') 50% 62%/cover;box-shadow:none}
 body.atlas-home .hero-visual:after{display:none}
 body.atlas-home .hero-visual-top{border-color:#ffffff8c}
 body.atlas-home .hero-visual-note small{color:#f2c2a6}
