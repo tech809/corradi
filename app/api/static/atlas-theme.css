@@ -55,7 +55,7 @@ body.atlas-home .section h2,body.atlas-home .weekly-top h2,body.atlas-home .prod
 body.atlas-home .section h2,body.atlas-home .weekly-top h2,body.atlas-home .product-space h2{font-size:clamp(37px,4.5vw,62px);line-height:1.03}
 body.atlas-home .kicker,body.atlas-home .text-link{color:var(--atlas-clay)}
 body.atlas-home .section-head{padding-top:18px;border-top:1px solid var(--atlas-rule)}
-body.atlas-home .mini-card,body.atlas-home .top-project,body.atlas-home .card{background:var(--atlas-white);border-color:var(--atlas-rule);border-radius:10px;box-shadow:none}
+body.atlas-home .mini-card,body.atlas-home .top-project,body.atlas-home .card{background-color:var(--atlas-white);border-color:var(--atlas-rule);border-radius:10px;box-shadow:none}
 body.atlas-home .card-photo{border-radius:9px 9px 0 0}
 body.atlas-home .type{background:#e8dfd0;color:var(--atlas-ink)}
 body.atlas-home .heart.saved{background:var(--atlas-clay);color:#fff}
@@ -86,7 +86,7 @@ body.atlas-home .field{border-color:var(--atlas-rule)}
 body.atlas-home .view-toggle,body.atlas-home .home-sort-toggle{background:#dfd1bd}
 body.atlas-home .quick-side button{color:var(--atlas-ink);border-color:var(--atlas-rule);background:var(--atlas-white)}
 body.atlas-home .quick-side button.on{background:var(--atlas-ink);color:#fff}
-body.atlas-home .confidence{background:var(--atlas-sage);border-radius:12px}
+body.atlas-home .confidence{background:var(--atlas-sage);border-radius:12px;color:var(--atlas-ink);box-shadow:none}body.atlas-home .confidence h2,body.atlas-home .confidence .check strong{color:var(--atlas-ink)}body.atlas-home .confidence>div>p{color:var(--atlas-muted)!important}body.atlas-home .confidence .kicker{color:var(--atlas-clay)}body.atlas-home .confidence .check{border-top-color:rgba(38,53,40,.16)}body.atlas-home .confidence .check span{color:var(--atlas-muted)}body.atlas-home .confidence .check-icon{background:var(--atlas-white);color:var(--atlas-clay)}
 body.atlas-home .check-icon{background:#f7f0e2;color:var(--atlas-ink)}
 body.atlas-home .footer{background:var(--atlas-ink)}
 body.atlas-home .onboard,body.atlas-home .dialog{border-radius:14px}
