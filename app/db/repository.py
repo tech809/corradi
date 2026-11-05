@@ -309,7 +309,9 @@ async def list_open() -> list[dict[str, Any]]:
     async with get_pool().connection() as conn:
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
+                # El cron diario las marca 'expired'; este filtro evita mostrarlas si falla.
                 "SELECT * FROM projects WHERE status = 'open' "
+                "AND (application_deadline IS NULL OR application_deadline >= CURRENT_DATE) "
                 "ORDER BY application_deadline IS NULL, application_deadline ASC"
             )
             return await cur.fetchall()

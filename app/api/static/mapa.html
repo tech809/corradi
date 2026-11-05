@@ -1359,7 +1359,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     // alejaba el mapa aunque initMap ya hubiera fijado el zoom. Una ficha ?o= se enfoca
     // después con focusOpportunity; el resto empieza siempre cerca de Europa.
     var _p = new URLSearchParams(location.search);
-    if (bootingMap && !_p.get("o")) {
+    if (bootingMap && !_p.get("o") && !_p.get("country")) {
       map.setView([48.6, 12], 5, { animate: false });
       return;
     }
