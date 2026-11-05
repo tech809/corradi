@@ -27,7 +27,7 @@ api:
 	uvicorn app.api.main:app --reload
 
 summary:
-	python -m app.scheduler.daily_summary
+	python -m app.scheduler.expire_projects
 
 weekly-summary:
 	python -m app.scheduler.weekly_summary

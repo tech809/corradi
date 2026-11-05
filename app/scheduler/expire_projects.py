@@ -1,12 +1,12 @@
-"""Expira las oportunidades cuyo plazo de inscripción ya pasó (deja de estar 'open', así
-que desaparecen del mapa y de la lista de abiertas). Ya NO manda ningún mensaje (decisión
-2026-08-04: el resumen diario por DM se retira sin sustituto -- cada oportunidad nueva ya
-se reenvía al momento por `handoff.opportunity()`/`whatsapp_relay.py`, así que un digest
-aparte al final del día dejó de aportar nada). El nombre del módulo se conserva por no
-tocar el cron ya desplegado (`0 20 * * *`); lo único que hace ahora es esta expiración.
+"""Expira cada noche las oportunidades cuyo plazo de inscripción ya pasó (dejan de estar
+'open', así que salen del mapa, de la lista de abiertas y del control de duplicados).
+No manda ningún mensaje.
 
-Ejecutar por cron en la EC2 o EventBridge + Lambda:
-    python -m app.scheduler.daily_summary
+Sustituye a `daily_summary.py` (2026-11-05): ese módulo hacía solo esto desde agosto y
+el nombre llevaba a pensar que enviaba un resumen.
+
+Cron en la EC2 (20:00 Madrid):
+    python -m app.scheduler.expire_projects
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from app.config import cfg
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
 
-log = logging.getLogger("corradi.summary")
+log = logging.getLogger("corradi.expire")
 
 
 async def run() -> None:

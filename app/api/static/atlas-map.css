@@ -1,0 +1,44 @@
+/* Mapa con la estética Atlas (papel, tinta verde, arcilla, serif). Solo reasigna los tokens
+   del mapa y retoca algunos componentes; el layout y el JS del mapa no cambian. */
+@font-face{font-family:Manrope;font-weight:800;src:url('/fonts/Manrope-ExtraBold.ttf')}
+:root{
+  --ink:#263528;--ink-soft:#4f5a4d;--ink-faint:#7d8578;
+  --paper:#f7f0e2;--surface:#fffaf1;--surface-sunk:#efe6d5;
+  --line:rgba(38,53,40,.13);--line-soft:rgba(38,53,40,.075);
+  --glass:rgba(255,250,241,.84);--glass-strong:rgba(255,250,241,.95);--scrim:rgba(27,40,30,.5);
+  --brand:#ad573e;--brand-ink:#89422d;--brass:#b07a35;
+  --ye:#ad573e;   /* arcilla */
+  --tc:#2f5d62;   /* petróleo */
+  --esc:#6b8a4e;  /* oliva */
+  --other:#8b8676;--critical:#a83e37;--warn:#b07a35;
+  --radius-sm:10px;--radius:14px;--radius-lg:18px;--radius-xl:22px;
+  --shadow-1:0 1px 2px rgba(38,53,40,.06),0 2px 6px rgba(38,53,40,.05);
+  --shadow-2:0 6px 18px rgba(38,53,40,.10),0 1px 3px rgba(38,53,40,.06);
+  --shadow-3:0 26px 60px -14px rgba(27,40,30,.34),0 4px 16px rgba(38,53,40,.08);
+  --font-display:Georgia,"Times New Roman",serif;
+  --font-body:Manrope,-apple-system,BlinkMacSystemFont,sans-serif;
+}
+body{background:var(--paper)}
+/* mapa base en tono papel envejecido, como el resto de Atlas */
+.leaflet-container{background:#efe6d5!important}
+.leaflet-tile-pane{filter:sepia(.32) saturate(.72) hue-rotate(-6deg) brightness(1.03) contrast(.94)}
+/* titulares en serif, sin negritas pesadas */
+h1,h2,h3,.popup h3,.dock-head h2,.sheet-head h2{font-family:var(--font-display)!important;font-weight:400!important;letter-spacing:-.025em}
+/* marca */
+.brand-mark .glyph{background:var(--brand)!important;border-radius:50%!important;color:#fff}
+.brand-mark .word{font-family:var(--font-display)!important;font-weight:400!important;font-size:18px!important;letter-spacing:-.03em}
+.brand-mark .word small{font:700 9px/1.2 var(--font-body)!important;letter-spacing:.15em!important;text-transform:uppercase;color:var(--ink-faint)}
+/* botones principales en arcilla, secundarios con borde papel */
+.pill-btn.solid,.ask-btn{background:var(--brand)!important;color:#fff!important;border-color:transparent!important}
+.pill-btn.solid:hover,.ask-btn:hover{background:var(--brand-ink)!important}
+.pill-btn:not(.solid),.icon-btn{background:var(--glass-strong)!important;border-color:var(--line)!important;color:var(--ink)!important}
+/* chips de filtro: activos en tinta */
+.sort-btn[aria-pressed="true"],.sort-btn.on{background:var(--ink)!important;color:#fffaf1!important;border-color:var(--ink)!important}
+/* clústeres del mapa */
+.marker-cluster,.marker-cluster div{background:transparent!important}
+.marker-cluster div{background:var(--ink)!important;color:#fffaf1!important;font:700 12px var(--font-body)!important;box-shadow:0 0 0 5px rgba(38,53,40,.16)}
+/* tarjetas y popups */
+.leaflet-popup-content-wrapper{border-radius:var(--radius)!important;background:var(--surface)!important;box-shadow:var(--shadow-3)!important}
+.leaflet-popup-tip{background:var(--surface)!important}
+.leaflet-control-zoom a{background:var(--surface)!important;color:var(--ink)!important;border-color:var(--line)!important}
+.leaflet-control-attribution{background:rgba(247,240,226,.8)!important;color:var(--ink-faint)!important}

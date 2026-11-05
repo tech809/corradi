@@ -59,7 +59,7 @@ ningún mensaje (ver "Reenvío a WhatsApp" en el README principal) — solo cier
 oportunidades cuyo plazo de inscripción ya pasó:
 ```bash
 (crontab -l 2>/dev/null; \
- echo "0 20 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.daily_summary"; \
+ echo "0 20 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.expire_projects"; \
  echo "17 */6 * * * cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.scrape_eyp"; \
  echo "30 20 * * 0 cd /opt/corradi && docker compose run --rm bot python -m app.scheduler.weekly_summary" \
 ) | crontab -

@@ -196,7 +196,7 @@ corradi/
     │   ├── main.py                  # FastAPI: catálogo/búsqueda
     │   └── twilio_webhook.py        # ⚠️ aparcado (entrada por WhatsApp)
     └── scheduler/
-        ├── daily_summary.py         # solo expira lo vencido (ya no manda ningún mensaje)
+        ├── expire_projects.py       # expira cada noche lo vencido (sin mensajes)
         └── weekly_summary.py        # resumen semanal de los domingos
 ```
 
@@ -457,7 +457,7 @@ está vacío, `whatsapp_relay.py` no hace nada (no revienta el resto del pipelin
 > Hasta el 4-ago-2026 este reenvío iba a un grupo de Telegram y, además, un cron aparte
 > (`daily_summary.py`) mandaba cada noche a las 20h un resumen de lo publicado ese día.
 > Se retiró ese resumen sin sustituto: con el reenvío al instante, un digest al final del
-> día dejó de aportar nada. `daily_summary.py` sigue existiendo (mismo cron, mismo nombre)
+> día dejó de aportar nada. Desde 2026-11-05 ese módulo se llama `expire_projects.py` (mismo cron de las 20:00)
 > pero ahora solo expira las oportunidades cuyo plazo ya pasó — no manda ningún mensaje.
 
 ## Mapa público

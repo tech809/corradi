@@ -63,8 +63,6 @@ def main() -> None:
         print("\n  ── WhatsApp (handoff) ──")
         print("    " + pub.format_opportunity_whatsapp(fields).replace("\n", "\n    "))
 
-    print(f"\n{'='*70}\nResumen diario que se publicaría:\n")
-    print(pub.format_daily_summary([f for _, _, f in seen]))
     print(
         "\nNota: el proveedor 'fake' usa un embedding bag-of-words que infravalora los "
         "casi-duplicados (el mensaje 3 puntúa ~70%). Con embeddings reales de Gemini los "

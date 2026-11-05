@@ -54,14 +54,9 @@
 @media(max-width:1020px){.about-hero-grid,.story,.project,.cta{grid-template-columns:1fr;gap:40px}.pf-grid{grid-template-columns:1fr}.method{grid-template-columns:1fr 1fr}.method li:nth-child(3){border-left:0;padding-left:0}.cta .acts{justify-content:flex-start}}
 @media(max-width:640px){.about-hero{padding-top:46px}.portrait{min-height:340px}.method{grid-template-columns:1fr}.method li,.method li+li{padding:26px 0;border-left:0;border-bottom:1px solid var(--rule)}.project .card{padding:24px 20px}.cta{padding:34px 22px}.story p{font-size:17px}}
 </style>
-</head>
+<link rel="stylesheet" href="/assets/site-nav.css?v=20261105c"></head>
 <body>
-<header class="nav"><div class="wrap">
-  <a class="brand" href="/"><span class="mk"><img src="/assets/logo-mark.svg" alt=""></span><span><b>Corradi</b><small>ERASMUS+ EN CLARO</small></span></a>
-  <nav class="menu" aria-label="Principal"><a href="/">Oportunidades</a><a href="/mapa">Mapa</a><a href="/guia">Guía</a><a href="/organizaciones">Organizaciones</a><a href="/quienes-somos" aria-current="page">Quiénes somos</a><a href="/estadisticas">Estadísticas</a></nav>
-  <a class="btn line" href="/publicar">Publicar</a>
-  <a class="btn clay" href="/mapa">Mapa ↗</a>
-</div></header>
+<div id="site-nav"></div><script src="/assets/site-nav.js?v=20261105c"></script>
 
 <main>
 <section class="about-hero"><div class="wrap">
@@ -143,19 +138,11 @@
 
 <section class="wrap reveal"><div class="cta">
   <div><h2>¿Tienes una convocatoria?</h2><p>Mándanosla y la publicamos revisada en la web, el mapa y nuestros canales.</p></div>
-  <div class="acts"><a class="btn light" href="/publicar">Publicar convocatoria</a><a class="btn line" href="https://t.me/corradi_erasmus_bot" target="_blank" rel="noopener">Bot de Telegram</a><a class="btn line" href="https://www.instagram.com/corradi.erasmus/" target="_blank" rel="noopener">Instagram</a></div>
+  <div class="acts"><a class="btn light" href="/publicar">Publicar convocatoria</a><a class="btn line" href="https://t.me/corradi_erasmus_bot" target="_blank" rel="noopener">Bot de Telegram</a><a class="btn line" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener">Instagram</a></div>
 </div></section>
 </main>
 
-<footer><div class="wrap">
-  <div class="foot">
-    <div><a class="brand" href="/" style="margin:0 0 16px"><span class="mk"><img src="/assets/logo-mark.svg" alt=""></span><span><b>Corradi</b></span></a><p style="max-width:34ch;margin:0">Para que ninguna persona joven pierda una oportunidad porque no se enteró a tiempo. Un proyecto de Proactive Future.</p></div>
-    <div><h5>Explorar</h5><a href="/">Oportunidades</a><a href="/mapa">Mapa</a></div>
-    <div><h5>Aprender</h5><a href="/guia">Guía Erasmus+</a><a href="/organizaciones">Organizaciones</a></div>
-    <div><h5>Corradi</h5><a href="/quienes-somos">Quiénes somos</a><a href="/estadisticas">Estadísticas</a><a href="/publicar">Publicar</a></div>
-  </div>
-  <div class="legal"><span>© 2026 Corradi · Proactive Future</span><span>Cofinanciado por la Unión Europea</span></div>
-</div></footer>
+<div id="site-footer"></div>
 <script>
 (function(){
   var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}})},{rootMargin:"0px 0px -8% 0px"});

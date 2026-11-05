@@ -464,44 +464,6 @@ def format_summary_item(o: dict[str, Any], show_type: bool = True) -> str:
     )
 
 
-def format_daily_summary(opps: list[dict[str, Any]], today: date | None = None) -> str:
-    """Resumen de TODAS las oportunidades que siguen ABIERTAS (fecha límite de inscripción aún
-    no vencida), no solo las recibidas hoy, agrupadas por tipo (Youth Exchange, Training Course,
-    ESC, Workshop). Cada título enlaza a su post original en el canal (si es público y se conoce
-    su message_id), para poder encontrarla en el historial."""
-    today = today or date.today()
-    head = _header(today)
-    if not opps:
-        return f"{head}\n\n☀️ Ahora mismo no hay ninguna oportunidad con inscripción abierta. ¡Mañana más!"
-    plural = len(opps) != 1
-    parts = [
-        head,
-        f"☀️ {len(opps)} oportunidad{'es' if plural else ''} con inscripción abierta "
-        f"ahora mismo:",
-    ]
-
-    by_type: dict[str | None, list[dict[str, Any]]] = {}
-    for o in opps:
-        by_type.setdefault(o.get("type"), []).append(o)
-
-    for type_key, label in _GRUPOS_RESUMEN:
-        items = by_type.pop(type_key, None)
-        if not items:
-            continue
-        parts.append(f"<b>{label} ({len(items)})</b>")
-        parts += [format_summary_item(o, show_type=False) for o in items]
-
-    otros = [o for items in by_type.values() for o in items]
-    if otros:
-        parts.append(f"<b>📌 Otras ({len(otros)})</b>")
-        parts += [format_summary_item(o, show_type=False) for o in otros]
-
-    if cfg.map_public_url:
-        parts.append(f'🗺️ <a href="{cfg.map_public_url}">Verlas todas en el mapa</a>')
-
-    return "\n\n".join(parts)
-
-
 def format_weekly_summary(
     published: int, open_count: int,
     countries: list[dict[str, Any]], types: list[dict[str, Any]],

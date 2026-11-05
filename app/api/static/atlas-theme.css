@@ -39,7 +39,7 @@ body.atlas-home .hero .eyebrow:before{background:var(--atlas-clay);box-shadow:no
 body.atlas-home .hero h1{font:400 clamp(62px,6vw,94px)/.99 Georgia,'Times New Roman',serif;letter-spacing:-.075em;max-width:690px;margin:24px 0 22px;text-wrap:balance}
 body.atlas-home .hero h1 em{font-style:italic;color:var(--atlas-clay)}
 body.atlas-home .hero p{color:#4f5a4e;font-size:16px;line-height:1.7;max-width:460px}
-body.atlas-home .hero-visual{min-height:610px;border-radius:0;background:linear-gradient(0deg,#19291f8c,transparent 50%),url('/assets/collection-youth-exchange-v2.jpg') 57% center/cover;box-shadow:none}
+body.atlas-home .hero-visual{min-height:610px;border-radius:0;background:linear-gradient(0deg,#19291f8c,transparent 50%),url('/assets/proactive-hero.jpg') 50% 45%/cover;box-shadow:none}
 body.atlas-home .hero-visual:after{display:none}
 body.atlas-home .hero-visual-top{border-color:#ffffff8c}
 body.atlas-home .hero-visual-note small{color:#f2c2a6}
@@ -258,3 +258,46 @@ body.atlas-stats .insights-intro p{max-width:60ch}
 body.atlas-stats .thanks-card{background:var(--atlas-ink);color:#fff}
 body.atlas-stats .thanks-card h2{color:#fff;font-size:clamp(24px,2.4vw,32px)}
 body.atlas-stats .thanks-card .hint{color:#d3ddce}
+/* Portada · canales (2026-11-05) */
+body.atlas-home .channels-head{max-width:640px;margin-bottom:30px}
+body.atlas-home .channels-head h2{font:400 clamp(34px,4vw,54px)/1.02 Georgia,'Times New Roman',serif;letter-spacing:-.04em;margin:10px 0 12px;color:var(--atlas-ink)}
+body.atlas-home .channels-head p{color:var(--atlas-muted);margin:0;font-size:16px}
+.channels-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.channel-card{position:relative;display:flex;flex-direction:column;gap:18px;min-height:210px;padding:24px;border-radius:14px;background:var(--atlas-white);border:1px solid var(--atlas-rule);text-decoration:none;color:var(--atlas-ink);overflow:hidden;transition:transform .25s,box-shadow .25s,border-color .25s}
+.channel-card:hover{transform:translateY(-4px);box-shadow:0 22px 50px #2635281f;border-color:transparent}
+.channel-card:before{content:"";position:absolute;inset:auto -30% -55% auto;width:190px;height:190px;border-radius:50%;background:var(--ch);opacity:.09;transition:opacity .25s,transform .4s}
+.channel-card:hover:before{opacity:.16;transform:scale(1.15)}
+.channel-card .sn-ico{width:48px;height:48px;border-radius:14px}.channel-card .sn-ico svg{width:24px;height:24px}
+.channel-card b{display:block;font:400 23px/1.1 Georgia,'Times New Roman',serif;letter-spacing:-.025em}
+.channel-card span.hint{color:var(--atlas-muted);font-size:14px;line-height:1.45}
+.channel-card .go{margin-top:auto;font-weight:700;font-size:14px;color:var(--ch2,var(--atlas-ink));display:flex;justify-content:space-between;align-items:center}
+.channel-card .go i{font-style:normal;transition:transform .2s}.channel-card:hover .go i{transform:translateX(4px)}
+.channel-card.wa{--ch:#25d366;--ch2:#128c4a}.channel-card.tg{--ch:#2aabee;--ch2:#1a7fb5}.channel-card.ig{--ch:#e1306c;--ch2:#b52358}.channel-card.bot{--ch:#263528;--ch2:#263528}
+@media(max-width:1000px){.channels-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.channels-grid{grid-template-columns:1fr}.channel-card{min-height:0;flex-direction:row;align-items:center;padding:18px}.channel-card .go{display:none}.channel-card b{font-size:19px}}
+/* Portada · estándar Corradi (2026-11-05) */
+.trust{position:relative;overflow:hidden;background:#1b281e;color:#efe8d8;border-radius:16px;padding:64px 60px 56px;isolation:isolate}
+.trust:before{content:"";position:absolute;z-index:-1;right:-120px;top:-160px;width:520px;height:520px;border-radius:50%;background:radial-gradient(closest-side,#ad573e55,transparent)}
+.trust:after{content:"";position:absolute;z-index:-1;inset:0;background-image:radial-gradient(#ffffff14 1px,transparent 1px);background-size:22px 22px;mask-image:linear-gradient(120deg,transparent 40%,#000)}
+.trust .kicker{color:#f1bd9e}
+.trust-head{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap}
+.trust h2{font:400 clamp(40px,5.4vw,76px)/.98 Georgia,'Times New Roman',serif;letter-spacing:-.045em;margin:14px 0 0;color:#fffaf1}
+.trust h2 em{color:#e7bb9d}
+.trust-live{display:inline-flex;align-items:center;gap:10px;border:1px solid #ffffff26;border-radius:999px;padding:9px 16px;font-size:13px;font-weight:600;color:#dcd6c6}
+.trust-live i{width:8px;height:8px;border-radius:50%;background:#7fd18b;box-shadow:0 0 0 0 #7fd18b99;animation:trustPulse 2s infinite}
+@keyframes trustPulse{70%{box-shadow:0 0 0 10px #7fd18b00}100%{box-shadow:0 0 0 0 #7fd18b00}}
+.trust-figs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:54px;border-top:1px solid #ffffff1f;border-bottom:1px solid #ffffff1f}
+.trust-figs>div{padding:34px 26px 30px;border-left:1px solid #ffffff1f}
+.trust-figs>div:first-child{border-left:0;padding-left:0}
+.trust-figs b{display:block;font:400 clamp(50px,6vw,88px)/.9 Georgia,'Times New Roman',serif;letter-spacing:-.05em;color:#fffaf1;font-variant-numeric:tabular-nums}
+.trust-figs>div:last-child b{color:#e7bb9d}
+.trust-figs span{display:block;margin-top:14px;font-size:14px;color:#b9b6a6;line-height:1.4}
+.trust-foot{display:grid;grid-template-columns:1fr 1.25fr;gap:40px;margin-top:34px;align-items:start}
+.trust-sources{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.trust-sources small,.trust-cadence small{width:100%;font:700 10px/1 Manrope,system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#8f9784;margin-bottom:6px}
+.trust-sources span{border:1px solid #ffffff2b;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;color:#efe8d8}
+.trust-cadence{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.trust-cadence b{display:block;font:400 26px/1 Georgia,'Times New Roman',serif;color:#fffaf1;letter-spacing:-.03em}
+.trust-cadence span{display:block;margin-top:8px;font-size:13px;color:#b9b6a6;line-height:1.4}
+@media(max-width:1000px){.trust{padding:48px 32px}.trust-figs{grid-template-columns:repeat(2,minmax(0,1fr))}.trust-figs>div:nth-child(3){border-left:0;padding-left:0}.trust-figs>div:nth-child(n+3){border-top:1px solid #ffffff1f}.trust-foot{grid-template-columns:1fr}}
+@media(max-width:560px){.trust{padding:38px 20px;border-radius:14px}.trust-figs>div{padding:24px 0 22px 16px}.trust-cadence{grid-template-columns:1fr;gap:14px}}
