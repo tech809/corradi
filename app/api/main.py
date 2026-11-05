@@ -723,11 +723,20 @@ async def api_mine_delete(payload: MineDelete, request: Request) -> dict[str, An
     return {"status": result["status"]}
 
 
+@app.get("/quienes-somos", include_in_schema=False)
+async def quienes_somos_page(request: Request) -> Response:
+    """Presentación de Corradi, Proactive Future y el proyecto CORRADI-BOT."""
+    path = _STATIC / "quienes-somos.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
+
+
 @app.get("/estadisticas", include_in_schema=False)
 async def estadisticas_page(request: Request) -> Response:
-    """Página secundaria: asociaciones, archivo de cerradas y línea de tiempo/países
-    (docs/ideas_futuras_web.md #9-#12/#26/#28, consolidados en una sola página para no
-    complicar la navegación con 3-4 pestañas nuevas)."""
+    """Estadísticas del catálogo: audiencia, catálogo abierto, interés, destinos y organizaciones."""
     path = _STATIC / "estadisticas.html"
     etag = _file_etag(path)
     headers = {"Cache-Control": "no-cache", "ETag": etag}

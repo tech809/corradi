@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiénes somos · Corradi</title>
+<meta name="description" content="Corradi es un proyecto de Proactive Future para que ninguna persona joven pierda una oportunidad Erasmus+ por no enterarse a tiempo.">
+<meta name="theme-color" content="#f7f0e2">
+<link rel="icon" type="image/svg+xml" href="/assets/logo-mark.svg">
+<link rel="stylesheet" href="/assets/atlas-pages.css?v=20261105a">
+<style>
+.about-hero{padding:84px 0 0}
+.about-hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:64px;align-items:end}
+.about-hero h1{margin-top:24px}
+.portrait{position:relative;border-radius:18px;overflow:hidden;min-height:470px;background:#c9bda7 url('/assets/collection-youth-exchange-v2.jpg') center/cover}
+.portrait:after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#17241ad9,#17241a00 60%)}
+.portrait figcaption{position:absolute;left:26px;right:26px;bottom:24px;z-index:1;color:#fff;font:400 22px/1.3 var(--serif)}
+.portrait figcaption small{display:block;font:700 11px var(--sans);letter-spacing:.14em;text-transform:uppercase;opacity:.75;margin-bottom:8px}
+.about-figs{margin-top:72px}
+.story{display:grid;grid-template-columns:.8fr 1.2fr;gap:70px}
+.story p{margin:0 0 18px;font-size:18px;line-height:1.7}
+.story p:first-child:first-letter{float:left;font:400 74px/.8 var(--serif);color:var(--clay);margin:8px 12px 0 0}
+.pull{border-left:3px solid var(--clay);padding:6px 0 6px 24px;margin:34px 0 0;font:400 italic 24px/1.4 var(--serif);color:var(--ink)}
+.pf{background:var(--ink);color:#efe8d8}
+.pf h2{color:#fff}
+.pf .lead{color:#c9c6b6}
+.pf-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:40px}
+.pf-card{border:1px solid #ffffff22;border-radius:14px;padding:28px;background:#ffffff07}
+.pf-card b{display:block;font:400 26px/1.1 var(--serif);color:#fff;margin-bottom:10px}
+.pf-card p{margin:0;color:#c9c6b6;font-size:14px}
+.method{counter-reset:s;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--ink)}
+.method li{list-style:none;padding:30px 26px 0 0}
+.method li+li{padding-left:26px;border-left:1px solid var(--rule)}
+.method li:before{counter-increment:s;content:"0" counter(s);display:block;font:400 52px/1 var(--serif);color:var(--clay);margin-bottom:20px}
+.method h3{margin-bottom:10px}
+.method p{margin:0;color:var(--muted);font-size:15px}
+.project{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.project .card{padding:38px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:12px 24px;margin:26px 0 0;font-size:15px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;font-weight:600}
+.partners{display:grid;gap:14px;margin-top:26px}
+.partner{display:grid;grid-template-columns:54px 1fr;gap:16px;align-items:center;padding:16px;border:1px solid var(--rule);border-radius:12px;background:var(--paper)}
+.partner span{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;font-size:24px;background:var(--white);border:1px solid var(--rule)}
+.partner b{display:block;font:400 21px/1.15 var(--serif)}
+.partner small{color:var(--muted);font-size:13px}
+.eu{display:flex;gap:16px;align-items:flex-start;margin-top:26px;padding-top:22px;border-top:1px solid var(--rule);font-size:12px;color:var(--muted)}
+.eu svg{flex:none}
+.cta{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;align-items:center;background:var(--clay);color:#fff;border-radius:20px;padding:56px}
+.cta h2{color:#fff}.cta p{color:#fbe5d9;margin:14px 0 0}
+.cta .acts{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.cta .btn.light{background:var(--paper);color:var(--ink)}
+.cta .btn.line{border-color:#ffffff70;color:#fff}
+@media(max-width:1020px){.about-hero-grid,.story,.project,.cta{grid-template-columns:1fr;gap:40px}.pf-grid{grid-template-columns:1fr}.method{grid-template-columns:1fr 1fr}.method li:nth-child(3){border-left:0;padding-left:0}.cta .acts{justify-content:flex-start}}
+@media(max-width:640px){.about-hero{padding-top:46px}.portrait{min-height:340px}.method{grid-template-columns:1fr}.method li,.method li+li{padding:26px 0;border-left:0;border-bottom:1px solid var(--rule)}.project .card{padding:24px 20px}.cta{padding:34px 22px}.story p{font-size:17px}}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="/"><span class="mk"><img src="/assets/logo-mark.svg" alt=""></span><span><b>Corradi</b><small>ERASMUS+ EN CLARO</small></span></a>
+  <nav class="menu" aria-label="Principal"><a href="/">Oportunidades</a><a href="/mapa">Mapa</a><a href="/guia">Guía</a><a href="/organizaciones">Organizaciones</a><a href="/quienes-somos" aria-current="page">Quiénes somos</a><a href="/estadisticas">Estadísticas</a></nav>
+  <a class="btn line" href="/publicar">Publicar</a>
+  <a class="btn clay" href="/mapa">Mapa ↗</a>
+</div></header>
+
+<main>
+<section class="about-hero"><div class="wrap">
+  <div class="about-hero-grid">
+    <div>
+      <span class="kicker">Quiénes somos</span>
+      <h1>Que nadie se quede sin su Erasmus+ <em>por no enterarse a tiempo.</em></h1>
+      <p class="lead">Corradi reúne cada día las convocatorias abiertas de intercambios juveniles, cursos de formación y voluntariados europeos para quien vive en España, con los datos ordenados y la fuente original siempre a mano. Es un proyecto de Proactive Future.</p>
+    </div>
+    <figure class="portrait" style="margin:0"><figcaption><small>Desde Asturias</small>Empezó como un canal de WhatsApp compartido a mano.</figcaption></figure>
+  </div>
+  <div class="figs about-figs reveal" style="--n:4">
+    <div class="fig"><b>3.150+</b><span>jóvenes siguen el canal de WhatsApp</span></div>
+    <div class="fig"><b id="kPublished">—</b><span>convocatorias publicadas en Corradi</span></div>
+    <div class="fig"><b id="kOpen">—</b><span>abiertas hoy</span></div>
+    <div class="fig"><b>200+</b><span>organizaciones en la red de Proactive Future</span></div>
+  </div>
+</div></section>
+
+<section class="sec"><div class="wrap story">
+  <div class="reveal"><span class="kicker">La historia</span><h2>Del boca a boca a un catálogo diario.</h2></div>
+  <div class="reveal">
+    <p>Durante años compartimos oportunidades Erasmus+ a mano: una convocatoria que nos llegaba, un mensaje al canal, alguien que preguntaba si todavía estaba abierta. El canal de WhatsApp creció hasta superar los 3.150 jóvenes, pero el trabajo seguía siendo manual y muchas plazas se perdían por llegar tarde.</p>
+    <p>Corradi nace para hacer ese mismo trabajo cada día y con datos verificados: recoger las convocatorias, extraer lo importante, revisarlas y publicarlas en la web, el mapa y nuestros canales. Y retirarlas en cuanto cierran.</p>
+    <p class="pull">Para que ninguna persona joven pierda una oportunidad porque no se enteró a tiempo.</p>
+  </div>
+</div></section>
+
+<section class="sec pf"><div class="wrap">
+  <div class="reveal"><span class="kicker" style="color:var(--clay-soft)">Proactive Future</span><h2>Una organización juvenil que ya vivía Europa.</h2>
+  <p class="lead">Proactive Future es una organización juvenil sin ánimo de lucro con sede en Asturias que trabaja el empoderamiento juvenil a través de la educación no formal.</p></div>
+  <div class="pf-grid">
+    <div class="pf-card reveal"><b>Wild Weekends y Wild Trips</b><p>Actividades y viajes de educación no formal para jóvenes.</p></div>
+    <div class="pf-card reveal"><b>25 proyectos coordinados</b><p>Proyectos Erasmus+ liderados por Proactive Future, y 34 más en los que ha participado como socia.</p></div>
+    <div class="pf-card reveal"><b>Más de 200 organizaciones</b><p>Una red internacional de entidades con las que trabajamos en todo el mundo.</p></div>
+  </div>
+</div></section>
+
+<section class="sec"><div class="wrap">
+  <div class="sec-head reveal"><div><span class="kicker">Cómo trabajamos</span><h2>Cuatro pasos antes de publicar.</h2></div><a class="link" href="/guia">Leer la guía Erasmus+</a></div>
+  <ol class="method reveal" style="padding:0;margin:0">
+    <li><h3>Recogemos</h3><p>Convocatorias de SALTO-YOUTH, del Portal Europeo de la Juventud y de las organizaciones que nos las envían por el bot de Telegram.</p></li>
+    <li><h3>Extraemos</h3><p>Fechas, edades, destino, plazo y requisitos, sacados del texto original para poder comparar.</p></li>
+    <li><h3>Revisamos</h3><p>Personas que trabajan con movilidad Erasmus+ validan lo que se publica.</p></li>
+    <li><h3>Publicamos</h3><p>En la web, el mapa y nuestros canales, con enlace a la fuente. Cuando el plazo cierra, la retiramos.</p></li>
+  </ol>
+</div></section>
+
+<section class="sec" style="padding-top:0"><div class="wrap project">
+  <div class="card reveal">
+    <span class="kicker">El proyecto</span>
+    <h2 style="margin-top:18px">CORRADI-BOT</h2>
+    <p class="muted" style="margin:14px 0 0">Una plataforma con inteligencia artificial para acercar las oportunidades Erasmus+ a más jóvenes, desarrollada dentro de una asociación a pequeña escala del programa Erasmus+.</p>
+    <dl class="facts">
+      <dt>Programa</dt><dd>Erasmus+ · KA210-YOU</dd>
+      <dt>Duración</dt><dd>Septiembre 2026 – octubre 2027</dd>
+      <dt>Coordina</dt><dd>Proactive Future (España)</dd>
+    </dl>
+    <div class="eu">
+      <svg width="58" height="40" viewBox="0 0 58 40" aria-hidden="true"><rect width="58" height="40" rx="3" fill="#003399"/><g fill="#ffcc00"><circle cx="29" cy="8" r="1.8"/><circle cx="35" cy="9.6" r="1.8"/><circle cx="39.4" cy="14" r="1.8"/><circle cx="41" cy="20" r="1.8"/><circle cx="39.4" cy="26" r="1.8"/><circle cx="35" cy="30.4" r="1.8"/><circle cx="29" cy="32" r="1.8"/><circle cx="23" cy="30.4" r="1.8"/><circle cx="18.6" cy="26" r="1.8"/><circle cx="17" cy="20" r="1.8"/><circle cx="18.6" cy="14" r="1.8"/><circle cx="23" cy="9.6" r="1.8"/></g></svg>
+      <span>Cofinanciado por la Unión Europea. Las opiniones y puntos de vista expresados solo comprometen a su(s) autor(es) y no reflejan necesariamente los de la Unión Europea ni los de la autoridad otorgante. Ni la Unión Europea ni la autoridad otorgante pueden ser consideradas responsables de ellos.</span>
+    </div>
+  </div>
+  <div class="card reveal">
+    <span class="kicker">Socios</span>
+    <h2 style="margin-top:18px">Tres países, un mismo objetivo.</h2>
+    <div class="partners">
+      <div class="partner"><span>🇪🇸</span><div><b>Proactive Future</b><small>España · coordinación y desarrollo técnico</small></div></div>
+      <div class="partner"><span>🇷🇴</span><div><b>LIFE</b><small>Rumanía · formación y difusión</small></div></div>
+      <div class="partner"><span>🇬🇷</span><div><b>DreamTeam</b><small>Grecia · toolkit, eventos y app móvil</small></div></div>
+    </div>
+  </div>
+</div></section>
+
+<section class="sec" style="padding-top:0"><div class="wrap">
+  <div class="sec-head reveal"><div><span class="kicker">Gracias</span><h2>Quienes comparten cada convocatoria.</h2><p>Nada de esto existiría sin las personas que nos mandan oportunidades, una a una, para que otros jóvenes se enteren a tiempo.</p></div><a class="link" href="/estadisticas">Ver las estadísticas</a></div>
+  <div class="chips reveal" id="thanks"></div>
+</div></section>
+
+<section class="wrap reveal"><div class="cta">
+  <div><h2>¿Tienes una convocatoria?</h2><p>Mándanosla y la publicamos revisada en la web, el mapa y nuestros canales.</p></div>
+  <div class="acts"><a class="btn light" href="/publicar">Publicar convocatoria</a><a class="btn line" href="https://t.me/corradi_erasmus_bot" target="_blank" rel="noopener">Bot de Telegram</a><a class="btn line" href="https://www.instagram.com/corradi.erasmus/" target="_blank" rel="noopener">Instagram</a></div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <div class="foot">
+    <div><a class="brand" href="/" style="margin:0 0 16px"><span class="mk"><img src="/assets/logo-mark.svg" alt=""></span><span><b>Corradi</b></span></a><p style="max-width:34ch;margin:0">Para que ninguna persona joven pierda una oportunidad porque no se enteró a tiempo. Un proyecto de Proactive Future.</p></div>
+    <div><h5>Explorar</h5><a href="/">Oportunidades</a><a href="/mapa">Mapa</a></div>
+    <div><h5>Aprender</h5><a href="/guia">Guía Erasmus+</a><a href="/organizaciones">Organizaciones</a></div>
+    <div><h5>Corradi</h5><a href="/quienes-somos">Quiénes somos</a><a href="/estadisticas">Estadísticas</a><a href="/publicar">Publicar</a></div>
+  </div>
+  <div class="legal"><span>© 2026 Corradi · Proactive Future</span><span>Cofinanciado por la Unión Europea</span></div>
+</div></footer>
+<script>
+(function(){
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}})},{rootMargin:"0px 0px -8% 0px"});
+  document.querySelectorAll(".reveal").forEach(function(el){io.observe(el)});
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(m){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]})}
+  function initials(n){return n.split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w[0]}).join("").toUpperCase()}
+  fetch("/api/stats").then(function(r){return r.json()}).then(function(d){
+    document.getElementById("kPublished").textContent=(d.total_published||0).toLocaleString("es-ES");
+    document.getElementById("kOpen").textContent=(d.total_open||0).toLocaleString("es-ES");
+    document.getElementById("thanks").innerHTML=(d.contributors||[]).map(function(c){return '<span class="chip"><i>'+esc(initials(c.name||c.username||"?"))+'</i>'+esc(c.name||c.username)+' <small>'+c.total+'</small></span>'}).join("");
+  }).catch(function(){});
+})();
+</script>
+</body>
+</html>

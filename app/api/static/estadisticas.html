@@ -2,1086 +2,232 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>¿Quiénes somos? · Corradi Erasmus+</title>
-<meta name="description" content="Visitas, asociaciones y archivo de oportunidades del catálogo Erasmus+ de Corradi.">
-<meta name="robots" content="noindex">
-<meta name="color-scheme" content="light">
-<link rel="canonical" href="https://mapa.proactivefuture.eu/estadisticas">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Estadísticas · Corradi</title>
+<meta name="description" content="El catálogo de Corradi en datos: visitas, convocatorias publicadas, destinos, organizaciones y qué interesa más.">
+<meta name="theme-color" content="#f7f0e2">
 <link rel="icon" type="image/svg+xml" href="/assets/logo-mark.svg">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="/assets/atlas-pages.css?v=20261105a">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <style>
-@font-face { font-family:"Sora"; font-weight:400; src:url("/fonts/Sora-Regular.ttf") format("truetype"); font-display:swap; }
-@font-face { font-family:"Sora"; font-weight:600; src:url("/fonts/Sora-SemiBold.ttf") format("truetype"); font-display:swap; }
-@font-face { font-family:"Sora"; font-weight:700; src:url("/fonts/Sora-Bold.ttf") format("truetype"); font-display:swap; }
-@font-face { font-family:"Sora"; font-weight:800; src:url("/fonts/Sora-ExtraBold.ttf") format("truetype"); font-display:swap; }
-@font-face { font-family:"Manrope"; font-weight:400; src:url("/fonts/Manrope-Regular.ttf") format("truetype"); font-display:swap; }
-@font-face { font-family:"Manrope"; font-weight:500; src:url("/fonts/Manrope-Medium.ttf") format("truetype"); font-display:swap; }
-@font-face { font-family:"Manrope"; font-weight:600; src:url("/fonts/Manrope-SemiBold.ttf") format("truetype"); font-display:swap; }
-@font-face { font-family:"Manrope"; font-weight:700; src:url("/fonts/Manrope-Bold.ttf") format("truetype"); font-display:swap; }
-
-/* Sin variante oscura a propósito: mismo criterio que mapa.html, que tampoco la tiene —
-   una sola identidad visual clara y luminosa en toda la web pública, sin depender de las
-   preferencias de sistema de quien visita. */
-:root {
-  --ink: #111113; --ink-soft: #4a4b50; --ink-faint: #8d8e93;
-  --paper: #fbfaf8; --surface: #ffffff; --surface-sunk: #f4f2ef;
-  --line: rgba(17,17,19,.08); --line-soft: rgba(17,17,19,.05);
-  --glass: rgba(255,255,255,.78); --glass-strong: rgba(255,255,255,.92);
-  --brand: #14265e; --brand-ink: #0c1a45; --brass: #a9803f;
-  --ye: #35588f; --tc: #a9803f; --esc: #3e6b4c; --other: #8d8e93;
-  --critical: #a83e37; --good: #2f7a4d;
-  --radius-sm: 14px; --radius: 22px; --radius-lg: 30px;
-  --shadow-1: 0 1px 2px rgba(17,17,19,.04), 0 2px 6px rgba(17,17,19,.04);
-  --shadow-2: 0 4px 16px rgba(17,17,19,.07), 0 1px 3px rgba(17,17,19,.05);
-  --ease: cubic-bezier(.4,0,.2,1);
-  --ease-out: cubic-bezier(.16,1,.3,1);
-  --font-display: "Sora", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body {
-  margin: 0; background: var(--paper); color: var(--ink);
-  font: 400 15px/1.55 var(--font-body); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
-}
-h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
-a { color: inherit; }
-button { font-family: inherit; }
-::selection { background: color-mix(in srgb, var(--brand) 22%, transparent); }
-:focus-visible { outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent); outline-offset: 3px; border-radius: 4px; }
-
-/* ── Cabecera flotante, coherente con el mapa ─────────────────────────────── */
-header.top {
-  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; padding: 14px 24px; background: var(--glass); backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%); border-bottom: 1px solid var(--line-soft);
-}
-.brand-mark { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
-.brand-mark .glyph {
-  width: 34px; height: 34px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
-  background: var(--brand); color: #fff; font-family: var(--font-display); font-weight: 800; font-size: 14px;
-}
-.brand-mark .word { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
-.brand-mark .word small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 11px; color: var(--ink-faint); letter-spacing: .01em; }
-.pill-btn {
-  display: inline-flex; align-items: center; gap: 8px; text-decoration: none; cursor: pointer; border: 0;
-  font: 600 13px var(--font-body); white-space: nowrap; background: var(--brand); color: #fff;
-  padding: 10px 18px; border-radius: 999px; box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 40%, transparent);
-  transition: box-shadow .2s var(--ease), transform .2s var(--ease-out);
-}
-.pill-btn:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--brand) 45%, transparent); transform: translateY(-1px); }
-.top-actions { display: flex; align-items: center; gap: 8px; }
-.pill-btn.secondary { background: var(--surface); color: var(--brand); border: 1px solid var(--line); box-shadow: var(--shadow-1); }
-
-.wrap { max-width: 1200px; margin: 0 auto; padding: 44px 32px 88px; }
-
-.hero { margin-bottom: 30px; }
-.hero h1 { font-size: 32px; font-weight: 800; letter-spacing: -.01em; }
-.hero p { color: var(--ink-soft); margin: 8px 0 0; max-width: 68ch; font-size: 15px; }
-.hero .about-intro { max-width: 72ch; margin-top: 16px; color: var(--ink); font-size: 16px; line-height: 1.75; text-wrap: pretty; }
-.hero .about-stats-title { margin: 30px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
-
-/* ── KPI tiles ─────────────────────────────────────────────────────────── */
-.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
-.tile {
-  position: relative; background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius);
-  padding: 20px 22px; box-shadow: var(--shadow-1); overflow: hidden;
-}
-.tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c, var(--brand)); }
-.tile .n { font: 800 30px var(--font-display); display: block; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-.tile .lbl { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
-
-/* ── Cards genéricas ───────────────────────────────────────────────────── */
-.card {
-  background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius);
-  padding: 26px 28px; box-shadow: var(--shadow-1); margin-bottom: 20px;
-}
-.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
-.card-head h2 { font-size: 18px; font-weight: 700; }
-.card-head p.hint { color: var(--ink-faint); font-size: 12.5px; margin: 4px 0 0; }
-.grid-2 { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 20px; align-items: start; margin-bottom: 20px; }
-@media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
-.grid-2 .card { margin-bottom: 0; height: 100%; }
-
-/* ── Segmented control (rango del gráfico) ───────────────────────────────── */
-.seg { display: flex; gap: 3px; background: var(--surface-sunk); border-radius: 999px; padding: 3px; flex: none; }
-.seg button {
-  border: 0; background: none; cursor: pointer; padding: 7px 14px; border-radius: 999px;
-  font: 650 12.5px var(--font-body); color: var(--ink-soft); transition: background .18s var(--ease), color .18s var(--ease);
-}
-.seg button[aria-pressed="true"] { background: var(--brand); color: #fff; }
-
-/* ── Gráfico de visitas ───────────────────────────────────────────────────── */
-.chart-readout { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
-.chart-readout .big { font: 800 34px var(--font-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-.chart-readout .delta { font: 700 12.5px var(--font-body); padding: 4px 10px; border-radius: 999px; }
-.chart-readout .delta.up { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
-.chart-readout .delta.down { color: var(--critical); background: color-mix(in srgb, var(--critical) 14%, transparent); }
-.chart-readout .delta.flat { color: var(--ink-faint); background: var(--surface-sunk); }
-.chart-readout .period { color: var(--ink-faint); font-size: 12.5px; }
-.chart-wrap { position: relative; min-width: 0; margin-top: 12px; }
-.chart-wrap svg { display: block; width: 100%; height: 220px; }
-.chart-wrap .gridline { stroke: var(--line); stroke-width: 1; }
-.chart-wrap .axis-label { fill: var(--ink-faint); font: 500 10.5px var(--font-body); }
-.chart-wrap .line-path { fill: none; stroke: var(--brand); stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
-.chart-wrap .area-path { fill: url(#areaGrad); }
-.chart-wrap .hover-guide { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; }
-.chart-wrap .hover-dot { fill: var(--brand); stroke: var(--surface); stroke-width: 2; opacity: 0; }
-.chart-tooltip {
-  position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); font: 650 11.5px var(--font-body);
-  padding: 6px 10px; border-radius: 8px; white-space: nowrap; transform: translate(-50%, -130%); opacity: 0;
-  transition: opacity .12s var(--ease); box-shadow: var(--shadow-2); z-index: 5;
-}
-.chart-note { color: var(--ink-faint); font-size: 12px; margin: 14px 0 0; max-width: 75ch; }
-
-/* ── Barras mensuales ─────────────────────────────────────────────────── */
-.timeline-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
-.timeline { display: flex; align-items: flex-end; gap: 5px; height: 156px; min-width: 500px; }
-.timeline-hint { display: none; margin: 8px 0 0; color: var(--ink-faint); font-size: 11px; }
-.tl-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; }
-.tl-bar .bar { width: 100%; background: color-mix(in srgb, var(--brass) 85%, var(--surface)); border-radius: 5px 5px 2px 2px; }
-.tl-bar .m { font-size: 10px; color: var(--ink-faint); white-space: nowrap; }
-.tl-bar .v { font-size: 10.5px; font-weight: 700; color: var(--ink-soft); }
-
-/* ── Podio compacto (top 3): países, tipos… ──────────────────────────── */
-.podium { display: flex; flex-direction: column; gap: 8px; }
-.podium-row { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 10px;
-  padding: 10px 13px; border-radius: 13px; background: var(--surface-sunk); }
-.podium-row.p1 { background: color-mix(in srgb, var(--brass) 16%, var(--surface)); }
-.podium-row.p2 { background: color-mix(in srgb, var(--brass) 8%, var(--surface)); }
-.podium-medal { font-size: 17px; line-height: 1; }
-.podium-row .name { font-weight: 650; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.podium-row .n { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 15px; }
-.podium-row .n small { font-size: 10px; font-weight: 600; color: var(--ink-faint); }
-
-/* ── Proyectos con más interés: lista limpia, sin barras ─────────────── */
-.hot-list { list-style: none; margin: 0; padding: 0; }
-.hot-row { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 12px;
-  padding: 11px 2px; border-bottom: 1px solid var(--line); }
-.hot-row:last-child { border-bottom: 0; }
-.hot-rank { font: 800 13px var(--font-display); color: var(--ink-faint); text-align: center; }
-.hot-main { min-width: 0; }
-.hot-title { display: block; font-weight: 650; font-size: 14px; color: var(--ink); text-decoration: none;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-a.hot-title:hover { color: var(--brand); text-decoration: underline; }
-.hot-title.closed { color: var(--ink-faint); }
-.hot-meta { font-size: 11.5px; color: var(--ink-faint); }
-.hot-count { font: 800 16px var(--font-display); color: var(--brand); font-variant-numeric: tabular-nums; }
-.hot-count small { font-size: 10px; font-weight: 600; color: var(--ink-faint); }
-
-/* ── Ranking de países ────────────────────────────────────────────────── */
-.rank-list { display: flex; flex-direction: column; gap: 13px; }
-.rank-row { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px; font-size: 13.5px; }
-.rank-row .bar-wrap { grid-column: 1 / -1; height: 7px; background: var(--surface-sunk); border-radius: 999px; overflow: hidden; margin-top: 1px; }
-.rank-row .bar-wrap .fill { height: 100%; background: var(--brass); border-radius: inherit; }
-.rank-row .name { font-weight: 600; }
-.rank-row .n { color: var(--ink-soft); font-variant-numeric: tabular-nums; font-weight: 700; }
-.rank-row .pos { color: var(--ink-faint); font-weight: 700; font-size: 12px; }
-
-/* ── Asociaciones ─────────────────────────────────────────────────────── */
-.assoc-search {
-  display: flex; align-items: center; gap: 8px; background: var(--surface-sunk); border: 1px solid var(--line-soft);
-  border-radius: 999px; padding: 9px 16px; flex: none; width: 240px; max-width: 100%;
-}
-.assoc-search svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
-.assoc-search input {
-  border: 0; background: none; outline: none; font: 500 13px var(--font-body); color: var(--ink); width: 100%; min-width: 0;
-}
-.assoc-search input::placeholder { color: var(--ink-faint); }
-.assoc-search[hidden] { display: none; }
-.assoc-list { display: flex; flex-direction: column; gap: 2px; }
-[data-search-hide="true"] { display: none !important; }
-.assoc-item { border-bottom: 1px solid var(--line-soft); }
-.assoc-item:last-child { border-bottom: 0; }
-.assoc-row {
-  display: flex; align-items: center; gap: 14px; padding: 12px 4px; cursor: pointer; border: 0; background: none;
-  width: 100%; text-align: left; font: inherit; color: inherit; border-radius: 10px;
-  transition: background .15s var(--ease);
-}
-.assoc-row:hover { background: var(--surface-sunk); }
-.assoc-avatar {
-  width: 38px; height: 38px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand); font: 700 13px var(--font-display);
-}
-.assoc-name { flex: 1; min-width: 0; font-weight: 650; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.assoc-counts { display: flex; gap: 6px; flex: none; align-items: center; }
-.assoc-pill { font: 700 11px var(--font-body); padding: 4px 10px; border-radius: 999px; background: var(--surface-sunk); color: var(--ink-soft); white-space: nowrap; }
-.assoc-pill.open { background: color-mix(in srgb, var(--esc) 15%, transparent); color: var(--esc); }
-.assoc-chevron { flex: none; color: var(--ink-faint); transition: transform .2s var(--ease); font-size: 11px; }
-.assoc-item[data-open="true"] .assoc-chevron { transform: rotate(90deg); }
-.assoc-projects { display: none; flex-direction: column; gap: 6px; padding: 2px 4px 14px 52px; }
-.assoc-item[data-open="true"] .assoc-projects { display: flex; }
-.assoc-proj {
-  position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 12px 8px 14px;
-  background: var(--surface-sunk); border-radius: 10px; font-size: 12.5px;
-}
-.assoc-proj::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--c, var(--other)); }
-.assoc-proj[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
-.assoc-proj[data-type="TRAINING_COURSE"] { --c: var(--tc); }
-.assoc-proj[data-type="VOLUNTEERING"] { --c: var(--esc); }
-.assoc-proj .p-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.assoc-proj .p-status { flex: none; font: 700 10px var(--font-body); text-transform: uppercase; letter-spacing: .03em; padding: 3px 8px; border-radius: 999px; color: var(--ink-faint); background: var(--surface); }
-.assoc-proj .p-status.open { color: var(--esc); }
-.assoc-proj .p-map {
-  flex: none; display: inline-flex; align-items: center; gap: 4px; font: 700 11px var(--font-body); color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 10%, var(--surface)); padding: 4px 10px; border-radius: 999px; text-decoration: none;
-  transition: background .15s var(--ease);
-}
-.assoc-proj .p-map:hover { background: color-mix(in srgb, var(--brand) 18%, var(--surface)); }
-
-/* ── Ver más ──────────────────────────────────────────────────────────── */
-.more-btn {
-  display: block; margin: 16px auto 0; border: 1px solid var(--line); background: var(--surface-sunk); color: var(--ink-soft);
-  font: 650 12.5px var(--font-body); padding: 9px 20px; border-radius: 999px; cursor: pointer; transition: border-color .15s var(--ease), color .15s var(--ease);
-}
-.more-btn:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); color: var(--brand); }
-.more-btn[hidden] { display: none; }
-[data-hidden-extra="true"] { display: none !important; }
-
-/* ── Mapa por país (Ver más) ─────────────────────────────────────────── */
-.cmap-dialog { border: 0; padding: 0; border-radius: 22px; width: min(940px, calc(100vw - 28px)); max-width: none;
-  background: var(--surface); overflow: hidden; box-shadow: 0 40px 90px rgba(11,18,44,.35); }
-.cmap-dialog::backdrop { background: rgba(11,18,44,.5); backdrop-filter: blur(3px); }
-.cmap-head { display: flex; align-items: center; justify-content: space-between; padding: 17px 22px; border-bottom: 1px solid var(--line); }
-.cmap-head h2 { margin: 0; font: 700 18px var(--font-display); letter-spacing: -.025em; }
-.cmap-close { border: 0; background: var(--surface-sunk); width: 34px; height: 34px; border-radius: 50%;
-  cursor: pointer; font-size: 13px; color: var(--ink-soft); }
-.cmap-close:hover { color: var(--ink); }
-#countryMap { height: min(64vh, 560px); background: #e4ebf1; }
-#countryMap .leaflet-interactive { transition: fill-opacity .12s; }
-.cmap-legend { display: flex; align-items: center; gap: 7px; padding: 12px 22px; font-size: 11.5px; color: var(--ink-faint); flex-wrap: wrap; }
-.cmap-legend .swatch { width: 24px; height: 12px; border-radius: 3px; display: inline-block; }
-.cnum { font: 800 13px var(--font-display); letter-spacing: -.02em; text-align: center; white-space: nowrap; line-height: 1; pointer-events: none; }
-
-/* ── Archivo ──────────────────────────────────────────────────────────── */
-.archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
-.arch-card {
-  position: relative; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 15px 16px 15px 20px;
-  background: var(--surface-sunk);
-}
-.arch-card::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--c, var(--other)); }
-.arch-card[data-type="YOUTH_EXCHANGE"] { --c: var(--ye); }
-.arch-card[data-type="TRAINING_COURSE"] { --c: var(--tc); }
-.arch-card[data-type="VOLUNTEERING"] { --c: var(--esc); }
-.arch-card .badge { display: inline-block; font: 700 10.5px var(--font-body); padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--c, var(--other)) 15%, transparent); color: var(--c, var(--other)); margin-bottom: 8px; }
-.arch-card .title { font-weight: 700; font-size: 13.5px; margin-bottom: 5px; line-height: 1.35; }
-.arch-card .meta { font-size: 12px; color: var(--ink-faint); }
-
-/* ── Mapa de calor ────────────────────────────────────────────────────── */
-#heatmap { position: relative; height: 420px; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-sunk); }
-/* z-index explícito: los panes de Leaflet (tiles/overlay/marker/popup) van de 200 a 700 con
-   z-index EXPLÍCITO, así que un canvas con z-index:auto pinta por DEBAJO suyo aunque esté
-   detrás en el DOM -- por eso el calor no se veía. 750 lo deja por encima de todos los
-   panes y por debajo de los controles de zoom (leaflet-control-container, z-index 1000). */
-#heatmap canvas.heat-canvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 750; }
-.heat-legend { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); }
-.heat-legend .bar { flex: 1; max-width: 220px; height: 8px; border-radius: 999px; background: linear-gradient(90deg, rgba(53,88,143,.5), #f2c14e, #d97706, #a83e37); }
-.leaflet-tile-pane { filter: saturate(.75) brightness(1.04) contrast(.96); }
-
-/* ── Agradecimiento ───────────────────────────────────────────────────── */
-.thanks-card { text-align: center; background: linear-gradient(180deg, var(--surface), var(--surface-sunk)); }
-.thanks-card h2 { font-size: 20px; }
-.thanks-card p.hint { max-width: 46ch; margin-left: auto; margin-right: auto; }
-.thanks-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 22px; }
-.thanks-chip {
-  display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px 8px 8px; border-radius: 999px;
-  background: var(--surface); border: 1px solid var(--line-soft); box-shadow: var(--shadow-1);
-  text-decoration: none; color: inherit; transition: transform .15s var(--ease-out), box-shadow .15s var(--ease);
-}
-a.thanks-chip:hover { transform: translateY(-1px); box-shadow: var(--shadow-2); }
-.thanks-chip .assoc-avatar { width: 32px; height: 32px; font-size: 11.5px; }
-.thanks-chip .t-name { font-weight: 650; font-size: 13px; }
-.thanks-chip .t-n { color: var(--ink-faint); font-size: 12px; }
-.thanks-chip .t-n::before { content: "· "; }
-
-.empty { color: var(--ink-faint); font-size: 13.5px; padding: 8px 0; }
-footer.foot { text-align: center; color: var(--ink-faint); font-size: 12.5px; padding-top: 16px; }
-
-/* ── Overflow horizontal para las secciones anchas en móvil ──────────────── */
-@media (max-width: 900px) {
-  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 560px) {
-  header.top { padding: 10px 12px; gap: 8px; }
-  .brand-mark .word small { display: none; }
-  .top-actions { gap: 5px; }
-  .pill-btn { padding: 9px 11px; font-size: 11px; }
-  .brand-mark .word { font-size: 13.5px; }
-  .brand-mark .word small { font-size: 10px; }
-  .wrap { padding: 30px 18px 64px; }
-  .hero h1 { font-size: 28px; }
-  .hero .about-intro { font-size: 15px; line-height: 1.7; }
-  .tiles { gap: 10px; }
-  .tile { padding: 16px 18px; }
-  .tile .n { font-size: 24px; }
-  .card { padding: 20px; }
-  .chart-readout .big { font-size: 28px; }
-  .seg { flex-wrap: wrap; }
-  .seg button { padding: 7px 11px; font-size: 11.5px; }
-}
-
-/* ── Lectura editorial desde Oportunidades por mes ─────────────────────── */
-.insights-zone { margin: 28px 0 0; padding: 36px 32px 16px; border-radius: 30px; background: #eef0f4; border: 1px solid rgba(20,38,94,.07); }
-.insights-intro { display: flex; align-items: end; justify-content: space-between; gap: 28px; margin: 0 0 22px; }
-.insights-intro .overline { color: var(--brand); font: 750 10px var(--font-display); letter-spacing: .16em; text-transform: uppercase; }
-.insights-intro h2 { margin-top: 7px; font-size: clamp(24px,3vw,34px); letter-spacing: -.035em; }
-.insights-intro p { max-width: 38ch; margin: 0; color: var(--ink-soft); font-size: 13px; }
-.insights-zone .card { border-color: rgba(20,38,94,.08); box-shadow: 0 12px 38px rgba(20,38,94,.055); }
-.insights-zone .grid-2 { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 16px; align-items: stretch; }
-.insights-zone .grid-2 .card { height: 100%; min-width: 0; }
-.insights-zone .grid-2 .card:first-child { background: var(--brand-ink); color: #fff; }
-.insights-zone .grid-2 .card:first-child .hint { color: rgba(255,255,255,.55); }
-.insights-zone .grid-2 .card:first-child .tl-bar .m { color: rgba(255,255,255,.48); }
-.insights-zone .grid-2 .card:first-child .tl-bar .v { color: rgba(255,255,255,.82); }
-.insights-zone .grid-2 .card:first-child .tl-bar .bar { background: linear-gradient(180deg,#d9f27e,#a9c955); box-shadow: 0 0 0 1px rgba(255,255,255,.06); transition: filter .2s,transform .2s; transform-origin: bottom; }
-.insights-zone .grid-2 .card:first-child .tl-bar:hover .bar { filter: brightness(1.1); transform: scaleY(1.025); }
-.insights-zone .grid-2 .card:last-child { background: #f9f8f5; }
-.insights-zone .rank-row .bar-wrap { height: 5px; background: rgba(20,38,94,.08); }
-.insights-zone .rank-row .bar-wrap .fill { background: var(--brand); }
-.insights-zone>.card { padding: 28px 30px; }
-.insights-zone>.card .card-head { padding-bottom: 16px; border-bottom: 1px solid var(--line); }
-.insights-zone>.card .card-head h2 { font-size: 20px; letter-spacing: -.025em; }
-.insights-zone .assoc-avatar { border-radius: 11px; }
-.insights-zone .assoc-row { padding: 13px 8px; }
-.insights-zone .arch-card { background: #f8f7f3; border-radius: 12px; transition: transform .18s var(--ease-out),box-shadow .18s var(--ease); }
-.insights-zone .arch-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
-.insights-zone #heatmap { height: 460px; border-radius: 16px; box-shadow: inset 0 0 0 1px rgba(20,38,94,.08); }
-.insights-zone .thanks-card { background: var(--brand-ink); color: #fff; }
-.insights-zone .thanks-card .hint { color: rgba(255,255,255,.6); }
-.insights-zone .thanks-chip { background:#fff;color:var(--ink);border-color:rgba(255,255,255,.2) }
-.insights-zone .thanks-chip .t-name { color:var(--ink); }
-.insights-zone .thanks-chip .t-n { color:var(--ink-faint); }
-@media(max-width:940px){
-  .insights-zone>.grid-2{grid-template-columns:minmax(0,1fr)}
-  .insights-zone>.grid-2 .card{height:auto}
-  .insights-intro{align-items:start;flex-direction:column;gap:10px}
-  .insights-intro p{max-width:58ch}
-}
-@media(max-width:760px){.insights-zone .grid-2{grid-template-columns:minmax(0,1fr)}}
-@media(max-width:560px){
-  .insights-zone{margin:26px 0 0;padding:24px 14px 8px;border-radius:22px}
-  .insights-intro{margin:0 4px 18px}
-  .insights-zone>.card{padding:20px}
-  .insights-zone #heatmap{height:360px}
-  .insights-zone .grid-2 .card{padding:20px}
-  .timeline-hint{display:block}
-  .assoc-counts{gap:4px}.assoc-pill{padding:4px 7px}
-  .assoc-projects{padding-left:0}.assoc-proj{flex-wrap:wrap}.assoc-proj .p-title{flex-basis:100%}
-  .thanks-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;text-align:left}
-  .thanks-chip{min-width:0;align-content:start;flex-wrap:wrap;gap:4px 7px;padding:9px;border-radius:14px}
-  .thanks-chip .assoc-avatar{width:28px;height:28px}
-  .thanks-chip .t-name{flex:1;min-width:0;font-size:11.5px;overflow-wrap:anywhere}
-  .thanks-chip .t-n{width:100%;padding-left:35px;font-size:10.5px}
-  .thanks-chip .t-n::before{content:""}
-}
-@media(max-width:360px){.top-actions .secondary{display:none}.tiles{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.tile{padding:14px}.tile .lbl{font-size:11.5px}.thanks-list{grid-template-columns:minmax(0,1fr)}}
+.stats-hero{padding:76px 0 0}
+.stats-hero .row{display:flex;justify-content:space-between;align-items:end;gap:30px;flex-wrap:wrap}
+.stamp{font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:8px}
+.stamp i{width:8px;height:8px;border-radius:50%;background:#7fa35b}
+.toc{display:flex;gap:8px;flex-wrap:wrap;margin-top:30px}
+.toc a{text-decoration:none;border:1px solid var(--rule);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700}
+.toc a:hover{background:var(--white)}
+.kpis{margin-top:56px}
+.big-card{padding:34px 34px 26px}
+.chart-head{display:flex;justify-content:space-between;align-items:start;gap:20px;flex-wrap:wrap;margin-bottom:18px}
+.chart-head .sum{display:flex;gap:30px;margin-top:14px;flex-wrap:wrap}
+.chart-head .sum b{display:block;font:400 34px/1 var(--serif)}
+.chart-head .sum span{font-size:12px;color:var(--muted)}
+.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px}
+.mini .card{padding:24px}
+.mini h3{font-size:20px}
+.note{font-size:12px;color:var(--muted);margin:16px 0 0}
+.tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--clay2)}
+#dotMap{height:420px;border-radius:10px;overflow:hidden;border:1px solid var(--rule);background:#efe7d8}#dotMap .leaflet-tile-pane{filter:grayscale(1) sepia(.35) brightness(1.04) contrast(.9)}.org-tools{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+@media(max-width:1020px){.mini{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.stats-hero{padding-top:44px}.mini{grid-template-columns:1fr}.big-card{padding:22px 16px}}
 </style>
-<script src="/assets/corradi-core.js?v=20260923i"></script>
-<link rel="stylesheet" href="/assets/atlas-theme.css?v=20261105g">
 </head>
-<body class="atlas atlas-stats">
-<header class="top">
-  <a class="brand-mark" href="/" aria-label="Ir a la web de oportunidades">
-    <div class="glyph"><svg class="logo-svg" viewBox="-0 -14.5 486 486" aria-hidden="true" focusable="false" style="width:66%;height:66%;display:block"><path fill="currentColor" fill-rule="evenodd" d="M401.5 135 383.5 189.5 380.5 196 317.5 197 368 235.5 367.5 239.5 365.5 244 364.5 249 363.5 250.5 349.5 296.5 357 292 401.5 260 454 296.5 435.5 236 438.5 233 486 197 423.5 196 421 191.5 403 137ZM222.5 0 203 1.5 179 5.5 157 11.5 132 21.5 120 27.5 96 42.5 77 57.5 61.5 72.5 45.5 91.5 32.5 111 20.5 134 13.5 151 8.5 166.5 2.5 194.5 0.5 212.5 0 233 1.5 256 4.5 274.5 9.5 294.5 17.5 316.5 28.5 339 41.5 359.5 56.5 378.5 78.5 400.5 91.5 411 110.5 424 131 435 148 442 173 450 192.5 454 208.5 456 236 457 261.5 455 291 449 312.5 442 327 436 339 430 363.5 415 382.5 400 405 377.5 412.5 368.5 413.5 365.5 351.5 316.5 350.5 316.5 343.5 325 331.5 336.5 323 343.5 308.5 353.5 293.5 361.5 279 367.5 256.5 373.5 241 375.5 217.5 375.5 202 373.5 180.5 367.5 171 363.5 154 354.5 142.5 346.5 129.5 335.5 123 329 113 317 107 308.5 96 288 91 275.5 86 256.5 84 243 84 215 86 201 89 188 93 176 98 164.5 106 150 114 138.5 121.5 129.5 136.5 115 144 109 159.5 99 181 89 198 84 215 81 235.5 80 257.5 82 281.5 88 288 91 289.5 91 304 98 321.5 109 338 123 352.5 139 353.5 139 406.5 95 414.5 87.5 399 69.5 376.5 49.5 353.5 33.5 326.5 19.5 299.5 9.5 279.5 4.5 251 0.5Z"/></svg></div>
-    <div class="word">Corradi Erasmus+<small>Quiénes somos</small></div>
-  </a>
-  <nav class="top-actions" aria-label="Volver a Corradi"><a class="pill-btn secondary" href="/">← Oportunidades abiertas</a><a class="pill-btn" href="/mapa">Ver mapa</a></nav>
-</header>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="/"><span class="mk"><img src="/assets/logo-mark.svg" alt=""></span><span><b>Corradi</b><small>ERASMUS+ EN CLARO</small></span></a>
+  <nav class="menu" aria-label="Principal"><a href="/">Oportunidades</a><a href="/mapa">Mapa</a><a href="/guia">Guía</a><a href="/organizaciones">Organizaciones</a><a href="/quienes-somos">Quiénes somos</a><a href="/estadisticas" aria-current="page">Estadísticas</a></nav>
+  <a class="btn line" href="/publicar">Publicar</a>
+  <a class="btn clay" href="/mapa">Mapa ↗</a>
+</div></header>
 
-<div class="wrap">
-  <div class="hero">
-    <h1>¿Quiénes somos?</h1>
-    <p class="about-intro">Corradi es un proyecto de <b>Proactive Future</b>, una organización juvenil sin ánimo de lucro con sede en Asturias que trabaja el empoderamiento juvenil a través de la educación no formal: Wild Weekends, Wild Trips y proyectos Erasmus+, con 25 coordinados, 34 como socia y más de 200 organizaciones de todo el mundo en su red. Empezamos compartiendo oportunidades a mano en un canal de WhatsApp que hoy siguen más de 3.150 jóvenes. Corradi nace para hacer ese trabajo con datos verificados, cada día y para cualquiera que viva en España.</p>
-    <h2 class="about-stats-title">Estadísticas</h2>
-    <p>Cómo se mueve el catálogo: visitas al mapa, asociaciones que organizan las plazas y qué pasa con las oportunidades una vez se cierran.</p>
+<main>
+<section class="stats-hero"><div class="wrap">
+  <div class="row">
+    <div><span class="kicker">Estadísticas</span><h1 style="margin-top:22px">El catálogo, <em>en datos.</em></h1>
+    <p class="lead">Cuántas convocatorias publicamos, a dónde llevan, quién las organiza y qué interesa más a quienes visitan Corradi.</p></div>
+    <span class="stamp"><i></i>Datos en directo · <span id="today"></span></span>
   </div>
+  <nav class="toc" aria-label="Secciones"><a href="#audiencia">Audiencia</a><a href="#catalogo">Catálogo de hoy</a><a href="#interes">Qué interesa</a><a href="#destinos">Destinos</a><a href="#organizaciones">Organizaciones</a></nav>
+  <div class="figs kpis" style="--n:6" id="kpis"></div>
+</div></section>
 
-  <div class="tiles" id="tiles"></div>
-
-  <section class="card" id="chartCard">
-    <div class="card-head">
-      <div>
-        <h2>Visitas al mapa</h2>
-        <p class="hint">Personas distintas no identificadas, una visita por carga de página.</p>
-      </div>
-      <div class="seg" id="rangeSeg" role="tablist" aria-label="Rango de tiempo">
-        <button type="button" data-range="week" aria-pressed="false">Semana</button>
-        <button type="button" data-range="month" aria-pressed="true">Mes</button>
-        <button type="button" data-range="year" aria-pressed="false">Año</button>
-      </div>
+<section class="sec" id="audiencia"><div class="wrap">
+  <div class="sec-head reveal"><div><span class="kicker">Audiencia</span><h2>Cuánto se usa Corradi.</h2><p>Cada carga del mapa suma una visita. Es un contador agregado: no guardamos nada de quién visita.</p></div></div>
+  <div class="card big-card reveal">
+    <div class="chart-head">
+      <div><h3>Visitas al mapa por día</h3><div class="sum" id="visitSum"></div></div>
+      <div class="seg" role="group" aria-label="Periodo" id="visitRange"><button type="button" data-d="30" aria-pressed="false">30 días</button><button type="button" data-d="90" aria-pressed="true">90 días</button><button type="button" data-d="0" aria-pressed="false">Todo</button></div>
     </div>
-    <div class="chart-readout" id="chartReadout"></div>
-    <div class="chart-wrap" id="chartWrap"></div>
-    <p class="chart-note" id="chartNote"></p>
-  </section>
-
-  <div class="insights-zone">
-  <div class="insights-intro"><div><span class="overline">El catálogo en perspectiva</span><h2>Lo que está pasando, de un vistazo</h2></div><p>Ritmo de publicación, destinos y organizaciones que hacen posible cada movilidad.</p></div>
-  <div class="grid-2">
-    <section class="card">
-      <div class="card-head">
-        <div>
-          <h2>Oportunidades por mes</h2>
-          <p class="hint">Últimos 12 meses, por fecha de publicación.</p>
-        </div>
-      </div>
-      <div class="timeline-scroll" tabindex="0" aria-label="Oportunidades publicadas en los últimos doce meses; desplaza para ver meses anteriores"><div class="timeline" id="timeline"></div></div>
-      <p class="timeline-hint">Desliza para ver meses anteriores ←</p>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <div>
-          <h2>Países con más oportunidades</h2>
-          <p class="hint">Top 3 · histórico completo.</p>
-        </div>
-      </div>
-      <div id="countries"></div>
-      <button type="button" class="more-btn" id="countriesMore">Ver mapa por países →</button>
-    </section>
+    <svg class="chart" id="visitChart" viewBox="0 0 1000 300" role="img" aria-label="Visitas diarias"></svg>
   </div>
-
-  <section class="card" id="interestCard" hidden>
-    <div class="card-head">
-      <div>
-        <h2>Qué está funcionando</h2>
-        <p class="hint">Interés real (clics a enlaces y aperturas de ficha) en los últimos <span id="interestDays">30</span> días.</p>
-      </div>
-    </div>
-    <div class="grid-2" style="margin-bottom:14px">
-      <div>
-        <p class="hint" style="margin:0 0 8px">Por tipo</p>
-        <div id="interestType"></div>
-      </div>
-      <div>
-        <p class="hint" style="margin:0 0 8px">Por país</p>
-        <div id="interestCountry"></div>
-      </div>
-    </div>
-    <p class="hint" style="margin:6px 0 8px">Proyectos con más interés</p>
-    <div id="interestTop"></div>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <div>
-        <h2>Asociaciones</h2>
-        <p class="hint">Organizadores capturados en las fichas (dato parcial, se rellena con el tiempo).</p>
-      </div>
-      <div class="assoc-search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input type="search" id="assocSearch" placeholder="Buscar asociación…" autocomplete="off">
-      </div>
-    </div>
-    <div class="assoc-list" id="associations"></div>
-    <button type="button" class="more-btn" id="assocMore" hidden></button>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <div>
-        <h2>Archivo de cerradas</h2>
-        <p class="hint">Últimas oportunidades que ya no aceptan inscripción.</p>
-      </div>
-    </div>
-    <div class="archive-grid" id="archive"></div>
-    <button type="button" class="more-btn" id="archiveMore" hidden></button>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <div>
-        <h2>Mapa de calor</h2>
-        <p class="hint">Densidad real por ciudad/región, histórico completo — no agregado por país.</p>
-      </div>
-    </div>
-    <div id="heatmap"></div>
-    <div class="heat-legend"><span>Menos</span><span class="bar"></span><span>Más</span></div>
-  </section>
-
-  <section class="card thanks-card" id="thanksSection" hidden>
-    <h2>Gracias por compartir</h2>
-    <p class="hint">Nada de esto existiría sin las personas que mandan oportunidades a mano, una a una, para que otros jóvenes se enteren a tiempo.</p>
-    <div class="thanks-list" id="thanksList"></div>
-  </section>
+  <div class="g2" style="margin-top:22px">
+    <div class="card reveal"><h3>Convocatorias publicadas por mes</h3><p class="sub">Desde que el catálogo empezó a funcionar.</p><svg class="chart" id="monthChart" viewBox="0 0 600 260" role="img" aria-label="Publicaciones por mes"></svg></div>
+    <div class="card reveal"><h3>Qué enlace se pulsa</h3><p class="sub">Clics desde las fichas hacia la fuente, en todo el histórico.</p><div id="clickSplit"></div></div>
   </div>
+</div></section>
 
-  <footer class="foot">Corradi Erasmus+ · <a href="/mapa">mapa.proactivefuture.eu</a></footer>
-</div>
-
-<dialog id="countryMapDialog" class="cmap-dialog" aria-labelledby="cmapTitle">
-  <div class="cmap-head">
-    <h2 id="cmapTitle">Proyectos por país · histórico</h2>
-    <button type="button" class="cmap-close" id="countryMapClose" aria-label="Cerrar">✕</button>
+<section class="sec" id="catalogo" style="padding-top:0"><div class="wrap">
+  <div class="sec-head reveal"><div><span class="kicker">Catálogo de hoy</span><h2>Lo que está abierto ahora.</h2><p>Calculado sobre las convocatorias con el plazo todavía abierto.</p></div><a class="link" href="/">Ver el catálogo</a></div>
+  <div class="mini">
+    <div class="card reveal"><h3>Por formato</h3><p class="sub">Reparto de las abiertas.</p><div id="byType"></div></div>
+    <div class="card reveal"><h3>Cuándo cierran</h3><p class="sub">Días que quedan de plazo.</p><div class="bars" id="byDeadline"></div></div>
+    <div class="card reveal"><h3>Edad mínima</h3><p class="sub">Desde qué edad se puede participar.</p><div class="bars" id="byAge"></div></div>
+    <div class="card reveal"><h3>Margen para solicitar</h3><p class="sub">Desde que publicamos hasta que cierra.</p><div id="lead"></div></div>
   </div>
-  <div id="countryMap"></div>
-  <div class="cmap-legend" id="countryMapLegend"></div>
-</dialog>
+  <div class="card reveal" style="margin-top:22px"><h3>Temas más frecuentes</h3><p class="sub">Etiquetas de tema de las convocatorias abiertas.</p><div class="bars" id="topics"></div></div>
+</div></section>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<section class="sec" id="interes" style="padding-top:0"><div class="wrap">
+  <div class="sec-head reveal"><div><span class="kicker">Qué interesa</span><h2>Lo más visto en los últimos 30 días.</h2><p>Fichas abiertas y clics hacia el infopack o el formulario.</p></div></div>
+  <div class="g2">
+    <div class="card reveal"><h3>Por formato</h3><p class="sub">Clics en los últimos 30 días.</p><div class="bars" id="intType"></div><h3 style="margin-top:34px">Por país de destino</h3><p class="sub">Clics en los últimos 30 días.</p><div class="bars" id="intCountry"></div></div>
+    <div class="card reveal"><h3>Convocatorias con más clics</h3><p class="sub">Pueden estar ya cerradas.</p><ol class="list" id="topProjects"></ol></div>
+  </div>
+</div></section>
+
+<section class="sec" id="destinos" style="padding-top:0"><div class="wrap">
+  <div class="sec-head reveal"><div><span class="kicker">Destinos</span><h2>A dónde han llevado las convocatorias.</h2><p>Histórico completo de lo publicado en Corradi.</p></div><a class="link" href="/mapa">Abrir el mapa</a></div>
+  <div class="g2">
+    <div class="card reveal"><h3>Países con más convocatorias</h3><p class="sub" id="countrySub">Histórico.</p><div class="bars" id="countries"></div></div>
+    <div class="card reveal"><h3>Cada punto, una convocatoria</h3><p class="sub" id="dotSub">Ubicación de lo publicado.</p><div id="dotMap" role="img" aria-label="Ubicación de las convocatorias publicadas"></div></div>
+  </div>
+</div></section>
+
+<section class="sec" id="organizaciones" style="padding-top:0"><div class="wrap">
+  <div class="sec-head reveal"><div><span class="kicker">Organizaciones</span><h2>Quién organiza las plazas.</h2><p>Entidades que aparecen como organizadoras en las fichas. El total incluye convocatorias ya cerradas.</p></div></div>
+  <div class="card reveal">
+    <div class="org-tools"><span class="sub" style="margin:0" id="orgCount"></span><input class="search" id="orgSearch" type="search" placeholder="Buscar organización…" aria-label="Buscar organización"></div>
+    <ol class="list" id="orgs"></ol>
+    <p style="text-align:center;margin:22px 0 0"><button class="btn line" id="orgMore" type="button">Ver más</button></p>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <div class="foot">
+    <div><a class="brand" href="/" style="margin:0 0 16px"><span class="mk"><img src="/assets/logo-mark.svg" alt=""></span><span><b>Corradi</b></span></a><p style="max-width:34ch;margin:0">Para que ninguna persona joven pierda una oportunidad porque no se enteró a tiempo. Un proyecto de Proactive Future.</p></div>
+    <div><h5>Explorar</h5><a href="/">Oportunidades</a><a href="/mapa">Mapa</a></div>
+    <div><h5>Aprender</h5><a href="/guia">Guía Erasmus+</a><a href="/organizaciones">Organizaciones</a></div>
+    <div><h5>Corradi</h5><a href="/quienes-somos">Quiénes somos</a><a href="/estadisticas">Estadísticas</a><a href="/publicar">Publicar</a></div>
+  </div>
+  <div class="legal"><span>© 2026 Corradi · Proactive Future</span><span>Cofinanciado por la Unión Europea</span></div>
+</div></footer>
+<div class="tip" id="tip"></div>
+
 <script>
-var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
-var DIAS = ["dom","lun","mar","mié","jue","vie","sáb"];
-var TIPOS = { YOUTH_EXCHANGE: "Youth Exchange", TRAINING_COURSE: "Training Course", VOLUNTEERING: "ESC" };
+(function(){
+"use strict";
+var $=function(s){return document.querySelector(s)};
+var TYPE={YOUTH_EXCHANGE:"Youth Exchange",TRAINING_COURSE:"Training Course",VOLUNTEERING:"Voluntariado ESC"};
+var TCOL={YOUTH_EXCHANGE:"#ad573e",TRAINING_COURSE:"#263528",VOLUNTEERING:"#b9c4a3"};
+var nf=function(n){return Math.round(n).toLocaleString("es-ES")};
+var esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(m){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]})};
+var flag=function(c){return /^[A-Z]{2}$/.test(c||"")?String.fromCodePoint.apply(null,c.split("").map(function(x){return 127397+x.charCodeAt(0)})):""};
+var today=new Date();today.setHours(0,0,0,0);
+var TODAY=new Date(today.getTime()-today.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+var days=function(d){return Math.round((new Date(d+"T00:00:00")-today)/864e5)};
+var tip=$("#tip");
+function showTip(e,html){tip.innerHTML=html;tip.style.left=e.clientX+"px";tip.style.top=e.clientY+"px";tip.style.opacity=1}
+function hideTip(){tip.style.opacity=0}
+$("#today").textContent=today.toLocaleDateString("es-ES",{day:"numeric",month:"long",year:"numeric"});
 
-var esc = window.Corradi.esc;
-function parseDay(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
-function monthLabel(key) { var p = key.split("-"); return MESES[Number(p[1]) - 1] + " " + p[0].slice(2); }
-function initials(name) {
-  var parts = String(name).trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  return (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
+function bars(el,rows,opt){opt=opt||{};var max=Math.max.apply(null,rows.map(function(r){return r[1]}).concat([1]));
+  el.innerHTML=rows.length?rows.map(function(r,i){return '<div class="bar-row"><span class="lbl" title="'+esc(r[0])+'">'+r[0]+'</span><span class="track"><i class="'+(r[2]||opt.cls||"")+'" style="width:'+Math.max(2,r[1]/max*100)+'%;animation-delay:'+(i*60)+'ms"></i></span><span class="val">'+nf(r[1])+(opt.suffix||"")+'</span></div>'}).join(""):'<p class="empty">Sin datos.</p>'}
+
+Promise.all([fetch("/api/stats").then(function(r){return r.json()}),fetch("/api/map").then(function(r){return r.json()})]).then(function(res){
+  var S=res[0],open=(res[1].results||[]).filter(function(o){return o.type&&o.application_deadline&&o.application_deadline>=TODAY});
+  kpis(S,open);visits(S);months(S);clicks(S);catalog(open);interest(S);destinations(S);orgs(S);observe();
+}).catch(function(){$("#kpis").innerHTML='<p class="empty">No se han podido cargar los datos.</p>'});
+
+function sumRange(v,from,to){var s=0;for(var i=Math.max(0,from);i<to;i++)s+=v[i].n;return s}
+function kpis(S,open){
+  var v=S.daily_visits||[],L=v.length,last=sumRange(v,L-30,L),prev=sumRange(v,L-60,L-30),pct=prev?Math.round((last-prev)/prev*100):null;
+  var countries=new Set(open.map(function(o){return o.country_code}).filter(Boolean)).size;
+  var K=[[nf(S.total_open),"convocatorias abiertas hoy"],[nf(S.total_published),"publicadas desde el inicio"],[nf(last),"visitas al mapa en los últimos 30 días",pct],[nf(S.total_visits),"visitas al mapa en total"],[nf(S.total_clicks),"clics a infopacks y formularios"],[countries,"países de destino abiertos"]];
+  $("#kpis").innerHTML=K.map(function(k){return '<div class="fig"><b>'+k[0]+'</b><span>'+k[1]+'</span>'+(k[2]==null?"":'<em class="'+(k[2]<0?"down":"")+'">'+(k[2]>0?"+":"")+k[2]+'% vs. 30 días anteriores</em>')+'</div>'}).join("");
 }
 
-var STATE = { daily: [], range: "month" };
-
-fetch("/api/stats", { headers: { Accept: "application/json" } })
-  .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
-  .then(render)
-  .catch(function (err) {
-    console.error("estadisticas: fallo al cargar/renderizar", err);
-    document.getElementById("tiles").innerHTML = '<p class="empty">No se han podido cargar las estadísticas.</p>';
-  });
-
-function tile(n, label, color) {
-  return '<div class="tile" style="--c:' + color + '"><span class="n">' + n + '</span><span class="lbl">' + esc(label) + '</span></div>';
+var VIS=[];
+function visits(S){
+  var v=S.daily_visits||[],first=v.findIndex(function(x){return x.n>0});VIS=v.slice(first<0?0:first);
+  drawVisits(90);
+  document.querySelectorAll("#visitRange button").forEach(function(b){b.onclick=function(){document.querySelectorAll("#visitRange button").forEach(function(x){x.setAttribute("aria-pressed",x===b)});drawVisits(+b.dataset.d)}});
 }
-
-var PAGE_SIZE = 8;
-var STATUS_ES = { open: "Abierta", closed: "Cerrada", expired: "Expirada" };
-
-function render(data) {
-  STATE.daily = data.daily_visits || [];
-
-  document.getElementById("tiles").innerHTML =
-    tile(data.total_open, "Abiertas ahora mismo", "var(--esc)") +
-    tile(data.total_published, "Proyectos publicados (histórico)", "var(--brand)") +
-    tile(data.total_clicks, "Clics a enlaces (info/form/infopack)", "var(--brass)") +
-    tile(data.total_visits, "Visitas totales (histórico)", "var(--ye)");
-
-  var BAR_MAX_PX = 112;
-  var maxMonth = Math.max.apply(null, data.monthly.map(function (m) { return m.n; }).concat([1]));
-  document.getElementById("timeline").innerHTML = data.monthly.map(function (m) {
-    var px = Math.max(4, Math.round((m.n / maxMonth) * BAR_MAX_PX));
-    return '<div class="tl-bar"><div class="v">' + m.n + '</div><div class="bar" style="height:' + px + 'px"></div><div class="m">' + monthLabel(m.month) + '</div></div>';
-  }).join("") || '<p class="empty">Sin datos todavía.</p>';
-  requestAnimationFrame(function () {
-    var scroller = document.querySelector(".timeline-scroll");
-    if (scroller.scrollWidth > scroller.clientWidth) scroller.scrollLeft = scroller.scrollWidth;
-  });
-
-  document.getElementById("countries").innerHTML =
-    podium(data.top_countries, function (c) { return ccFlag(c.country_code) + " " + esc(c.country_name); },
-           function (c) { return c.n; });
-  var cmoreBtn = document.getElementById("countriesMore");
-  cmoreBtn.hidden = (data.top_countries || []).length < 4;
-  cmoreBtn.onclick = function () { openCountryMap(data.top_countries || []); };
-  document.getElementById("countryMapClose").onclick = function () { document.getElementById("countryMapDialog").close(); };
-  document.getElementById("countryMapDialog").addEventListener("click", function (e) { if (e.target === this) this.close(); });
-
-  renderInterest(data.interest);
-  renderAssociations(data.organisers);
-  renderArchive(data.closed);
-  renderHeatmap(data.heatmap_points || []);
-  renderThanks(data.contributors || []);
-
-  wireRangeSeg();
-  renderChart();
+function fmtDay(d,o){return new Date(d+"T00:00:00").toLocaleDateString("es-ES",o||{day:"numeric",month:"short"})}
+function drawVisits(n){
+  var svg0=$("#visitChart"),cw=svg0.clientWidth||1000,W=Math.max(320,Math.min(1000,cw)),H=W<600?230:300;svg0.setAttribute("viewBox","0 0 "+W+" "+H);var d=n?VIS.slice(-n):VIS,pl=44,pr=10,pt=14,pb=34,max=Math.max.apply(null,d.map(function(x){return x.n}).concat([1]));
+  var step=Math.pow(10,Math.floor(Math.log10(max)));var top=Math.ceil(max/step)*step;if(top/step>6)top=Math.ceil(max/(step*2))*step*2;
+  var x=function(i){return pl+(W-pl-pr)*(d.length<2?0:i/(d.length-1))},y=function(val){return pt+(H-pt-pb)*(1-val/top)};
+  var s="";for(var g=0;g<=4;g++){var gv=top*g/4;s+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(gv)+'" y2="'+y(gv)+'" stroke="#d3c9b8" stroke-dasharray="'+(g?"3 4":"")+'"/><text x="'+(pl-10)+'" y="'+(y(gv)+4)+'" text-anchor="end">'+nf(gv)+'</text>'}
+  var pts=d.map(function(p,i){return x(i).toFixed(1)+","+y(p.n).toFixed(1)});
+  s+='<defs><linearGradient id="ga" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ad573e" stop-opacity=".28"/><stop offset="1" stop-color="#ad573e" stop-opacity="0"/></linearGradient></defs>';
+  s+='<path d="M'+x(0)+","+y(0)+" L"+pts.join(" L")+" L"+x(d.length-1)+","+y(0)+' Z" fill="url(#ga)"/>';
+  s+='<polyline points="'+pts.join(" ")+'" fill="none" stroke="#ad573e" stroke-width="2.4" stroke-linejoin="round"/>';
+  var ticks=W<600?3:6;for(var t=0;t<ticks;t++){var i=Math.round((d.length-1)*t/(ticks-1));s+='<text x="'+x(i)+'" y="'+(H-8)+'" text-anchor="'+(t===0?"start":t===ticks-1?"end":"middle")+'">'+fmtDay(d[i].day)+'</text>'}
+  s+='<line id="vx" y1="'+pt+'" y2="'+y(0)+'" stroke="#263528" stroke-width="1" opacity="0"/><circle id="vc" r="5" fill="#fffaf1" stroke="#ad573e" stroke-width="2.4" opacity="0"/><rect x="'+pl+'" y="0" width="'+(W-pl-pr)+'" height="'+H+'" fill="transparent" id="vhit"/>';
+  var svg=$("#visitChart");svg.innerHTML=s;
+  var tot=d.reduce(function(a,b){return a+b.n},0),best=d.reduce(function(a,b){return b.n>a.n?b:a},d[0]);
+  $("#visitSum").innerHTML='<div><b>'+nf(tot)+'</b><span>visitas en el periodo</span></div><div><b>'+nf(tot/d.length)+'</b><span>de media al día</span></div><div><b>'+nf(best.n)+'</b><span>récord · '+fmtDay(best.day,{day:"numeric",month:"long"})+'</span></div>';
+  $("#vhit").addEventListener("mousemove",function(e){var r=svg.getBoundingClientRect(),px=(e.clientX-r.left)/r.width*W,i=Math.max(0,Math.min(d.length-1,Math.round((px-pl)/(W-pl-pr)*(d.length-1))));
+    var vx=$("#vx"),vc=$("#vc");vx.setAttribute("x1",x(i));vx.setAttribute("x2",x(i));vx.setAttribute("opacity",.25);vc.setAttribute("cx",x(i));vc.setAttribute("cy",y(d[i].n));vc.setAttribute("opacity",1);
+    showTip(e,fmtDay(d[i].day,{weekday:"short",day:"numeric",month:"long"})+" · <b>"+nf(d[i].n)+"</b> visitas")});
+  $("#vhit").addEventListener("mouseleave",function(){hideTip();$("#vx").setAttribute("opacity",0);$("#vc").setAttribute("opacity",0)});
 }
-
-function ccFlag(cc) {
-  if (!cc || cc.length !== 2) return "🌍";
-  return String.fromCodePoint.apply(null, cc.toUpperCase().split("").map(function (c) { return 127397 + c.charCodeAt(0); }));
+function months(S){
+  var m=S.monthly||[],f=m.findIndex(function(x){return x.n>0});m=m.slice(f<0?0:f);
+  var W=600,H=260,pb=30,pt=24,bw=(W-20)/m.length,max=Math.max.apply(null,m.map(function(x){return x.n}).concat([1]));
+  $("#monthChart").innerHTML='<line x1="0" x2="'+W+'" y1="'+(H-pb)+'" y2="'+(H-pb)+'" stroke="#d3c9b8"/>'+m.map(function(p,i){var h=(H-pb-pt)*p.n/max,xx=10+i*bw+bw*.18,w=bw*.64;var cur=i===m.length-1;
+    return '<rect x="'+xx+'" y="'+(H-pb-h)+'" width="'+w+'" height="'+h+'" rx="5" fill="'+(cur?"#e7bb9d":"#ad573e")+'"><title>'+p.n+'</title></rect><text x="'+(xx+w/2)+'" y="'+(H-pb-h-8)+'" text-anchor="middle" style="fill:#263528;font-weight:800">'+p.n+'</text><text x="'+(xx+w/2)+'" y="'+(H-10)+'" text-anchor="middle">'+new Date(p.month+"-01T00:00:00").toLocaleDateString("es-ES",{month:"short"})+(cur?" (en curso)":"")+'</text>'}).join("");
 }
-
-var MEDALS = ["🥇", "🥈", "🥉"];
-
-// Podio compacto top-3, alineado a la izquierda. `valFn` da el número; `unit` opcional.
-function podium(items, labelFn, valFn, unit) {
-  var top = (items || []).slice(0, 3);
-  if (!top.length) return '<p class="empty">Sin datos todavía.</p>';
-  return '<div class="podium">' + top.map(function (x, i) {
-    return '<div class="podium-row p' + (i + 1) + '">' +
-      '<span class="podium-medal">' + MEDALS[i] + '</span>' +
-      '<span class="name">' + labelFn(x) + '</span>' +
-      '<span class="n">' + (valFn(x) || 0) + (unit ? ' <small>' + unit + '</small>' : '') + '</span></div>';
-  }).join("") + '</div>';
+function clicks(S){
+  var c=S.clicks_by_kind||{},parts=[["infopack","Infopack","#ad573e"],["form","Formulario","#263528"],["info","Más información","#b9c4a3"]],tot=parts.reduce(function(a,p){return a+(c[p[0]]||0)},0)||1;
+  $("#clickSplit").innerHTML='<div style="font:400 54px/1 var(--serif);letter-spacing:-.04em">'+nf(tot)+'</div><p class="sub" style="margin:6px 0 22px">clics en total</p><div class="split">'+parts.map(function(p){return '<i style="width:'+((c[p[0]]||0)/tot*100)+'%;background:'+p[2]+'"></i>'}).join("")+'</div><div class="legend">'+parts.map(function(p){return '<span><i style="background:'+p[2]+'"></i>'+p[1]+' · <b>'+Math.round((c[p[0]]||0)/tot*100)+'%</b> ('+nf(c[p[0]]||0)+')</span>'}).join("")+'</div><p class="note"></p>';
+  var top=parts.slice().sort(function(p,q){return (c[q[0]]||0)-(c[p[0]]||0)})[0];$("#clickSplit .note").textContent="El enlace más pulsado es «"+top[1]+"»: "+Math.round((c[top[0]]||0)/tot*100)+"% de los clics.";
 }
-
-function renderInterest(it) {
-  var card = document.getElementById("interestCard");
-  if (!it || !it.by_type || (!it.by_type.length && !it.top_projects.length)) { card.hidden = true; return; }
-  card.hidden = false;
-  document.getElementById("interestDays").textContent = it.period_days;
-  var clicksOf = function (x) { return x.clicks || 0; };
-
-  document.getElementById("interestType").innerHTML =
-    podium(it.by_type, function (x) { return esc(x.type_name || x.type); }, clicksOf, "clics");
-  document.getElementById("interestCountry").innerHTML =
-    podium(it.by_country, function (x) { return ccFlag(x.country_code) + " " + esc(x.country_name || x.country_code); }, clicksOf, "clics");
-
-  var top = (it.top_projects || []).slice(0, 5);
-  document.getElementById("interestTop").innerHTML = top.length
-    ? '<ol class="hot-list">' + top.map(function (p, i) {
-        var title = p.open
-          ? '<a class="hot-title" href="/' + esc(p.short_id) + '">' + esc(p.title) + '</a>'
-          : '<span class="hot-title closed">' + esc(p.title) + '</span>';
-        var meta = ccFlag(p.country_code) + " " + esc(p.country_name || "") + " · " + esc(p.type_name || "")
-          + (p.open ? "" : " · cerrada");
-        return '<li class="hot-row"><span class="hot-rank">' + (i + 1) + '</span>' +
-          '<span class="hot-main">' + title + '<span class="hot-meta">' + meta + '</span></span>' +
-          '<span class="hot-count">' + (p.clicks || 0) + ' <small>clics</small></span></li>';
-      }).join("") + '</ol>'
-    : '<p class="empty">Sin datos todavía.</p>';
+function catalog(open){
+  var n=open.length||1,cnt={};open.forEach(function(o){cnt[o.type]=(cnt[o.type]||0)+1});
+  var ts=Object.keys(TYPE);
+  $("#byType").innerHTML='<div style="font:400 48px/1 var(--serif)">'+open.length+'</div><p class="sub" style="margin:4px 0 18px">abiertas</p><div class="split">'+ts.map(function(t){return '<i style="width:'+((cnt[t]||0)/n*100)+'%;background:'+TCOL[t]+'"></i>'}).join("")+'</div><div class="legend" style="display:grid;gap:8px">'+ts.map(function(t){return '<span><i style="background:'+TCOL[t]+'"></i>'+TYPE[t]+' · <b>'+(cnt[t]||0)+'</b></span>'}).join("")+'</div>';
+  var b=[["Esta semana",0,7],["8–14 días",8,14],["15–30 días",15,30],["Más de 30",31,1e9]];
+  bars($("#byDeadline"),b.map(function(r){return [r[0],open.filter(function(o){var d=days(o.application_deadline);return d>=r[1]&&d<=r[2]}).length]}));
+  var a=[["Menos de 18",0,17],["18 años",18,18],["Más de 18",19,99],["Sin indicar",-1,-1]];
+  bars($("#byAge"),a.map(function(r){return [r[0],open.filter(function(o){var m=o.participant_min_age;return r[1]<0?m==null:m!=null&&m>=r[1]&&m<=r[2]}).length]}),{cls:"ink"});
+  var lead=open.filter(function(o){return o.created}).map(function(o){return Math.round((new Date(o.application_deadline+"T00:00:00")-new Date(o.created.slice(0,10)+"T00:00:00"))/864e5)}).filter(function(x){return x>=0}).sort(function(p,q){return p-q});
+  var med=lead.length?lead[Math.floor(lead.length/2)]:0,short=lead.filter(function(x){return x<=14}).length;
+  $("#lead").innerHTML='<div style="font:400 48px/1 var(--serif)">'+med+' <span style="font-size:20px">días</span></div><p class="sub" style="margin:6px 0 16px">de margen mediano</p><p style="margin:0;font-size:14px"><b>'+Math.round(short/(lead.length||1)*100)+'%</b> de las abiertas se publicaron con dos semanas o menos de plazo.</p><p class="note">Por eso conviene revisar el catálogo a menudo.</p>';
+  var tc={};open.forEach(function(o){(o.topic||"").split(/[,;]/).forEach(function(t){t=t.trim().toLowerCase();if(t.length>2)tc[t]=(tc[t]||0)+1})});
+  bars($("#topics"),Object.keys(tc).map(function(k){return [k.charAt(0).toUpperCase()+k.slice(1),tc[k]]}).sort(function(p,q){return q[1]-p[1]}).slice(0,10),{cls:"sage"});
 }
-
-function projRowHtml(p) {
-  var isOpen = p.status === "open";
-  // "Ver en mapa" solo tiene sentido si la oportunidad sigue abierta: el mapa público
-  // (/api/map) solo carga las abiertas, así que un enlace a una cerrada no encontraría nada.
-  var mapLink = isOpen
-    ? '<a class="p-map" href="/mapa?o=' + esc(p.identifier) + '" target="_blank" rel="noopener">Ver en mapa →</a>'
-    : "";
-  return '<div class="assoc-proj" data-type="' + esc(p.type || "") + '">' +
-    '<span class="p-title">' + esc(p.title) + '</span>' +
-    '<span class="p-status' + (isOpen ? " open" : "") + '">' + esc(STATUS_ES[p.status] || p.status || "") + '</span>' +
-    mapLink +
-    '</div>';
+function interest(S){
+  var I=S.interest||{};
+  bars($("#intType"),(I.by_type||[]).map(function(t){return [TYPE[t.type]||t.type_name,t.clicks,t.type==="TRAINING_COURSE"?"ink":t.type==="VOLUNTEERING"?"sage":""]}));
+  bars($("#intCountry"),(I.by_country||[]).slice(0,8).map(function(c){return [flag(c.country_code)+" "+esc(c.country_name),c.clicks]}));
+  var tp=(I.top_projects||[]).filter(function(p){return p.title&&p.title!=="(sin título)"}).slice(0,8);
+  $("#topProjects").innerHTML=tp.map(function(p,i){return '<li><span class="n">'+(i+1)+'</span><div><a href="/proyecto/'+encodeURIComponent(p.identifier)+'">'+esc(p.title)+'</a><small>'+flag(p.country_code)+" "+esc(p.country_name||"")+(p.type_name?" · "+esc(p.type_name):"")+(p.open?" · abierta":" · cerrada")+'</small></div><span class="v">'+p.clicks+'<small> clics</small></span></li>'}).join("")||'<li class="empty">Sin datos.</li>';
 }
-
-function renderAssociations(organisers) {
-  var box = document.getElementById("associations");
-  var moreBtn = document.getElementById("assocMore");
-  var searchWrap = document.querySelector(".assoc-search");
-  if (!organisers.length) {
-    box.innerHTML = '<p class="empty">Todavía no hay organizadores capturados.</p>';
-    moreBtn.hidden = true;
-    if (searchWrap) searchWrap.hidden = true;
-    return;
-  }
-  if (searchWrap) searchWrap.hidden = false;
-  // Ya vienen ordenados por nº de proyectos desc (repo.organiser_breakdown), de más a menos.
-  box.innerHTML = organisers.map(function (o, i) {
-    var hiddenAttr = i >= PAGE_SIZE ? ' data-hidden-extra="true"' : "";
-    return '<div class="assoc-item"' + hiddenAttr + ' data-idx="' + i + '">' +
-      '<button type="button" class="assoc-row">' +
-        '<div class="assoc-avatar">' + esc(initials(o.name)) + '</div>' +
-        '<div class="assoc-name">' + esc(o.name) + '</div>' +
-        '<div class="assoc-counts">' +
-          '<span class="assoc-pill">' + o.total + ' total</span>' +
-          '<span class="assoc-pill open">' + o.open + ' abiertas</span>' +
-          '<span class="assoc-chevron">▶</span>' +
-        '</div>' +
-      '</button>' +
-      '<div class="assoc-projects">' + (o.projects || []).map(projRowHtml).join("") + '</div>' +
-    '</div>';
-  }).join("");
-
-  Array.prototype.forEach.call(box.querySelectorAll(".assoc-row"), function (btn) {
-    btn.addEventListener("click", function () {
-      var item = btn.closest(".assoc-item");
-      item.setAttribute("data-open", item.getAttribute("data-open") === "true" ? "false" : "true");
-    });
-  });
-
-  setupMore(moreBtn, box.querySelectorAll(".assoc-item"), organisers.length, "asociación", "asociaciones");
-  wireAssocSearch(box, moreBtn, organisers.length);
+function destinations(S){
+  var c=S.top_countries||[];$("#countrySub").textContent=c.length+" países en el histórico. Los 12 primeros:";
+  bars($("#countries"),c.slice(0,12).map(function(x){return [flag(x.country_code)+" "+esc(x.country_name),x.n]}));
+  var p=S.heatmap_points||[];
+  (function draw(){if(!window.L){return setTimeout(draw,120)}
+    var m=L.map("dotMap",{scrollWheelZoom:false,zoomControl:true,attributionControl:true}).setView([49,12],4);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:9,attribution:"© OpenStreetMap"}).addTo(m);
+    p.forEach(function(q){L.circleMarker([q[0],q[1]],{radius:5,stroke:true,color:"#fffaf1",weight:1,fillColor:"#ad573e",fillOpacity:.75}).addTo(m)});
+  })();
+  $("#dotSub").textContent=p.length+" convocatorias publicadas con ubicación.";
 }
-
-function renderThanks(contributors) {
-  var section = document.getElementById("thanksSection");
-  if (!contributors.length) { section.hidden = true; return; }
-  section.hidden = false;
-  document.getElementById("thanksList").innerHTML = contributors.map(function (c) {
-    var n = c.total + (c.total === 1 ? " oportunidad" : " oportunidades");
-    var inner = '<div class="assoc-avatar">' + esc(initials(c.name)) + '</div>' +
-      '<span class="t-name">' + esc(c.name) + '</span><span class="t-n">' + n + '</span>';
-    return '<span class="thanks-chip">' + inner + '</span>';
-  }).join("");
+var ORGS=[],orgLimit=10;
+function orgs(S){ORGS=S.organisers||[];$("#orgSearch").addEventListener("input",function(){orgLimit=10;drawOrgs()});$("#orgMore").onclick=function(){orgLimit+=15;drawOrgs()};drawOrgs()}
+function drawOrgs(){
+  var q=$("#orgSearch").value.trim().toLowerCase(),r=ORGS.filter(function(o){return !q||o.name.toLowerCase().indexOf(q)>=0}),max=Math.max.apply(null,ORGS.map(function(o){return o.total}).concat([1]));
+  $("#orgCount").textContent=(q?r.length+" coincidencias":ORGS.length+" organizaciones con más convocatorias");
+  $("#orgs").innerHTML=r.slice(0,orgLimit).map(function(o,i){return '<li><span class="n">'+(i+1)+'</span><div><b style="font-weight:600">'+esc(o.name)+'</b><span class="track" style="display:block;height:6px;border-radius:4px;background:var(--paper2);margin-top:8px;max-width:420px;overflow:hidden"><i style="display:block;height:100%;width:'+(o.total/max*100)+'%;background:var(--clay)"></i></span></div><span class="v">'+o.total+'<small> en total · '+o.open+' abiertas</small></span></li>'}).join("")||'<li class="empty">Ninguna organización coincide.</li>';
+  $("#orgMore").style.display=r.length>orgLimit?"":"none";
 }
-
-function renderArchive(closed) {
-  var box = document.getElementById("archive");
-  var moreBtn = document.getElementById("archiveMore");
-  if (!closed.length) {
-    box.innerHTML = '<p class="empty">Todavía no hay oportunidades archivadas.</p>';
-    moreBtn.hidden = true;
-    return;
-  }
-  box.innerHTML = closed.map(function (o, i) {
-    var hiddenAttr = i >= PAGE_SIZE ? ' data-hidden-extra="true"' : "";
-    return '<div class="arch-card" data-type="' + esc(o.type || "") + '"' + hiddenAttr + '><span class="badge">' + esc(TIPOS[o.type] || o.type || "") + '</span>' +
-      '<div class="title">' + esc(o.title) + '</div>' +
-      '<div class="meta">' + esc(o.location || o.country_code || "") + '</div></div>';
-  }).join("");
-
-  setupMore(moreBtn, box.querySelectorAll(".arch-card"), closed.length, "oportunidad archivada", "oportunidades archivadas");
-}
-
-function setupMore(btn, items, total, singular, plural) {
-  btn.dataset.expanded = "false";
-  if (total <= PAGE_SIZE) { btn.hidden = true; return; }
-  var remaining = total - PAGE_SIZE;
-  btn.hidden = false;
-  btn.textContent = "Ver " + remaining + " " + (remaining === 1 ? singular : plural) + " más";
-  btn.onclick = function () {
-    Array.prototype.forEach.call(items, function (el) { el.removeAttribute("data-hidden-extra"); });
-    btn.hidden = true;
-    btn.dataset.expanded = "true";
-  };
-}
-
-// Filtra las asociaciones por nombre según se escribe -- mientras se busca se ignora la
-// paginación de "ver más" (se enseñan todos los resultados que encajen, no solo la primera
-// página) y se restaura tal cual estaba al borrar la búsqueda.
-function wireAssocSearch(box, moreBtn, total) {
-  var input = document.getElementById("assocSearch");
-  input.addEventListener("input", function () {
-    var q = input.value.trim().toLowerCase();
-    var items = box.querySelectorAll(".assoc-item");
-    if (!q) {
-      Array.prototype.forEach.call(items, function (item) { item.removeAttribute("data-search-hide"); });
-      if (moreBtn.dataset.expanded !== "true" && total > PAGE_SIZE) {
-        Array.prototype.forEach.call(items, function (item, i) {
-          if (i >= PAGE_SIZE) item.setAttribute("data-hidden-extra", "true");
-        });
-        moreBtn.hidden = false;
-      }
-      return;
-    }
-    moreBtn.hidden = true;
-    Array.prototype.forEach.call(items, function (item) {
-      var name = item.querySelector(".assoc-name").textContent.toLowerCase();
-      item.setAttribute("data-search-hide", name.indexOf(q) === -1 ? "true" : "false");
-    });
-  });
-}
-
-// Mapa de calor "de verdad": una nube difusa por densidad de puntos reales (ciudad si se
-// conoce, país si no), no un círculo por país. Técnica clásica de heatmap (la misma que usa
-// leaflet.heat/simpleheat por dentro) reimplementada a mano en ~40 líneas para no meter una
-// dependencia externa más: cada punto se estampa como un círculo radial de negro-a-transparente
-// sobre un canvas gris; donde varios puntos caen cerca, el alfa se acumula (más "caliente");
-// ese alfa final se pasa por una rampa de color (transparente → zafiro → ámbar → rojo).
-function buildHeatGradient() {
-  var c = document.createElement("canvas");
-  c.width = 256; c.height = 1;
-  var ctx = c.getContext("2d");
-  var g = ctx.createLinearGradient(0, 0, 256, 0);
-  g.addColorStop(0.00, "rgba(20,38,94,0)");
-  g.addColorStop(0.22, "rgba(53,88,143,0.45)");
-  g.addColorStop(0.50, "rgba(242,193,78,0.65)");
-  g.addColorStop(0.75, "rgba(217,119,20,0.82)");
-  g.addColorStop(1.00, "rgba(168,62,55,0.94)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 1);
-  return ctx.getImageData(0, 0, 256, 1).data;
-}
-function buildHeatBrush(radius) {
-  var c = document.createElement("canvas");
-  c.width = c.height = radius * 2;
-  var ctx = c.getContext("2d");
-  var g = ctx.createRadialGradient(radius, radius, 0, radius, radius, radius);
-  g.addColorStop(0, "rgba(0,0,0,0.55)");
-  g.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(radius, radius, radius, 0, Math.PI * 2); ctx.fill();
-  return c;
-}
-
-// Color por número de proyectos: azul claro -> azul marino de marca, con gamma para que
-// los países con pocos proyectos también se tiñan (si no, todos menos el líder salen igual).
-function countT(n, max) { return Math.pow(Math.min(1, n / Math.max(1, max)), 0.55); }
-function countColor(n, max) {
-  var t = countT(n, max);
-  var a = [219, 229, 246], b = [13, 29, 78];
-  return "rgb(" + a.map(function (v, i) { return Math.round(v + (b[i] - v) * t); }).join(",") + ")";
-}
-function countTextColor(n, max) { return countT(n, max) < 0.4 ? "#12224e" : "#fff"; }
-function countNumShadow(n, max) {
-  return countT(n, max) < 0.4
-    ? "0 1px 2px rgba(255,255,255,.95), 0 0 4px rgba(255,255,255,.8)"
-    : "0 1px 3px rgba(6,14,40,.55)";
-}
-
-var countryMapObj = null, euGeoCache = null;
-var EU_BOUNDS = [[34, -11], [68, 33]];   // Península ibérica → nórdicos → Grecia/Chipre
-
-function openCountryMap(countries) {
-  var dlg = document.getElementById("countryMapDialog");
-  dlg.showModal();
-  if (countryMapObj) { setTimeout(function () { countryMapObj.invalidateSize(); }, 40); return; }
-  if (typeof L === "undefined") return;
-
-  var counts = {}, maxN = 1;
-  countries.forEach(function (c) {
-    if (!c.country_code) return;
-    counts[c.country_code.toUpperCase()] = c.n;
-    if (c.n > maxN) maxN = c.n;
-  });
-
-  countryMapObj = L.map("countryMap", { attributionControl: false, minZoom: 3, maxZoom: 7 });
-  countryMapObj.fitBounds(EU_BOUNDS);
-
-  document.getElementById("countryMapLegend").innerHTML =
-    "Menos " +
-    '<span class="swatch" style="background:' + countColor(1, maxN) + '"></span>' +
-    '<span class="swatch" style="background:' + countColor(maxN * 0.35, maxN) + '"></span>' +
-    '<span class="swatch" style="background:' + countColor(maxN * 0.7, maxN) + '"></span>' +
-    '<span class="swatch" style="background:' + countColor(maxN, maxN) + '"></span> Más proyectos (histórico)';
-
-  (euGeoCache ? Promise.resolve(euGeoCache)
-    : fetch("/assets/europe.geo.json").then(function (r) { return r.json(); }).then(function (g) { euGeoCache = g; return g; })
-  ).then(function (geo) {
-    L.geoJSON(geo, {
-      style: function (f) {
-        var n = counts[f.properties.iso] || 0;
-        return { weight: 0.8, color: "#ffffff",
-                 fillColor: n ? countColor(n, maxN) : "#c7d2dc",
-                 fillOpacity: n ? 0.92 : 0.4 };
-      },
-      onEachFeature: function (f, lyr) {
-        var n = counts[f.properties.iso] || 0;
-        lyr.bindTooltip(esc(f.properties.name || f.properties.iso) +
-          (n ? " · " + n + " proyecto" + (n === 1 ? "" : "s") : " · sin proyectos"),
-          { sticky: true, direction: "top" });
-        lyr.on("mouseover", function () { this.setStyle({ fillOpacity: 1, weight: 1.6 }); });
-        lyr.on("mouseout", function () { this.setStyle({ fillOpacity: n ? 0.92 : 0.4, weight: 0.8 }); });
-      },
-    }).addTo(countryMapObj);
-
-    geo.features.forEach(function (f) {
-      var n = counts[f.properties.iso] || 0;
-      if (!n || f.properties.lat == null) return;
-      L.marker([f.properties.lat, f.properties.lon], {
-        interactive: false, keyboard: false,
-        icon: L.divIcon({ className: "", iconSize: [40, 16], iconAnchor: [20, 8],
-          html: '<div class="cnum" style="color:' + countTextColor(n, maxN) + ';text-shadow:' + countNumShadow(n, maxN) + '">' + n + "</div>" }),
-      }).addTo(countryMapObj);
-    });
-
-    setTimeout(function () { countryMapObj.invalidateSize(); countryMapObj.fitBounds(EU_BOUNDS); }, 60);
-  });
-}
-
-function renderHeatmap(points) {
-  var el = document.getElementById("heatmap");
-  if (!points.length || typeof L === "undefined") {
-    el.innerHTML = '<p class="empty" style="padding:16px">Sin datos de ubicación todavía.</p>';
-    return;
-  }
-  var map = L.map(el, { attributionControl: false }).setView([48, 15], 5);
-  // OSM en vez de CartoDB light_all: este último pasó a exigir API key (marca de agua).
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 9 }).addTo(map);
-
-  var canvas = document.createElement("canvas");
-  canvas.className = "heat-canvas";
-  el.appendChild(canvas);
-  var ctx = canvas.getContext("2d");
-  var gradient = buildHeatGradient();
-  var radius = 42;
-  var brush = buildHeatBrush(radius);
-
-  function resize() {
-    var size = map.getSize();
-    canvas.width = size.x; canvas.height = size.y;
-  }
-
-  function draw() {
-    if (!canvas.width || !canvas.height) return; // el contenedor aún no tiene layout (primer paint)
-    var off = document.createElement("canvas");
-    off.width = canvas.width; off.height = canvas.height;
-    var octx = off.getContext("2d");
-    points.forEach(function (p) {
-      var pt = map.latLngToContainerPoint(p);
-      if (pt.x < -radius || pt.y < -radius || pt.x > canvas.width + radius || pt.y > canvas.height + radius) return;
-      octx.drawImage(brush, pt.x - radius, pt.y - radius);
-    });
-    var img = octx.getImageData(0, 0, off.width, off.height);
-    var d = img.data;
-    for (var i = 3; i < d.length; i += 4) {
-      var a = d[i];
-      if (!a) continue;
-      var gi = a * 4;
-      d[i - 3] = gradient[gi]; d[i - 2] = gradient[gi + 1]; d[i - 1] = gradient[gi + 2];
-      d[i] = gradient[gi + 3];
-    }
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.putImageData(img, 0, 0);
-  }
-
-  resize(); draw();
-  map.on("move zoomend viewreset", draw);
-  window.addEventListener("resize", function () { resize(); draw(); });
-  // El contenedor puede no tener aún su alto real (420px por CSS) en el primer paint del
-  // layout -- reintenta una vez tras invalidar el tamaño del mapa, ya con el DOM asentado.
-  setTimeout(function () { map.invalidateSize(); resize(); draw(); }, 60);
-}
-
-function wireRangeSeg() {
-  Array.prototype.forEach.call(document.querySelectorAll("#rangeSeg button"), function (btn) {
-    btn.addEventListener("click", function () {
-      STATE.range = btn.dataset.range;
-      Array.prototype.forEach.call(document.querySelectorAll("#rangeSeg button"), function (b) {
-        b.setAttribute("aria-pressed", String(b === btn));
-      });
-      renderChart();
-    });
-  });
-}
-
-// Reduce la serie diaria completa a los puntos que le tocan al rango elegido, más el
-// tramo inmediatamente anterior de igual longitud (para la comparación de tendencia).
-function windowFor(range) {
-  var days = STATE.daily;
-  var cfg = {
-    week:    { n: 7,   bucket: 1,  label: "semana" },
-    month:   { n: 30,  bucket: 1,  label: "mes" },
-    year:    { n: 365, bucket: 30, label: "año" },
-  }[range] || { n: 30, bucket: 1, label: "mes" };
-  var current = days.slice(Math.max(0, days.length - cfg.n));
-  var prevStart = Math.max(0, days.length - cfg.n * 2);
-  var previous = days.slice(prevStart, Math.max(0, days.length - cfg.n));
-  return { current: current, previous: previous, cfg: cfg };
-}
-
-function bucketPoints(points, bucketSize) {
-  if (bucketSize <= 1) return points.map(function (p) { return { day: p.day, n: p.n }; });
-  var out = [];
-  for (var i = 0; i < points.length; i += bucketSize) {
-    var chunk = points.slice(i, i + bucketSize);
-    var sum = chunk.reduce(function (a, p) { return a + p.n; }, 0);
-    out.push({ day: chunk[chunk.length - 1].day, n: sum });
-  }
-  return out;
-}
-
-function labelFor(day, range) {
-  var d = parseDay(day);
-  if (range === "week") return DIAS[d.getDay()];
-  if (range === "month") return String(d.getDate());
-  return MESES[d.getMonth()];
-}
-
-function renderChart() {
-  var w = windowFor(STATE.range);
-  var points = bucketPoints(w.current, w.cfg.bucket);
-  var total = w.current.reduce(function (a, p) { return a + p.n; }, 0);
-  var prevTotal = w.previous.reduce(function (a, p) { return a + p.n; }, 0);
-
-  var deltaHtml;
-  if (!w.previous.length || prevTotal === 0) {
-    deltaHtml = total > 0 ? '<span class="delta flat">Sin periodo anterior para comparar</span>' : "";
-  } else {
-    var pct = Math.round(((total - prevTotal) / prevTotal) * 100);
-    var cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
-    var sign = pct > 0 ? "+" : "";
-    deltaHtml = '<span class="delta ' + cls + '">' + sign + pct + '% vs. ' + w.cfg.label + ' anterior</span>';
-  }
-
-  document.getElementById("chartReadout").innerHTML =
-    '<span class="big">' + total + '</span><span class="period">visitas · último ' + w.cfg.label + '</span>' + deltaHtml;
-
-  document.getElementById("chartNote").textContent =
-    "El desglose diario se empezó a registrar hace poco: los días anteriores a esa fecha aparecen a 0 aunque hubiera visitas reales.";
-
-  drawLineChart(document.getElementById("chartWrap"), points, STATE.range);
-}
-
-if (typeof ResizeObserver !== "undefined") {
-  var chartWidth = 0;
-  new ResizeObserver(function (entries) {
-    var width = Math.round(entries[0].contentRect.width);
-    if (width && width !== chartWidth) {
-      chartWidth = width;
-      if (STATE.daily.length) renderChart();
-    }
-  }).observe(document.getElementById("chartWrap"));
-}
-
-function drawLineChart(container, points, range) {
-  var W = Math.max(240, Math.round(container.clientWidth)), H = 220;
-  var padL = 36, padR = 18, padT = 18, padB = 28;
-  var innerW = W - padL - padR, innerH = H - padT - padB;
-  var maxN = Math.max.apply(null, points.map(function (p) { return p.n; }).concat([1]));
-  var niceMax = maxN <= 5 ? 5 : Math.ceil(maxN * 1.15);
-
-  function x(i) { return points.length <= 1 ? padL : padL + (i / (points.length - 1)) * innerW; }
-  function y(n) { return padT + innerH - (n / niceMax) * innerH; }
-
-  var linePts = points.map(function (p, i) { return x(i) + "," + y(p.n); }).join(" ");
-  var areaPts = linePts + " " + x(points.length - 1) + "," + y(0) + " " + x(0) + "," + y(0);
-
-  var gridlines = "", axisLabels = "";
-  var gridN = 3;
-  for (var g = 0; g <= gridN; g++) {
-    var gy = padT + (innerH / gridN) * g;
-    gridlines += '<line class="gridline" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + gy + '" y2="' + gy + '"></line>';
-    var val = Math.round(niceMax - (niceMax / gridN) * g);
-    axisLabels += '<text class="axis-label" x="0" y="' + (gy + 3) + '" text-anchor="start">' + val + '</text>';
-  }
-
-  var maxLabels = Math.min(points.length, Math.max(2, Math.floor(innerW / 72)));
-  var labelIndexes = Array.from({ length: maxLabels }, function (_, j) {
-    return Math.round(j * (points.length - 1) / (maxLabels - 1));
-  });
-  var xLabels = "";
-  points.forEach(function (p, i) {
-    if (!labelIndexes.includes(i)) return;
-    xLabels += '<text class="axis-label" x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle">' + esc(labelFor(p.day, range)) + '</text>';
-  });
-
-  container.innerHTML =
-    '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
-    '<defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0%" stop-color="var(--brand)" stop-opacity="0.28"></stop>' +
-    '<stop offset="100%" stop-color="var(--brand)" stop-opacity="0"></stop>' +
-    '</linearGradient></defs>' +
-    gridlines + axisLabels +
-    '<polygon class="area-path" points="' + areaPts + '"></polygon>' +
-    '<polyline class="line-path" points="' + linePts + '"></polyline>' +
-    '<line class="hover-guide" id="hoverGuide" x1="0" x2="0" y1="' + padT + '" y2="' + (padT + innerH) + '"></line>' +
-    '<circle class="hover-dot" id="hoverDot" r="4"></circle>' +
-    xLabels +
-    '</svg>' +
-    '<div class="chart-tooltip" id="chartTooltip"></div>';
-
-  var svg = container.querySelector("svg");
-  var tooltip = document.getElementById("chartTooltip");
-  var guide = document.getElementById("hoverGuide");
-  var dot = document.getElementById("hoverDot");
-
-  function pointerMove(evt) {
-    var rect = svg.getBoundingClientRect();
-    var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-    var relX = ((clientX - rect.left) / rect.width) * W;
-    var idx = points.length <= 1 ? 0 : Math.round(((relX - padL) / innerW) * (points.length - 1));
-    idx = Math.max(0, Math.min(points.length - 1, idx));
-    var p = points[idx];
-    if (!p) return;
-    var px = x(idx), py = y(p.n);
-    guide.setAttribute("x1", px); guide.setAttribute("x2", px); guide.style.opacity = 1;
-    dot.setAttribute("cx", px); dot.setAttribute("cy", py); dot.style.opacity = 1;
-    var d = parseDay(p.day);
-    var dateLabel = d.getDate() + " " + MESES[d.getMonth()];
-    tooltip.textContent = p.n + " visitas · " + dateLabel;
-    tooltip.style.left = Math.max(65, Math.min(W - 65, px)) + "px";
-    tooltip.style.top = Math.max(36, py) + "px";
-    tooltip.style.opacity = 1;
-  }
-  function pointerLeave() {
-    guide.style.opacity = 0; dot.style.opacity = 0; tooltip.style.opacity = 0;
-  }
-  svg.addEventListener("mousemove", pointerMove);
-  svg.addEventListener("mouseleave", pointerLeave);
-  svg.addEventListener("touchstart", pointerMove, { passive: true });
-  svg.addEventListener("touchmove", pointerMove, { passive: true });
-  svg.addEventListener("touchend", pointerLeave);
-}
+function observe(){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}})},{rootMargin:"0px 0px -6% 0px"});document.querySelectorAll(".reveal").forEach(function(el){io.observe(el)})}
+})();
 </script>
 </body>
 </html>
