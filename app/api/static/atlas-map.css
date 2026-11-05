@@ -6,7 +6,7 @@
   --line:rgba(38,53,40,.13);--line-soft:rgba(38,53,40,.075);
   --glass:rgba(255,250,241,.84);--glass-strong:rgba(255,250,241,.95);--scrim:rgba(27,40,30,.5);
   --brand:#ad573e;--brand-ink:#89422d;--brass:#b07a35;
-  --ye:#ad573e;   /* arcilla */
+  --ye:#c0892b;   /* ocre */
   --tc:#2f5d62;   /* petróleo */
   --esc:#6b8a4e;  /* oliva */
   --other:#8b8676;--critical:#a83e37;--warn:#b07a35;
@@ -41,3 +41,7 @@ h1,h2,h3,.popup h3,.dock-head h2,.sheet-head h2{font-family:var(--font-display)!
 .leaflet-popup-tip{background:var(--surface)!important}
 .leaflet-control-zoom a{background:var(--surface)!important;color:var(--ink)!important;border-color:var(--line)!important}
 .leaflet-control-attribution{background:rgba(247,240,226,.8)!important;color:var(--ink-faint)!important}
+/* botón Preguntar: icono blanco y del tamaño del texto (antes heredaba el gris del buscador) */
+.command .ask-btn .icon-slot{width:18px!important;height:18px!important;color:#fff!important}
+.command .ask-btn .icon-slot svg{width:18px;height:18px}
+@media(min-width:881px){.command .ask-btn{padding:9px 16px 9px 13px!important;gap:7px!important}}

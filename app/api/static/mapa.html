@@ -602,7 +602,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 }
 </style>
 <link rel="stylesheet" href="/assets/profile-editor.css?v=20260923i">
-<link rel="stylesheet" href="/assets/atlas-map.css?v=20261105b">
+<link rel="stylesheet" href="/assets/atlas-map.css?v=20261105c">
 <script src="/assets/corradi-core.js?v=20260923i"></script>
 </head>
 <body>
@@ -1894,7 +1894,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (isMobileQuery && isMobileQuery.matches) document.getElementById("q").placeholder = "Busca país, ciudad...";
     document.getElementById("searchIconSlot").innerHTML = ICON.search;
     document.getElementById("filtersIconSlot").innerHTML = ICON.sliders;
-    document.getElementById("askIconSlot").innerHTML = ICON.sparkle;
+    document.getElementById("askIconSlot").innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.5a7.5 7.5 0 0 1-11 6.6L4 20l1-4.4A7.5 7.5 0 1 1 20 12.5Z"/><path d="M9 11.5h.01M12.5 11.5h.01M16 11.5h.01" stroke-width="2.6"/></svg>';
     document.getElementById("searchClose").innerHTML = ICON.close;
     document.getElementById("channelIconSlot").innerHTML = ICON.compass;
     document.getElementById("contribute").innerHTML = ICON.plus;
