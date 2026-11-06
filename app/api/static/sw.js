@@ -1,4 +1,4 @@
-const CACHE = "corradi-shell-v26";
+const CACHE = "corradi-shell-v27";
 // Imágenes en una caché aparte y con tope: sin límite, cada foto vista (fichas, /media,
 // tarjetas de compartir) se quedaba para siempre en el dispositivo.
 const IMG_CACHE = "corradi-img-v1";
