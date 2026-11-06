@@ -19,7 +19,7 @@
 	# Superficie pública mínima: solo el mapa y sus datos de lectura.
 	# Todo lo demás (webhooks, docs de la API) se corta aquí como segunda barrera,
 	# además de no estar montado en la app.
-	@publico path / /mapa /corradi-erasmus /organizaciones /guia /proyecto/* /oportunidades/* /manifest.webmanifest /sw.js /og.png /assets/* /media/opportunities/* /api/map /api/top /api/visit /api/click /api/interaction /api/chat /api/chat/status /api/application-assistant /api/sending-organisations /api/stats /health /opportunities /opportunities/* /ig/* /share/* /fonts/* /robots.txt /sitemap.xml /estadisticas /quienes-somos
+	@publico path / /mapa /corradi-erasmus /organizaciones /guia /proyecto/* /oportunidades/* /manifest.webmanifest /sw.js /og.png /assets/* /media/opportunities/* /api/map /api/top /api/visit /api/click /api/interaction /api/chat /api/chat/status /api/application-assistant /api/sending-organisations /api/stats /health /opportunities /opportunities/* /ig/* /share/* /fonts/* /robots.txt /sitemap.xml /estadisticas /quienes-somos /mapa/
 	handle @publico {
 		reverse_proxy api:8000
 	}
@@ -49,7 +49,25 @@
 		X-Content-Type-Options nosniff
 		X-Frame-Options SAMEORIGIN
 		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# CSP en modo SOLO INFORME: no bloquea nada, las violaciones salen en la consola del
+		# navegador. Cuando no aparezca ninguna, pasar a Content-Security-Policy.
+		# - unpkg.com: Leaflet + markercluster (mapa, home). telegram.org: widget de login
+		#   (/publicar), que abre un iframe en oauth.telegram.org.
+		# - img-src https:: las fotos de las fichas vienen de hosts externos (hoy Pexels) y
+		#   las teselas de *.tile.openstreetmap.org.
+		# - 'unsafe-inline': todas las páginas llevan <script>/<style> inline.
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://telegram.org; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https:; font-src 'self' data:; connect-src 'self'; frame-src https://oauth.telegram.org; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
 		-Server
+	}
+
+	# Caché larga (30 días) para fuentes e imágenes estáticas. NO `immutable`: los nombres
+	# de fichero se reutilizan al cambiar una foto, así que el navegador debe poder revalidar.
+	@cache_larga path_regexp ^/(fonts/.+|assets/pool/.+|assets/.+\.(jpg|jpeg|png|webp|svg))$
+	header @cache_larga {
+		Cache-Control "public, max-age=2592000"
+		defer
 	}
 
 	log {

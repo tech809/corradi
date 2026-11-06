@@ -109,7 +109,7 @@
 .application-row{grid-template-columns:1fr}
 .compare-scroll{overflow-x:auto}
 .card-product-actions{flex-wrap:wrap}
-.map-switch,.ask-fab{display:none!important}}
+.map-switch{display:none!important}}
 @media(prefers-reduced-motion:reduce){.product-match,.toast{transition:none}}
 /* Perfil rápido en línea (sección "Descubre qué encaja contigo") */
 .product-space{grid-template-columns:minmax(300px,.8fr) minmax(0,1.2fr)}

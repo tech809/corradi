@@ -98,10 +98,65 @@
     }
   }
 
+
+  // ---- Calendario de plazos (YE + TC; ESC solo si se marca, porque son muchísimos) ----
+  var MONTHS = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  var TYPE_SHORT = { YOUTH_EXCHANGE: "YE", TRAINING_COURSE: "TC", VOLUNTEERING: "ESC", ESC: "ESC" };
+  function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function renderCalendar(all) {
+    var grid = document.getElementById("calGrid");
+    if (!grid) return;
+    var esc = document.getElementById("calEsc"), today = new Date(); today.setHours(0, 0, 0, 0);
+    var tkey = ymd(today), view = new Date(today.getFullYear(), today.getMonth(), 1), picked = null;
+    function items() {
+      return all.filter(function (o) {
+        var isEsc = o.type === "VOLUNTEERING" || o.type === "ESC";
+        return o.application_deadline && o.application_deadline >= tkey && (!isEsc || esc.checked);
+      });
+    }
+    function byDay(list) { var m = {}; list.forEach(function (o) { (m[o.application_deadline] = m[o.application_deadline] || []).push(o); }); return m; }
+    function row(o) {
+      var t = TYPE_SHORT[o.type] || "";
+      return '<a class="cal-item" href="/proyecto/' + encodeURIComponent(o.identifier) + '"><span class="cal-t t-' + t.toLowerCase() + '">' + t + "</span>" +
+        "<span><b>" + esc_(o.title) + "</b><small>" + esc_([o.location, countryName(o.country_code)].filter(Boolean).join(" · ")) +
+        (o.deadline_estimated ? " · plazo aproximado" : "") + "</small></span>" + (o.last_minute ? '<i class="lastcall-tag">Last call</i>' : "") + "</a>";
+    }
+    function fmtDay(k) { var d = new Date(k + "T00:00:00"); return d.getDate() + " de " + MONTHS[d.getMonth()]; }
+    function draw() {
+      var list = items(), map = byDay(list);
+      document.getElementById("calLabel").textContent = MONTHS[view.getMonth()].replace(/^./, function (c) { return c.toUpperCase(); }) + " " + view.getFullYear();
+      var first = (view.getDay() + 6) % 7, days = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate(), html = "";
+      ["L","M","X","J","V","S","D"].forEach(function (d) { html += '<span class="cal-dow">' + d + "</span>"; });
+      for (var i = 0; i < first; i++) html += "<span></span>";
+      for (var d = 1; d <= days; d++) {
+        var k = ymd(new Date(view.getFullYear(), view.getMonth(), d)), n = (map[k] || []).length, past = k < tkey;
+        html += '<button type="button" class="cal-day' + (n ? " has" : "") + (past ? " past" : "") + (k === tkey ? " today" : "") + (k === picked ? " picked" : "") +
+          '" data-day="' + k + '"' + (n ? "" : " disabled") + ' aria-label="' + d + " " + MONTHS[view.getMonth()] + (n ? ", " + n + " cierran" : "") + '"><span>' + d + "</span>" + (n ? "<i>" + n + "</i>" : "") + "</button>";
+      }
+      grid.innerHTML = html;
+      var box = document.getElementById("calList"), title = document.getElementById("calListTitle");
+      if (picked && map[picked]) {
+        title.textContent = "Cierran el " + fmtDay(picked);
+        box.innerHTML = map[picked].map(row).join("") + '<button type="button" class="cal-reset">← Ver todos los próximos cierres</button>';
+      } else {
+        title.textContent = "Próximos cierres";
+        var keys = Object.keys(map).sort().slice(0, 6);
+        box.innerHTML = keys.length ? keys.map(function (k) { return '<div class="cal-group"><h4>' + fmtDay(k) + "</h4>" + map[k].map(row).join("") + "</div>"; }).join("") : '<p class="cal-empty">No hay plazos próximos con estos filtros.</p>';
+      }
+    }
+    grid.addEventListener("click", function (e) { var b = e.target.closest("[data-day]"); if (!b || b.disabled) return; picked = picked === b.dataset.day ? null : b.dataset.day; draw(); });
+    document.getElementById("calList").addEventListener("click", function (e) { if (e.target.closest(".cal-reset")) { picked = null; draw(); } });
+    document.getElementById("calPrev").onclick = function () { if (view <= new Date(today.getFullYear(), today.getMonth(), 1)) return; view = new Date(view.getFullYear(), view.getMonth() - 1, 1); draw(); };
+    document.getElementById("calNext").onclick = function () { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); draw(); };
+    esc.onchange = function () { picked = null; draw(); };
+    draw();
+  }
+  function esc_(s) { return esc(s); }
   window.CorradiHomeExtras = function (all) {
     renderFormats(all || []);
     renderDestinations(all || []);
     renderTrust(all || []);
+    renderCalendar(all || []);
   };
   renderChannels();
 })();

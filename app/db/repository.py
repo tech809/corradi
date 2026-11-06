@@ -151,7 +151,11 @@ async def upsert_eyp_project(fields: dict[str, Any]) -> tuple[dict[str, Any], bo
                     "deadline_estimated=FALSE, infopack_url=%s, application_url=%s, "
                     "participant_min_age=%s, participant_max_age=%s, "
                     "detailed_description=%s, participant_profile=%s, "
-                    "accommodation_details=%s, eligibility_countries=%s, "
+                    "accommodation_details=%s, "
+                    # Texto estándar del programa ESC: no pisa uno ya redactado a mano
+                    # (fichas manuales enlazadas por hash).
+                    "covered_costs=COALESCE(NULLIF(covered_costs, ''), %s), "
+                    "eligibility_countries=%s, "
                     "eligibility_country_codes=%s, eligibility_scope='explicit', "
                     "source='eyp', source_external_id=%s, source_url=%s, "
                     "source_checked_at=%s, duration_days=%s, duration_months=%s, "
@@ -165,6 +169,7 @@ async def upsert_eyp_project(fields: dict[str, Any]) -> tuple[dict[str, Any], bo
                         fields.get("application_url"), fields.get("participant_min_age"),
                         fields.get("participant_max_age"), fields.get("detailed_description"),
                         fields.get("participant_profile"), fields.get("accommodation_details"),
+                        fields.get("covered_costs"),
                         fields.get("eligibility_countries"), fields.get("eligibility_country_codes", []),
                         external_id, fields.get("source_url"), fields.get("source_checked_at"),
                         fields.get("duration_days"), fields.get("duration_months"),

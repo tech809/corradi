@@ -25,9 +25,9 @@ def test_pwa_has_required_icons_and_root_service_worker():
 def test_home_has_compact_flow_and_mobile_navigation():
     html = (STATIC / "discover.html").read_text(encoding="utf-8")
     assert 'class="mobile-bottom-nav"' not in html
-    assert 'class="nav-more"' in html
-    assert 'class="mobile-symbol"' in html
-    assert 'href="/organizaciones"' in html
+    # Menú y pie comunes (site-nav.js) desde 2026-11-05.
+    assert 'id="site-nav"' in html and "/assets/site-nav.js" in html
+    assert 'id="site-footer"' in html
     assert 'id="productMatches"' in html
     assert 'id="quickProfile"' in html
     assert "/assets/profile-editor.js" in html
@@ -41,8 +41,9 @@ def test_home_has_compact_flow_and_mobile_navigation():
     assert 'id="rowTC"' in html
     assert 'id="rowESC"' in html
     assert '["rowESC",escOpps]' in html
-    assert 'href="/guia"' in html
-    assert 'data-product-open="profile"' in html
+    nav = (STATIC / "site-nav.js").read_text(encoding="utf-8")
+    assert 'href: "/guia"' in nav  # el enlace a la guía vive en el menú común
+    assert "/?profile=1" in nav  # «Mi compatibilidad» abre el perfil desde el pie
     assert 'href="/world"' not in html
     assert "Mis solicitudes" not in html
     assert "Comparar oportunidades" not in html
@@ -60,9 +61,11 @@ def test_shared_compatibility_and_guide_are_available():
     assert "extendedText" in compatibility
     assert "missingKeywords" in compatibility
     assert "infopack_enriched" in compatibility
-    assert "Travel budget" in guide
-    assert "No delegues tu candidatura a una IA" in guide
-    assert "10–99 km" in guide
+    # Guía reescrita el 2026-11-06 (fuentes oficiales, sin datos propios de Proactive).
+    assert "Viaje verde" in guide
+    assert "Señales de alerta" in guide
+    assert '"@type":"FAQPage"' in guide.replace(" ", "")
+    assert "Proactive Future" not in guide
 
 
 def test_world_is_not_linked_or_allowed_by_public_proxy():
@@ -100,14 +103,12 @@ def test_profile_editor_is_shared_and_not_duplicated():
 
 
 def test_secondary_pages_share_the_same_back_navigation():
-    for name in ("guia.html", "organizaciones.html"):
+    # La navegación la pinta el menú común (site-nav.js): mismo menú en todas.
+    for name in ("guia.html", "organizaciones.html", "estadisticas.html", "quienes-somos.html", "project.html"):
         html = (STATIC / name).read_text(encoding="utf-8")
-        assert 'href="/"' in html
-        assert 'href="/mapa"' in html
-        assert "Mi compatibilidad" not in html
-    estadisticas = (STATIC / "estadisticas.html").read_text(encoding="utf-8")
-    assert 'href="/"' in estadisticas
-    assert 'href="/mapa"' in estadisticas
+        assert 'id="site-nav"' in html and "/assets/site-nav.js" in html, name
+    nav = (STATIC / "site-nav.js").read_text(encoding="utf-8")
+    assert 'href: "/"' in nav and 'href="/mapa"' in nav
 
 
 def test_opportunities_open_full_page_and_map_pins_keep_sheet_collapsed():

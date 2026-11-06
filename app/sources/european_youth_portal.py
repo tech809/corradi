@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from app.domain.project import cap_summary, clean_title, clean_topic
+
 SEARCH_URL = "https://youth.europa.eu/api/rest/eyp/v1/search_en"
 DETAIL_URL = "https://youth.europa.eu/solidarity/opportunity/{id}_en"
 USER_AGENT = "CorradiBot/1.0 (+https://proactivefuture.eu)"
@@ -22,6 +24,28 @@ TOPICS = {
     "relief": "ayuda tras desastres", "shltr": "refugio", "sme": "apoyo a pymes",
     "socl": "retos sociales", "sprt": "deporte",
 }
+
+DEFAULT_TITLE = "Voluntariado del Cuerpo Europeo de Solidaridad"
+SUMMARY_MAX_LEN = 500
+
+# Lo que cubre el programa en TODO voluntariado del Cuerpo Europeo de Solidaridad (Guía
+# del programa ESC: viaje con importe por banda de distancia, apoyo organizativo para
+# alojamiento y manutención, dinero de bolsillo y seguro obligatorio). Es el estándar del
+# programa, no un dato de la ficha concreta: por eso se redacta como tal.
+ESC_VOLUNTEERING_COVERED_COSTS = (
+    "Estándar del programa Cuerpo Europeo de Solidaridad: viaje (con el tope según "
+    "distancia), alojamiento, manutención, seguro y dinero de bolsillo. Consulta la "
+    "ficha oficial para los detalles de esta plaza."
+)
+
+
+def topic_labels(row: dict[str, Any]) -> str | None:
+    """Etiquetas de temática en español. `esc_topics` trae solo los códigos con nombre;
+    `topics` mezcla además ids numéricos internos de EYP ('235', '253'…) que no tienen
+    etiqueta pública: se descartan."""
+    codes = row.get("esc_topics") or row.get("topics") or []
+    labels = [TOPICS.get(str(code), str(code)) for code in codes if not str(code).strip().isdigit()]
+    return clean_topic(", ".join(labels))
 
 
 def _dt(value: str | None) -> datetime | None:
@@ -60,7 +84,7 @@ class _TextExtractor(HTMLParser):
             self.parts.append(data)
 
 
-def _plain(value: str | None) -> str | None:
+def _plain(value: str | None, *, lists: bool = True) -> str | None:
     if not value:
         return None
     parser = _TextExtractor()
@@ -69,10 +93,12 @@ def _plain(value: str | None) -> str | None:
     text = "".join(parser.parts)
     # EYP suele guardar listas como un único párrafo: "Intro: - Uno - Dos".
     # Solo lo reinterpretamos cuando hay varios separadores para no romper guiones normales.
-    text = "\n".join(
-        line.replace(" - ", "\n• ") if line.count(" - ") >= 2 else line
-        for line in text.splitlines()
-    )
+    # En títulos no (`lists=False`): "Help Desk - October - November" no es una lista.
+    if lists:
+        text = "\n".join(
+            line.replace(" - ", "\n• ") if line.count(" - ") >= 2 else line
+            for line in text.splitlines()
+        )
     lines = []
     for line in text.splitlines():
         clean = re.sub(r"[ \t\f\v]+", " ", line).strip()
@@ -129,17 +155,20 @@ def to_project(row: dict[str, Any], checked_at: datetime) -> dict[str, Any]:
     source_url = DETAIL_URL.format(id=row["id"])
     description = _plain(row.get("description"))
     countries = row.get("volunteer_countries") or []
-    topic_codes = row.get("topics") or row.get("esc_topics") or []
     geo = row.get("geocode") or {}
     humanitarian = bool((row.get("funding_programme") or {}).get("is_humanitarian"))
     duration_days = (end.date() - start.date()).days + 1 if start and end else None
     duration_months = round(duration_days / 30.44, 1) if duration_days else None
+    organiser = _plain(row.get("organisation_name"))
     return {
-        "title": _plain(row.get("title")) or "Voluntariado del Cuerpo Europeo de Solidaridad",
+        "title": clean_title(
+            _plain(row.get("title"), lists=False), organiser=organiser, town=_plain(row.get("town")),
+            fallback_prefix="Voluntariado ESC", default=DEFAULT_TITLE,
+        ),
         "type": "VOLUNTEERING",
-        "topic": ", ".join(TOPICS.get(code, code) for code in topic_codes) or None,
-        "organiser_name": _plain(row.get("organisation_name")),
-        "summary": description[:500] if description else None,
+        "topic": topic_labels(row),
+        "organiser_name": organiser,
+        "summary": cap_summary(description, SUMMARY_MAX_LEN),
         "raw_message": description or source_url,
         "country_code": row.get("country"),
         "location": _plain(", ".join(x for x in (row.get("town"), row.get("country")) if x)),
@@ -159,6 +188,7 @@ def to_project(row: dict[str, Any], checked_at: datetime) -> dict[str, Any]:
         "detailed_description": description,
         "participant_profile": _plain(row.get("participant_profile")),
         "accommodation_details": _plain(row.get("boarding_arrangements")),
+        "covered_costs": ESC_VOLUNTEERING_COVERED_COSTS,
         "eligibility_countries": ", ".join(countries),
         "eligibility_country_codes": countries,
         "eligibility_scope": "explicit",

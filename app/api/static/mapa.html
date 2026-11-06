@@ -747,7 +747,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
         <div class="lbl" id="lblSoon"><span></span>Cierran pronto <button type="button" class="info-q" data-note="noteSoon" aria-expanded="false" aria-label="Qué significa">?</button></div>
         <button type="button" class="switch" data-urgency="soon" aria-pressed="false"><i></i></button>
       </div>
-      <p class="info-note" id="noteSoon">Cierra en menos de 48 horas.</p>
+      <p class="info-note" id="noteSoon">Cierra en los próximos 7 días.</p>
       <div class="sw-row">
         <div class="lbl" id="lblNew"><span></span>Nuevo <button type="button" class="info-q" data-note="noteNew" aria-expanded="false" aria-label="Qué significa">?</button></div>
         <button type="button" class="switch" data-urgency="new" aria-pressed="false"><i></i></button>
@@ -818,7 +818,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       <li><strong>Filtros</strong> — tipo, urgencia, edad, fechas y país, todos juntos en un
       solo panel: combínalos, por ejemplo "Training Course" + "tengo 22 años" + "Italia"
       + "próximos 2 meses" a la vez.</li>
-      <li><strong>Panel de resultados</strong> — en escritorio se contrae a un rielito con
+      <li><strong>Panel de resultados</strong> — en escritorio se contrae a una columna estrecha con
       solo el número; en el móvil, desliza la hoja de abajo hacia arriba para ver la lista
       entera con el mapa siempre debajo.</li>
       <li><strong>Compartir</strong> (arriba a la derecha de cada tarjeta) — genera un
@@ -829,12 +829,14 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     </ul>
 
     <h3>De dónde salen</h3>
-    <p>Las envían coordinadores al bot de Telegram de Corradi. Cada envío se comprueba
+    <p>Vienen de tres sitios: el <strong>Portal Europeo de la Juventud</strong> (voluntariados
+    del Cuerpo Europeo de Solidaridad), <strong>SALTO-YOUTH</strong> (cursos de formación) y
+    los coordinadores que las envían al bot de Telegram de Corradi. Cada una se comprueba
     automáticamente: que sea una oportunidad real, que no esté ya publicada, que el plazo
     de inscripción <strong>no haya vencido</strong> y que esté realmente <strong>abierta a
     residentes en España</strong> (no solo la frase genérica de turno — comprobamos que no
     haya una lista de países más concreta que nos deje fuera). Si pasa esos filtros, se
-    publica en el canal y aparece aquí. Cuando el plazo se cumple, desaparece sola del mapa.</p>
+    publica aquí (y, si la envía un coordinador, también en el canal). Cuando el plazo se cumple, desaparece sola del mapa.</p>
 
     <h3>Qué significa «(estimada)»</h3>
     <p>A veces el mensaje original no dice hasta cuándo se puede uno apuntar. En ese caso
@@ -845,9 +847,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
     <h3>Cómo apuntarse</h3>
     <p>Cada tarjeta puede traer hasta tres botones, según lo que haya compartido quien
-    organiza: <strong>Más info</strong> lleva al post original en el canal de Telegram,
-    <strong>Infopack</strong> abre el dossier completo (fechas, requisitos, programa) y
-    <strong>Form</strong> es el formulario de inscripción en sí. Corradi <strong>solo
+    organiza: <strong>Ver anuncio</strong> lleva al post original en el canal de Telegram,
+    <strong>Infopack</strong> abre el dossier completo (fechas, requisitos, programa) e
+    <strong>Inscribirme</strong> es el formulario de inscripción en sí. Corradi <strong>solo
     difunde</strong>: no gestionamos las inscripciones ni seleccionamos a los participantes.
     Cualquier duda sobre una plaza concreta va directa a quien la organiza.</p>
 
@@ -855,13 +857,10 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     <p>Si organizas o conoces una, puedes mandárnosla por el bot con el botón
     <strong>«¿Quieres contribuir?»</strong>. Pégala tal cual te llegue, sin limpiar nada.</p>
 
-    <h3>Quién está detrás y quién lo paga</h3>
+    <h3>Quién está detrás</h3>
     <p>Este mapa lo desarrolla <strong>Proactive Future</strong> por interés en difundir de
-    verdad las oportunidades Erasmus+ entre jóvenes — no es un negocio aparte. El gasto de
-    la web y de todas sus funcionalidades (el bot, el mapa, esta misma sección de
-    estadísticas) <strong>se costea con las cuotas del propio programa Erasmus+</strong>: eso
-    es lo que nos permite que esta herramienta sea gratuita para quien la usa, ahora y
-    siempre.</p>
+    verdad las oportunidades Erasmus+ entre jóvenes — no es un negocio aparte, y es
+    gratuito para quien lo usa.</p>
 
     <h3>¿Cómo funciona por detrás?</h3>
     <p>Además de lo que llega a mano por el bot, varios procesos automáticos mantienen esto
@@ -877,8 +876,8 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       <li><strong>Filtro anti-spam</strong> — si alguien manda al bot cinco mensajes seguidos
       que no son oportunidades reales, se le bloquea el acceso automáticamente (revisable a
       mano si ha sido un error, sin mala intención).</li>
-      <li><strong>Resúmenes automáticos</strong> — cada tarde se publica en el canal un
-      repaso de todo lo que sigue abierto, y cada domingo un resumen de la semana.</li>
+      <li><strong>Resumen semanal</strong> — cada domingo se publica en el canal un repaso
+      de la semana.</li>
     </ul>
 
     <a class="info-stats-link" href="/estadisticas">
@@ -892,7 +891,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 
     <a class="info-ig-cta" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener">
       <span class="info-ig-icon" id="infoIgIconSlot"></span>
-      <span><strong>Síguenos en Instagram</strong><small>Ahí subimos absolutamente todo lo que se publica aquí — no te pierdas ninguna.</small></span>
+      <span><strong>Síguenos en Instagram</strong><small>Las oportunidades más destacadas, cada día.</small></span>
     </a>
   </div>
 </dialog>
@@ -908,7 +907,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
 <div class="ig-popup" id="igPopup" hidden role="complementary" aria-label="Síguenos en Instagram">
   <button type="button" class="ig-popup-close" id="igPopupClose" aria-label="Cerrar"></button>
   <div class="ig-popup-icon" aria-hidden="true"></div>
-  <p><strong>¿Ya nos sigues en Instagram?</strong>Ahí subimos absolutamente todas las oportunidades, todas — no solo una selección: el mismo catálogo completo de este mapa, en cuanto se publica.</p>
+  <p><strong>¿Ya nos sigues en Instagram?</strong>Cada día compartimos las oportunidades más destacadas del mapa.</p>
   <a class="ig-cta" href="https://www.instagram.com/corradierasmus/" target="_blank" rel="noopener"><span></span>Entérate en Instagram</a>
 </div>
 
@@ -956,7 +955,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   var AGE_DEFAULTS = { YOUTH_EXCHANGE: { min: 18, max: 30 }, TRAINING_COURSE: { min: 18, max: null } };
   var COUNTRIES = window.Corradi.COUNTRIES;
   var MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
-  var SOON_DAYS = 2;
+  var SOON_DAYS = 7;   // mismo umbral que la portada y las tarjetas
 
   // Taxonomía cerrada por palabras clave sobre `topic`/`title`/`summary` (texto libre):
   // sin tocar el LLM ni la BD, solo agrupa lo ya extraído en ~10 cajones reconocibles.
@@ -1025,6 +1024,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
   function deadlineText(o) {
     var d = daysLeft(o.application_deadline);
     if (d === null) return { text: "Sin fecha límite", cls: "" };
+    if (o.last_minute && d >= 0) return { text: "Last call · " + (d === 0 ? "cierra hoy" : d === 1 ? "cierra mañana" : "cierra en " + d + " días"), cls: "urgent" };
     if (d <= 0) return { text: "Cierra hoy", cls: "urgent" };
     if (d === 1) return { text: "Cierra mañana", cls: "urgent" };
     if (d <= SOON_DAYS) return { text: "Cierra en " + d + " días", cls: "soon" };
@@ -1233,9 +1233,9 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       '<div class="deadline ' + dl.cls + '">' + ICON.hourglass + esc(dl.text) +
         (o.deadline_estimated ? ' <span class="est">(estimada)</span>' : "") + "</div>" +
       '<div class="actions">' +
-        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener" data-click="info">' + ICON.info + 'Más info</a>' : "") +
+        (o.channel_url ? '<a class="btn primary" href="' + esc(o.channel_url) + '" target="_blank" rel="noopener" data-click="info">' + ICON.info + 'Ver anuncio</a>' : "") +
         (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener" data-click="infopack">' + ICON.doc + 'Infopack</a>' : "") +
-        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Form</a>' : "") +
+        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Inscribirme</a>' : "") +
       "</div>" +
     "</article>";
   }
@@ -1318,7 +1318,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
       '<div class="actions">' +
         '<button class="btn primary info-only" type="button" onclick="openOpportunityInfo(\'' + esc(o.identifier) + '\')" aria-label="Toda la información" title="Toda la información">' + ICON.info + '</button>' +
         (o.infopack_url ? '<a class="btn" href="' + esc(o.infopack_url) + '" target="_blank" rel="noopener" data-click="infopack">' + ICON.doc + 'Infopack</a>' : "") +
-        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Form</a>' : "") +
+        (o.application_url ? '<a class="btn" href="' + esc(o.application_url) + '" target="_blank" rel="noopener" data-click="form">' + ICON.pencil + 'Inscribirme</a>' : "") +
       "</div>" +
       (o.approx_location ? '<div class="approx">' + ICON.pin + 'Ubicación aproximada (país)</div>' : "") +
       "</div>";
@@ -1329,7 +1329,7 @@ dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
     if (navigator.sendBeacon) navigator.sendBeacon("/api/interaction", new Blob([interactionBody], { type: "application/json" }));
     else fetch("/api/interaction", { method: "POST", headers: { "Content-Type": "application/json" }, body: interactionBody, keepalive: true }).catch(function () {});
     var sections = [["Sobre el proyecto",o.detailed_description||o.summary],["Programa y actividades",o.programme_details],["Qué aprenderás",o.learning_outcomes],["A quién buscan",o.participant_profile],["Países participantes",o.eligibility_countries],["Alojamiento y comidas",o.accommodation_details],["Costes y cobertura",o.covered_costs],["Viaje y reembolso",o.travel_details],["Contacto",o.contact_information]].filter(function(x){return x[1]});
-    var actions=(o.application_url?'<a class="btn primary" href="'+esc(o.application_url)+'" target="_blank" rel="noopener">Form</a>':"")+(o.infopack_url?'<a class="btn" href="'+esc(o.infopack_url)+'" target="_blank" rel="noopener">Infopack</a>':"");
+    var actions=(o.application_url?'<a class="btn primary" href="'+esc(o.application_url)+'" target="_blank" rel="noopener">Inscribirme</a>':"")+(o.infopack_url?'<a class="btn" href="'+esc(o.infopack_url)+'" target="_blank" rel="noopener">Infopack</a>':"");
     document.getElementById("opportunityTitle").textContent=o.title;
     document.getElementById("opportunityBody").innerHTML='<div class="popup-photo" style="height:260px;margin:0 0 22px;background-image:url(&quot;'+esc(mapImage(o))+'&quot;)"></div>'+compatibilityDetail(o)+'<p><strong>'+flag(o.country_code)+' '+esc(locationName(o))+'</strong><br>'+esc(fmtRange(o))+' · '+esc(deadlineText(o).text)+(o.type==="VOLUNTEERING"&&durationText(o)?'<br>Duración: '+esc(durationText(o)):"")+(o.organiser_name?'<br>Organiza: '+esc(o.organiser_name):"")+(o.cost?'<br>Coste: '+esc(o.cost):"")+(o.participant_min_age||o.participant_max_age?'<br>Edad: '+esc((o.participant_min_age||"—")+'–'+(o.participant_max_age||"+")):"")+'</p>'+sections.map(function(x){return '<h3>'+esc(x[0])+'</h3><p style="white-space:pre-line">'+esc(x[1])+'</p>'}).join("");
     document.getElementById("opportunityFoot").innerHTML=actions;

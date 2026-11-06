@@ -86,7 +86,7 @@
     '<div class="sf-top"><p class="sf-claim">Que nadie se quede sin su Erasmus+ <em>por no enterarse a tiempo.</em></p>' +
     '<div class="sf-chan">' + CHANNELS.map(function (c) { return '<a href="' + c.url + '" target="_blank" rel="noopener" aria-label="' + c.name + '"><span class="sn-ico ' + c.k + '">' + ICON[c.k] + "</span><span>" + c.name.replace("Canal de ", "") + "</span></a>"; }).join("") + "</div></div>" +
     '<div class="sf-grid"><div class="sf-brand"><a class="sn-brand" href="/" aria-label="Corradi, inicio"><span class="sn-mk"><img src="/assets/logo-mark.svg" alt=""></span><span><b>Corradi</b><small>ERASMUS+ EN CLARO</small></span></a>' +
-    "<p>Todas las convocatorias abiertas de intercambios, cursos y voluntariado europeo, con su fuente original y verificadas a diario. Un proyecto de Proactive Future.</p></div>" +
+    "<p>Convocatorias abiertas de intercambios, cursos y voluntariado europeo, con su fuente original y plazos revisados a diario. Un proyecto de Proactive Future.</p></div>" +
     FOOT_COLS.map(function (c) { return "<nav><h5>" + c.h + "</h5>" + c.l.map(function (a) { return '<a href="' + a[0] + '">' + a[1] + "</a>"; }).join("") + "</nav>"; }).join("") + "</div>" +
     '<div class="sf-legal"><span>© ' + new Date().getFullYear() + " Corradi · Proactive Future</span><span>Hecho en España para toda Europa</span></div>" +
     "</div></footer>";

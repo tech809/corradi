@@ -35,7 +35,7 @@
 </style>
 <link rel="stylesheet" href="/assets/site-nav.css?v=20261105e"></head>
 <body>
-<div id="site-nav"></div><script src="/assets/site-nav.js?v=20261105d"></script>
+<div id="site-nav"></div><script src="/assets/site-nav.js?v=20261106a"></script>
 
 <main>
 <section class="stats-hero"><div class="wrap">
@@ -184,7 +184,7 @@ function catalog(open){
   var lead=open.filter(function(o){return o.created}).map(function(o){return Math.round((new Date(o.application_deadline+"T00:00:00")-new Date(o.created.slice(0,10)+"T00:00:00"))/864e5)}).filter(function(x){return x>=0}).sort(function(p,q){return p-q});
   var med=lead.length?lead[Math.floor(lead.length/2)]:0,short=lead.filter(function(x){return x<=14}).length;
   $("#lead").innerHTML='<div style="font:400 48px/1 var(--serif)">'+med+' <span style="font-size:20px">días</span></div><p class="sub" style="margin:6px 0 16px">de margen mediano</p><p style="margin:0;font-size:14px"><b>'+Math.round(short/(lead.length||1)*100)+'%</b> de las abiertas se publicaron con dos semanas o menos de plazo.</p><p class="note">Por eso conviene revisar el catálogo a menudo.</p>';
-  var tc={};open.forEach(function(o){(o.topic||"").split(/[,;]/).forEach(function(t){t=t.trim().toLowerCase();if(t.length>2)tc[t]=(tc[t]||0)+1})});
+  var tc={};open.forEach(function(o){(o.topic||"").split(/[,;]/).forEach(function(t){t=t.trim().toLowerCase();if(t.length>2&&!/^\d+$/.test(t))tc[t]=(tc[t]||0)+1})});
   bars($("#topics"),Object.keys(tc).map(function(k){return [k.charAt(0).toUpperCase()+k.slice(1),tc[k]]}).sort(function(p,q){return q[1]-p[1]}).slice(0,10),{cls:"sage"});
 }
 function interest(S){

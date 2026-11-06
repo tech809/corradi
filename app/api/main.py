@@ -8,6 +8,7 @@ una columna a `projects`, no se filtra sola. Los datos de quien envía la oportu
 from __future__ import annotations
 
 import csv
+import hashlib
 import html
 import json
 import re
@@ -27,7 +28,7 @@ from pydantic import BaseModel, Field
 
 from app import geo
 from app import pipeline
-from app.domain.project import clean_contact
+from app.domain.project import clean_contact, is_last_minute
 from app.eligibility import parse_eligibility_label
 from app.api import auth
 from app.api import landing
@@ -102,7 +103,23 @@ def _serialize(row: dict[str, Any]) -> dict[str, Any]:
     out["approx_location"] = geo.is_country_level(
         row.get("latitude"), row.get("longitude"), row.get("country_code")
     )
+    # Aviso de "última hora / últimas plazas" calculado a partir del mensaje original. El
+    # mensaje en sí (`raw_message`) NO sale: solo este booleano derivado.
+    out["last_minute"] = is_last_minute(row.get("raw_message"))
     return out
+
+
+# Campos que /api/map NO necesita: ningún HTML/JS de app/api/static los lee (comprobado con
+# grep, 2026-11-06). Siguen saliendo en /opportunities/{id} y /api/top. Ojo al añadir una
+# lectura nueva en el front: si es uno de estos, hay que sacarlo de aquí.
+_MAP_OMIT_FIELDS = frozenset({
+    "eligibility_scope", "image_origin", "application_deadline_at", "publication_scope",
+    "duration_days", "telegram_message_id", "max_participants",
+})
+
+
+def _serialize_map(row: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in _serialize(row).items() if k not in _MAP_OMIT_FIELDS}
 
 
 _WORLD_PUBLIC_FIELDS = _PUBLIC_FIELDS + (
@@ -144,6 +161,10 @@ app = FastAPI(
 async def hide_unpublished_world_asset(request: Request, call_next):
     """Evita que el HTML en desarrollo sea accesible a través del montaje /assets."""
     if not cfg.world_public_enabled and request.url.path in {"/assets/world.html", "/assets/world.css"}:
+        return Response(content="No encontrado", status_code=404, media_type="text/plain")
+    # Las páginas HTML se sirven SOLO por sus rutas propias (/, /mapa, /publicar...): por el
+    # montaje /assets quedaban accesibles páginas internas (p.ej. /assets/publicar.html).
+    if request.url.path.startswith("/assets/") and request.url.path.lower().endswith((".html", ".htm")):
         return Response(content="No encontrado", status_code=404, media_type="text/plain")
     response = await call_next(request)
     # JS/CSS sin nombre versionado: sin esto el navegador aplica caché heurística y, tras un
@@ -315,17 +336,81 @@ async def mapa(request: Request) -> Response:
     return FileResponse(path, media_type="text/html", headers=headers)
 
 
+@app.get("/mapa/", include_in_schema=False)
+async def mapa_trailing_slash(request: Request) -> RedirectResponse:
+    """/mapa/ -> /mapa con Location relativa (detrás de Caddy, una absoluta saldría http://)."""
+    query = request.url.query
+    return RedirectResponse("/mapa" + (f"?{query}" if query else ""), status_code=301)
+
+
+def _opportunity_is_open(row: dict[str, Any]) -> bool:
+    deadline = row.get("application_deadline")
+    return row.get("status") == "open" and (deadline is None or deadline >= date.today())
+
+
+def _opportunity_description(row: dict[str, Any]) -> str:
+    kind = _TIPOS_ES.get(row.get("type"), row.get("type") or "Erasmus+")
+    place = row.get("location") or _PAISES_ES.get((row.get("country_code") or "").upper(), "")
+    summary = " ".join((row.get("summary") or "").split())
+    description = f"{kind} en {place}. {summary}" if place else f"{kind}. {summary}"
+    return description[:180].strip()
+
+
+def _project_page_html(template: str, row: dict[str, Any] | None, canonical: str, origin: str) -> str:
+    """Metadatos SEO/OG de la ficha inyectados en el <head> de project.html (que no se toca:
+    el JS sigue pintando la ficha desde /opportunities/{id}). Sustitución con anclas mínimas
+    (<title>, <meta name="description">) y, si no aparecen, inserción antes de </head>."""
+    e = html.escape
+    if row is None:
+        title = "Oportunidad no encontrada · Corradi"
+        description = "Esta oportunidad Erasmus+ no existe o ya no está disponible."
+        extra = '<meta name="robots" content="noindex,follow">'
+    else:
+        title = f"{row.get('title') or row['identifier']} · Corradi Erasmus+"
+        description = _opportunity_description(row)
+        image = row.get("image_url") or f"{origin}/og.png"
+        if image.startswith("/"):
+            image = origin + image
+        robots = "index,follow,max-image-preview:large" if _opportunity_is_open(row) else "noindex,follow"
+        extra = (
+            f'<meta name="robots" content="{robots}">'
+            f'<link rel="canonical" href="{e(canonical, quote=True)}">'
+            f'<meta property="og:type" content="article">'
+            f'<meta property="og:title" content="{e(title, quote=True)}">'
+            f'<meta property="og:description" content="{e(description, quote=True)}">'
+            f'<meta property="og:url" content="{e(canonical, quote=True)}">'
+            f'<meta property="og:image" content="{e(image, quote=True)}">'
+            f'<meta property="og:locale" content="es_ES"><meta name="twitter:card" content="summary_large_image">'
+        )
+    content, n = re.subn(r"<title>.*?</title>", lambda _m: f"<title>{e(title)}</title>", template, count=1, flags=re.S)
+    if not n:
+        extra = f"<title>{e(title)}</title>" + extra
+    desc_tag = f'<meta name="description" content="{e(description, quote=True)}">'
+    content, n = re.subn(r'<meta name="description" content="[^"]*">', lambda _m: desc_tag + "\n" + extra, content, count=1)
+    if not n:
+        content = content.replace("</head>", desc_tag + extra + "\n</head>", 1)
+    return content
+
+
 @app.get("/proyecto/{identifier}", include_in_schema=False)
 async def project_page(identifier: str, request: Request) -> Response:
-    """Ficha editorial de una oportunidad; los datos se cargan desde la API pública."""
+    """Ficha editorial de una oportunidad; los datos se cargan desde la API pública.
+
+    404 si el identificador no existe (antes daba 200 con la página vacía, indexable como
+    "soft 404"). Las cerradas/caducadas siguen dando 200, con `noindex`."""
     if not re.fullmatch(r"CORRADI-\d{4}-\d{4}", identifier):
         raise HTTPException(status_code=404)
-    path = _STATIC / "project.html"
-    etag = _file_etag(path)
+    row = await repo.get_by_identifier(identifier)
+    origin = _public_origin() or str(request.base_url).rstrip("/")
+    template = (_STATIC / "project.html").read_text(encoding="utf-8")
+    content = _project_page_html(template, row, f"{origin}/proyecto/{identifier}", origin)
+    if row is None:
+        return HTMLResponse(content, status_code=404, headers={"Cache-Control": "no-cache"})
+    etag = '"' + hashlib.md5(content.encode()).hexdigest() + '"'
     headers = {"Cache-Control": "no-cache", "ETag": etag}
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
-    return FileResponse(path, media_type="text/html", headers=headers)
+    return HTMLResponse(content, headers=headers)
 
 
 @app.get("/oportunidades/{country_slug}", include_in_schema=False)
@@ -380,7 +465,7 @@ async def map_data(response: Response) -> dict[str, Any]:
     response.headers["Cache-Control"] = "public, max-age=60"
 
     rows = await repo.list_open()
-    results = [_serialize(r) for r in rows]
+    results = [_serialize_map(r) for r in rows]
     located = sum(1 for r in results if r["latitude"] is not None and r["longitude"] is not None)
     return {
         "count": len(results),
@@ -745,18 +830,33 @@ async def estadisticas_page(request: Request) -> Response:
     return FileResponse(path, media_type="text/html", headers=headers)
 
 
+# Caché en proceso de /api/stats (un único uvicorn, ver _chat_hits): son ~12 consultas
+# agregadas por petición y los datos no cambian de un minuto a otro.
+_STATS_TTL_S = 300
+_stats_cache: tuple[float, dict[str, Any]] | None = None
+
+
 @app.get("/api/stats")
 async def api_stats(response: Response) -> dict[str, Any]:
     """Datos agregados para /estadisticas: nada de esto identifica a una persona, son
     recuentos agregados por país/mes/organizador. 5 min de caché: no es información que
     cambie de un minuto a otro como el mapa."""
+    global _stats_cache
     response.headers["Cache-Control"] = "public, max-age=300"
+    now = time.monotonic()
+    if _stats_cache and now - _stats_cache[0] < _STATS_TTL_S:
+        return _stats_cache[1]
+    data = await _build_stats()
+    _stats_cache = (now, data)
+    return data
+
+
+async def _build_stats() -> dict[str, Any]:
     total = await repo.count_total_published()
     open_n = await repo.count_open()
     countries = await repo.country_breakdown_all(limit=40)
     months = await repo.monthly_counts(months=12)
     organisers = await repo.organiser_breakdown(limit=200)
-    closed = await repo.list_closed(limit=200)
     visits = await repo.daily_visits_since(days=400)
     total_visits = await repo.get_total_visits()
     clicks = await repo.get_click_counts()
@@ -783,7 +883,6 @@ async def api_stats(response: Response) -> dict[str, Any]:
             {"name": o["organiser_name"], "total": o["total"], "open": o["open_n"], "projects": o["projects"]}
             for o in organisers
         ],
-        "closed": [_serialize(r) for r in closed],
         "daily_visits": [{"day": v["day"], "n": v["n"]} for v in visits],
         "heatmap_points": [[float(p["latitude"]), float(p["longitude"])] for p in points],
         "contributors": [
@@ -941,7 +1040,8 @@ async def robots_txt() -> PlainTextResponse:
 
 @app.get("/sitemap.xml", include_in_schema=False)
 async def sitemap_xml() -> Response:
-    """Un <url> por oportunidad abierta (su enlace corto /AAAA-NNNN) + el mapa. Solo abiertas:
+    """Un <url> por oportunidad abierta (su ficha canónica /proyecto/{id}) + las páginas
+    fijas. Solo abiertas:
     una cerrada ya no tiene nada que ofrecer a quien llegue buscando plaza, y desaparece sola
     del sitemap el día que se cierra — no hace falta borrarla a mano de ningún sitio."""
     origin = _public_origin()
@@ -953,12 +1053,18 @@ async def sitemap_xml() -> Response:
         f"  <url><loc>{origin}/mapa</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>",
         f"  <url><loc>{origin}/organizaciones</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>",
         f"  <url><loc>{origin}/guia</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>",
+        f"  <url><loc>{origin}/quienes-somos</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>",
+        f"  <url><loc>{origin}/estadisticas</loc><changefreq>daily</changefreq><priority>0.5</priority></url>",
     ]
+    seen_ids: set[str] = set()
     for r in rows:
-        short_id = str(r["identifier"]).removeprefix("CORRADI-")
-        if not _SHORT_ID_RE.fullmatch(short_id):
+        identifier = str(r["identifier"])
+        if identifier in seen_ids or not _opportunity_is_open(r):
             continue
-        urls.append(f"  <url><loc>{origin}/{short_id}</loc><changefreq>daily</changefreq></url>")
+        if not re.fullmatch(r"CORRADI-\d{4}-\d{4}", identifier):
+            continue
+        seen_ids.add(identifier)
+        urls.append(f"  <url><loc>{origin}/proyecto/{identifier}</loc><changefreq>daily</changefreq></url>")
     by_code = {value[0]: slug for slug, value in landing.COUNTRIES.items()}
     type_slug = {value[0]: slug for slug, value in landing.TYPES.items()}
     seen_landings: set[str] = set()
@@ -990,17 +1096,11 @@ def _short_link_page(row: dict[str, Any], origin: str) -> str:
     target = f"/mapa?o={identifier}"
     canonical = f"{origin}/{short_id}"
     title = row.get("title") or identifier
-    kind = _TIPOS_ES.get(row.get("type"), row.get("type") or "Erasmus+")
-    place = row.get("location") or _PAISES_ES.get((row.get("country_code") or "").upper(), "")
-    summary = " ".join((row.get("summary") or "").split())
-    description = f"{kind} en {place}. {summary}" if place else f"{kind}. {summary}"
-    description = description[:180].strip()
+    description = _opportunity_description(row)
     image = row.get("image_url") or f"{origin}/og.png"
     if image.startswith("/"):
         image = origin + image
-    deadline = row.get("application_deadline")
-    is_open = row.get("status") == "open" and (deadline is None or deadline >= date.today())
-    robots = "index,follow,max-image-preview:large" if is_open else "noindex,follow"
+    robots = "index,follow,max-image-preview:large" if _opportunity_is_open(row) else "noindex,follow"
     event = {
         "@context": "https://schema.org", "@type": "EducationEvent",
         "name": title, "description": description, "url": canonical,
