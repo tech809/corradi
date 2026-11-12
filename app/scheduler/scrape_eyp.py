@@ -1,8 +1,8 @@
 """Ingesta de oportunidades oficiales ESC del Portal Europeo de la Juventud.
 
-Todas entran en la web; como máximo una nueva al día entra en el flujo social, sujeto
-al cupo compartido con otros orígenes. Solo acepta fichas con deadline explícita,
-España elegible e inicio futuro.
+Todas entran solo en la web. La publicación diaria en redes (1 ESC) la hace aparte
+`publish_esc_social`, a una hora aleatoria entre las 17:00 y las 20:00. Solo acepta fichas
+con deadline explícita, España elegible e inicio futuro.
 """
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from app.config import cfg
-from app import pipeline
 from app.db import repository as repo
 from app.db.pool import close_pool, open_pool
 from app.domain.project import _add_months
@@ -35,7 +34,7 @@ async def run(*, dry_run: bool = False, limit: int | None = None) -> dict[str, i
         candidates = candidates[:max(0, limit)]
     counts = {
         "fetched": len(rows), "selected": len(candidates), "created": 0, "updated": 0,
-        "closed": 0, "social_published": 0,
+        "closed": 0,
     }
     if dry_run:
         log.info("EYP dry-run: %s", counts)
@@ -43,40 +42,15 @@ async def run(*, dry_run: bool = False, limit: int | None = None) -> dict[str, i
 
     await open_pool()
     try:
-        new_projects = []
         for row in candidates:
-            project, created = await repo.upsert_eyp_project(eyp.to_project(row, checked_at))
+            _project, created = await repo.upsert_eyp_project(eyp.to_project(row, checked_at))
             counts["created" if created else "updated"] += 1
-            if created:
-                new_projects.append(project)
         if limit is None:
             counts["closed"] = await repo.close_missing_eyp_projects(
                 [str(row["id"]) for row in candidates], checked_at
             )
 
-            published_today = await repo.count_eyp_social_published_on(
-                local_now.date(), cfg.timezone
-            )
-            remaining = max(0, cfg.eyp_social_daily_cap - published_today)
-            # Solo entran fichas descubiertas en esta ejecución: el lote web histórico no
-            # se drena. Entre las nuevas, primero las más completas y después las urgentes.
-            def social_rank(project):
-                quality = sum(bool(project.get(key)) for key in (
-                    "summary", "detailed_description", "participant_profile",
-                    "accommodation_details", "topic", "organiser_name",
-                ))
-                return (-quality, project.get("application_deadline") or local_now.date())
-
-            for project in sorted(new_projects, key=social_rank)[:remaining]:
-                result = await pipeline.publish_existing_eyp(project)
-                if result.get("published"):
-                    counts["social_published"] += 1
-                else:
-                    log.error(
-                        "ESC %s quedó solo web por fallo social: %s",
-                        project["identifier"], result.get("error"),
-                    )
-        log.info("EYP ingesta y selección social: %s", counts)
+        log.info("EYP ingesta: %s", counts)
         return counts
     finally:
         await close_pool()

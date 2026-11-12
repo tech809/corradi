@@ -35,13 +35,12 @@ def test_reservation_commits_before_send(monkeypatch, used, reserved, sends):
     assert result == (42 if sends else None)
     assert "pg_advisory_xact_lock" in events[0]
     assert "type='VOLUNTEERING'" in events[1]
-    assert "source='eyp'" not in events[1]
+    assert "source='eyp'" in events[1]
     if sends:
         assert events.index("commit") < events.index("send")
 
 
-@pytest.mark.parametrize("source", ["eyp", "telegram", "whatsapp"])
-def test_every_esc_source_uses_same_quota(monkeypatch, source):
+def test_portal_esc_uses_daily_quota(monkeypatch):
     calls = []
 
     async def capped(project_id, send):
@@ -50,7 +49,26 @@ def test_every_esc_source_uses_same_quota(monkeypatch, source):
 
     monkeypatch.setattr(pipeline.repo, "publish_esc_with_daily_cap", capped)
     result = asyncio.run(pipeline._publish_telegram_opportunity({
-        "id": "esc", "type": "VOLUNTEERING", "source": source,
+        "id": "esc", "type": "VOLUNTEERING", "source": "eyp",
     }))
     assert result is None
     assert calls == ["esc"]
+
+
+@pytest.mark.parametrize("source", ["gestor", "telegram", "whatsapp"])
+def test_bot_esc_skips_quota_like_ye_or_tc(monkeypatch, source):
+    async def capped(*_args):
+        raise AssertionError("un ESC del bot no debe pasar por el cupo")
+
+    async def publish(_image, _caption, **_kwargs):
+        return 77
+
+    monkeypatch.setattr(pipeline.repo, "publish_esc_with_daily_cap", capped)
+    monkeypatch.setattr(pipeline.pub, "format_opportunity", lambda *_a, **_k: "caption")
+    monkeypatch.setattr(pipeline.pub, "opportunity_keyboard", lambda *_a: None)
+    monkeypatch.setattr(pipeline.pub, "publish_photo_to_channel", publish)
+    monkeypatch.setattr(pipeline.card_v2, "render", lambda _row: b"photo")
+    result = asyncio.run(pipeline._publish_telegram_opportunity({
+        "id": "esc", "type": "VOLUNTEERING", "source": source,
+    }))
+    assert result == 77

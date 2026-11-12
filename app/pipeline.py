@@ -268,7 +268,9 @@ async def _publish_telegram_opportunity(opp: dict[str, Any]) -> int | None:
             image, caption, reply_markup=pub.opportunity_keyboard(opp)
         )
 
-    if opp.get("type") in ("VOLUNTEERING", "ESC") or opp.get("source") == "eyp":
+    # Solo los ESC del portal oficial tienen cupo diario; los que mandan los gestores al
+    # bot siguen el flujo normal de un YE o TC.
+    if opp.get("source") == "eyp":
         return await repo.publish_esc_with_daily_cap(opp["id"], send)
     return await send()
 
@@ -356,8 +358,6 @@ async def commit(
     # el resto en el pie) + handoff (WhatsApp)
     try:
         message_id = await _publish_telegram_opportunity(opp)
-        if not message_id and opp.get("type") in ("VOLUNTEERING", "ESC"):
-            return {"status": "created", "opp": opp, "published": False}
         if message_id:
             await repo.mark_published(opp["id"], message_id)
         await handoff.opportunity(opp)
@@ -368,8 +368,7 @@ async def commit(
         # "ya existe" — dejándolo atascado sin la oportunidad publicada y sin poder
         # reintentarlo. Cerrada, un reenvío genera una ficha nueva sin chocar con esta.
         try:
-            if opp.get("type") not in ("VOLUNTEERING", "ESC"):
-                await repo.close_project(opp["identifier"])
+            await repo.close_project(opp["identifier"])
         except Exception:  # noqa: BLE001
             log.exception("No pude cerrar %s tras el fallo de publicación", opp["identifier"])
         return {"status": "created_no_publish", "opp": opp, "error": str(e)}

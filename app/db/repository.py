@@ -203,21 +203,28 @@ async def close_missing_eyp_projects(active_external_ids: list[str], checked_at:
         return cur.rowcount
 
 
-async def count_eyp_social_published_on(day: date, timezone_name: str) -> int:
-    """Cupo ESC consumido (publicaciones confirmadas o intentos reservados)."""
+async def list_eyp_social_candidates(since: datetime, today: date) -> list[dict[str, Any]]:
+    """ESC del portal descubiertos desde `since` que aún no han pasado por redes.
+
+    Solo fichas recientes: el lote histórico de la web nunca se drena a redes.
+    """
     async with get_pool().connection() as conn:
-        cur = await conn.execute(
-            "SELECT count(*) FROM projects WHERE type='VOLUNTEERING' "
-            "AND (social_reserved_at IS NOT NULL OR social_published_at IS NOT NULL OR published_telegram = TRUE) "
-            "AND (COALESCE(social_published_at, social_reserved_at, created) AT TIME ZONE %s)::date = %s",
-            (timezone_name, day),
-        )
-        row = await cur.fetchone()
-        return int(row[0])
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT * FROM projects WHERE source='eyp' AND type='VOLUNTEERING' "
+                "AND status='open' AND created >= %s "
+                "AND (application_deadline IS NULL OR application_deadline >= %s) "
+                "AND social_reserved_at IS NULL AND social_published_at IS NULL "
+                "AND published_telegram = FALSE",
+                (since, today),
+            )
+            return await cur.fetchall()
 
 
 async def publish_esc_with_daily_cap(project_id, publish) -> int | None:
-    """Serializa todos los orígenes ESC con un bloqueo compartido entre procesos.
+    """Cupo diario de ESC del portal (source='eyp') con un bloqueo compartido entre procesos.
+
+    Los ESC enviados por gestores al bot no pasan por aquí: se publican como un YE o TC.
 
     La reserva se confirma ANTES del envío: si Telegram acepta la foto pero la conexión
     se corta, no arriesgamos una segunda publicación ese día. Un fallo consume el cupo
@@ -226,7 +233,7 @@ async def publish_esc_with_daily_cap(project_id, publish) -> int | None:
     async with get_pool().connection() as conn:
         await conn.execute("SELECT pg_advisory_xact_lock(%s)", (2026102001,))
         cur = await conn.execute(
-            "SELECT count(*) FROM projects WHERE type='VOLUNTEERING' "
+            "SELECT count(*) FROM projects WHERE type='VOLUNTEERING' AND source='eyp' "
             "AND (social_reserved_at IS NOT NULL OR social_published_at IS NOT NULL OR published_telegram = TRUE) "
             "AND (COALESCE(social_published_at, social_reserved_at, created) AT TIME ZONE %s)::date "
             "= (clock_timestamp() AT TIME ZONE %s)::date",

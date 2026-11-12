@@ -231,11 +231,15 @@ python -m app.scheduler.scrape_salto_world --limit 5
 
 El Portal Europeo de la Juventud alimenta el catálogo principal con una selección
 conservadora: residentes en España admitidos, inicio futuro, deadline explícita y dentro de
-los próximos `MAX_DEADLINE_MONTHS`. Todas las fichas entran en la web. Solo los ESC nuevos
-descubiertos en el pase actual pueden entrar al flujo Telegram/WhatsApp/Instagram, con un
-máximo diario de un ESC, compartido por todos los orígenes; `EYP_SOCIAL_DAILY_CAP=0` permite
-pausar los envíos. El lote histórico no se publica retroactivamente. Los mensajes sociales
-remiten al catálogo ESC completo.
+los próximos `MAX_DEADLINE_MONTHS`. `scrape_eyp` (cada 6 h) solo mete las fichas en la web.
+Aparte, `publish_esc_social` (cron a las 17:00) espera hasta una hora aleatoria entre las
+17:00 y las 20:00 y publica en Telegram/WhatsApp/Instagram **un** ESC del portal: el más
+completo entre los descubiertos en las últimas 48 h que aún no han salido en redes. El lote
+histórico no se publica retroactivamente. `EYP_SOCIAL_DAILY_CAP=0` pausa estos envíos. Los
+mensajes sociales remiten al catálogo ESC completo.
+
+Los ESC que mandan los gestores al bot **no** tienen cupo ni horario: se publican al momento,
+igual que un Youth Exchange o un Training Course.
 
 Antes de desplegar este límite en una BD existente, aplicar
 `db/migrations/0023_esc_daily_reservation.sql`. El día se calcula en `TIMEZONE` (Europe/Madrid
@@ -250,6 +254,7 @@ muestran un filtro contextual de duración máxima cuando se selecciona ESC.
 ```bash
 python -m app.scheduler.scrape_eyp --dry-run
 python -m app.scheduler.scrape_eyp
+python -m app.scheduler.publish_esc_social --now   # publica ya, sin esperar
 ```
 
 Antes del primer pase en una base ya existente hay que aplicar
