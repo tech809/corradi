@@ -1,6 +1,7 @@
 """Formatea y publica oportunidades en Telegram y prepara el handoff a WhatsApp."""
 from __future__ import annotations
 
+import html as _html
 import re
 import unicodedata
 from datetime import date
@@ -523,6 +524,17 @@ def format_top_projects(opps: list[dict[str, Any]], html: bool = True) -> str:
     return "\n".join(lines)
 
 
+_ESC_TYPES = ("VOLUNTEERING", "ESC")
+# Telegram limita un mensaje de texto a 4096 caracteres VISIBLES (sin etiquetas HTML),
+# contados en UTF-16. Dejamos margen.
+_WEEKLY_MAX_VISIBLE = 3900
+
+
+def _visible_len(text_html: str) -> int:
+    visible = _html.unescape(re.sub(r"<[^>]+>", "", text_html))
+    return len(visible.encode("utf-16-le")) // 2
+
+
 def _theme_groups_lines(opps: list[dict[str, Any]], max_per_group: int = 20) -> list[str]:
     """Líneas del bloque agrupado por TEMÁTICA similar (`_classify_topic`, no por las 4
     categorías fijas de tipo), con una línea en blanco entre grupos para que respiren. Un
@@ -612,12 +624,34 @@ def format_weekly_full_summary(
         temas = " · ".join(f"{_TIPOS_ES.get(t['type'], t['type'])} ({t['n']})" for t in types)
         lines.append(f"🏷️ Por tipo: {temas}")
 
-    lines.append("")
-    lines += _theme_groups_lines(open_opps, max_per_group)
+    # Los ESC (la mayoría del catálogo, vía Portal Europeo) no se listan uno a uno: con
+    # ellos el mensaje superaba el límite de Telegram (falló el 8-nov-2026). Se resumen
+    # en una línea que remite al mapa.
+    listed = [o for o in open_opps if o.get("type") not in _ESC_TYPES]
+    esc_count = len(open_opps) - len(listed)
 
+    footer: list[str] = []
+    if esc_count:
+        esc_txt = f"{esc_count} voluntariado{'s' if esc_count != 1 else ''} ESC"
+        if cfg.map_public_url:
+            footer.append(f'\n🤝 Además hay {esc_txt} abierto{"s" if esc_count != 1 else ""}: '
+                          f'<a href="{cfg.map_public_url}">míralos en el mapa</a>')
+        else:
+            footer.append(f"\n🤝 Además hay {esc_txt} abierto{'s' if esc_count != 1 else ''}.")
     if cfg.map_public_url:
-        lines.append(f'\n🗺️ <a href="{cfg.map_public_url}">Ver todas en el mapa</a>')
-    return "\n".join(lines)
+        footer.append(f'\n🗺️ <a href="{cfg.map_public_url}">Ver todas en el mapa</a>')
+
+    # Tope de seguridad: si aun así no cabe, se recortan los grupos (con "+N más").
+    for cap in sorted({max_per_group, 15, 10, 5, 3, 1, 0}, reverse=True):
+        if cap > max_per_group:
+            continue
+        body = _theme_groups_lines(listed, cap) if listed else [
+            "Ahora mismo no hay Youth Exchanges ni Training Courses con inscripción abierta."
+        ]
+        text = "\n".join(lines + [""] + body + footer)
+        if _visible_len(text) <= _WEEKLY_MAX_VISIBLE:
+            return text
+    return text
 
 
 async def publish_to_channel(text: str, reply_markup: InlineKeyboardMarkup | None = None) -> int | None:

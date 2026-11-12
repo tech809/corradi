@@ -336,3 +336,22 @@ def test_opportunity_keyboard_only_form():
 def test_opportunity_keyboard_none_when_no_links():
     no_links = {**OPP, "application_url": None}
     assert pub.opportunity_keyboard(no_links) is None
+
+
+def test_weekly_full_summary_lists_no_esc_and_counts_them():
+    ye = {**OPP, "identifier": "CORRADI-2026-0003", "title": "Eco YE", "topic": "sostenibilidad"}
+    ye2 = {**OPP, "identifier": "CORRADI-2026-0004", "title": "Eco YE 2", "topic": "medio ambiente"}
+    esc = [{**OPP, "identifier": f"CORRADI-2026-9{i:03d}", "title": f"ESC {i}",
+            "type": "VOLUNTEERING", "topic": "sostenibilidad"} for i in range(3)]
+    t = pub.format_weekly_full_summary(5, [], [], date(2026, 11, 9), date(2026, 11, 15), [ye, ye2, *esc])
+    assert "Eco YE" in t and "ESC 0" not in t
+    assert "Además hay 3 voluntariados ESC abiertos" in t
+
+
+def test_weekly_full_summary_fits_telegram_limit():
+    many = [{**OPP, "identifier": f"CORRADI-2026-{i:04d}", "title": "Training course muy largo " * 4 + str(i),
+             "type": "TRAINING_COURSE", "topic": f"tema{i % 8} juventud", "telegram_message_id": i}
+            for i in range(300)]
+    t = pub.format_weekly_full_summary(300, [], [], date(2026, 11, 9), date(2026, 11, 15), many)
+    assert pub._visible_len(t) <= 4096
+    assert "más en este grupo" in t
