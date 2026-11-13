@@ -25,7 +25,7 @@ def test_hook_only_uses_structured_data():
     h = C.hook(OPP, "afirmacion")
     assert h["lines"] == ["7 días", "en Francia."] and h["hl"] == ["Francia"]
     assert C.hook(OPP, "pregunta")["lines"] == ["¿Te vas", "7 días a", "Francia?"]
-    long = {**OPP, "end_date": date(2027, 11, 30)}
+    long = {**OPP, "type": "VOLUNTEERING", "end_date": date(2027, 11, 30)}
     assert C.hook(long, "afirmacion")["lines"][0] == "12 meses"
     assert C.hook({**OPP, "start_date": None}, "pregunta")["lines"] == ["Erasmus+", "en Francia."]
     assert "cubierto" not in " ".join(h["lines"]).lower()
@@ -166,3 +166,28 @@ def test_every_new_opportunity_gets_a_reel(monkeypatch):
     monkeypatch.setattr(autopilot, "reel_for_opportunity", reel)
     asyncio.run(pipeline._publish_reel_background(OPP))
     assert calls == ["p1"]
+
+
+def test_week_badge_is_truthful():
+    rows = [{"id": f"p{i}"} for i in range(8)]
+    views = {f"p{i}": 10 * i for i in range(8)}
+    assert C.week_badge("p7", rows, views) == "LA MÁS VISTA DE LA SEMANA"
+    assert C.week_badge("p4", rows, views) == "TOP 4 DE LA SEMANA"
+    assert C.week_badge("p1", rows, views) is None and C.week_badge("p0", rows, views) is None
+
+
+def test_visual_carousel_and_weekly_top_render():
+    hook = C.hook(OPP, "afirmacion")
+    assert _size(D.cover(None, hook, OPP["type"], "LA MÁS VISTA DE LA SEMANA")) == D.FEED
+    assert _size(D.details_visual(OPP, None, C.stats(OPP), C.summary(OPP))) == D.FEED
+    assert _size(D.summary_cover_v2([None] * 5, "7 – 13 nov", 5)) == D.FEED
+    assert _size(D.summary_slide(None, 1, hook, OPP["title"], OPP["type"], "25 nov", "2/7")) == D.FEED
+    assert _size(D.summary_closing(27, 220, "7/7")) == D.FEED
+
+
+def test_implausible_durations_are_not_used():
+    long_tc = {**OPP, "end_date": date(2027, 1, 26)}            # TC de 57 días: fecha dudosa
+    assert C.hook(long_tc, "afirmacion")["lines"] == ["Erasmus+", "en Francia."]
+    assert all(lab != "días" for _, lab in C.stats(long_tc))
+    esc = {**long_tc, "type": "VOLUNTEERING"}
+    assert C.hook(esc, "afirmacion")["lines"][0] == "57 días"

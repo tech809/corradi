@@ -57,6 +57,15 @@ def days(opp: dict[str, Any]) -> int | None:
     return None
 
 
+def plausible_days(opp: dict[str, Any]) -> int | None:
+    """Duración solo si es creíble: un Youth Exchange o Training Course de más de 30 días casi
+    siempre es una fecha mal extraída, así que no se usa en ganchos ni cifras."""
+    n = days(opp)
+    if n and opp.get("type") in ("YOUTH_EXCHANGE", "TRAINING_COURSE") and n > 30:
+        return None
+    return n
+
+
 def span(n: int) -> str:
     if n > 60:
         m = round(n / 30.4)
@@ -98,7 +107,7 @@ HOOK_STYLES = ("afirmacion", "pregunta")
 def hook(opp: dict[str, Any], style: str) -> dict[str, Any]:
     """Titular de portada y story. Solo duración (de las fechas), país, tipo y fechas."""
     pais = country(opp.get("country_code")) or "Europa"
-    n = days(opp)
+    n = plausible_days(opp)
     hl = pais.split()
     sub = " · ".join(x for x in (TYPE_TITLE.get(opp.get("type"), "Erasmus+"), dates(opp), city(opp)) if x)
     if not n:
@@ -110,7 +119,7 @@ def hook(opp: dict[str, Any], style: str) -> dict[str, Any]:
 
 def stats(opp: dict[str, Any]) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
-    n = days(opp)
+    n = plausible_days(opp)
     if n:
         num, unit = span(n).split(" ", 1)
         out.append((num, unit))
@@ -323,8 +332,21 @@ def summary_items(rows: list[dict[str, Any]], today: date, week_views: dict, n: 
             and _d(r["application_deadline"]) >= today]
     seen.sort(key=lambda r: -week_views[r["id"]])
     return [{"title": r["title"], "type": r.get("type"), "country_code": r.get("country_code"),
-             "closes": short_date(r["application_deadline"]), "deadline": _d(r["application_deadline"])}
-            for r in seen[:n]]
+             "closes": short_date(r["application_deadline"]), "deadline": _d(r["application_deadline"]),
+             "row": r} for r in seen[:n]]
+
+
+def week_badge(opp_id, rows: list[dict[str, Any]], week_views: dict) -> str | None:
+    """Sello de la portada, solo si es verdad según las vistas de la semana."""
+    if not week_views.get(opp_id):
+        return None
+    ranking = sorted((r["id"] for r in rows if week_views.get(r["id"])), key=lambda i: -week_views[i])
+    pos = ranking.index(opp_id) + 1 if opp_id in ranking else None
+    if pos == 1:
+        return "LA MÁS VISTA DE LA SEMANA"
+    if pos and pos <= 5:
+        return f"TOP {pos} DE LA SEMANA"
+    return None
 
 
 def caption_summary(items: list[dict[str, Any]], new_count: int, cta: str) -> str:

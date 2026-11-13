@@ -142,9 +142,11 @@ async def build(row: dict[str, Any], today: date, rng: random.Random) -> dict[st
         caption = C.caption_opportunity(opp, hook, _cta(rng))
         deadline_big = C.short_date(opp["application_deadline"])
         if kind == "carousel_opp":
+            photo = await asyncio.to_thread(_photo, opp, D.FEED)
+            badge = C.week_badge(opp["id"], await open_rows(today), await views_by_project(7))
             slides = [
-                D.cover(await asyncio.to_thread(_photo, opp, D.FEED), hook, opp["type"]),
-                D.details(opp, C.stats(opp), C.summary(opp)),
+                D.cover(photo, hook, opp["type"], badge),
+                D.details_visual(opp, photo, C.stats(opp), C.summary(opp)),
                 D.apply_slide(deadline_big, C.apply_steps(opp), "Guárdalo y etiqueta a tu +1"),
             ]
             return {"type": "carousel", "urls": [graph.save_image(s) for s in slides], "caption": caption,
@@ -167,9 +169,13 @@ async def build(row: dict[str, Any], today: date, rng: random.Random) -> dict[st
                               "AND created >= now() - interval '7 days'"))[0]["n"]
         start = today - timedelta(days=6)
         label = f"{start.day} {C.MES[start.month - 1]} – {today.day} {C.MES[today.month - 1]}"
-        slides = [D.summary_cover(new_count, len(rows), label, [i["country_code"] for i in items],
-                                  variant.get("bg", "ink")),
-                  D.lastcall_list(items, "2/2", heading="Las más vistas de la semana")]
+        photos = [await asyncio.to_thread(_photo, i["row"], D.FEED) for i in items]
+        total = len(items) + 2
+        slides = [D.summary_cover_v2(photos, label, len(items))]
+        for n, (it, ph) in enumerate(zip(items, photos), 1):
+            slides.append(D.summary_slide(ph, n, C.hook(it["row"], "afirmacion"), it["title"], it["type"],
+                                          it["closes"], f"{n + 1}/{total}"))
+        slides.append(D.summary_closing(new_count, len(rows), f"{total}/{total}"))
         return {"type": "carousel", "urls": [graph.save_image(s) for s in slides],
                 "caption": C.caption_summary(items, new_count, _cta(rng)), "variant": variant}
 

@@ -192,13 +192,16 @@ def _swipe(img, dark=True, size=FEED, text="Desliza"):
 
 # ───────────────────────────── carrusel de oportunidad ─────────────────────────────
 
-def cover(photo, hook: dict[str, Any], otype: str) -> bytes:
-    """Portada: foto a sangre + gancho enorme. `hook` = {lines, hl, sub}."""
+def cover(photo, hook: dict[str, Any], otype: str, badge: str | None = None) -> bytes:
+    """Portada: foto a sangre + gancho enorme. `hook` = {lines, hl, sub}. `badge`: sello
+    opcional («LA MÁS VISTA DE LA SEMANA»), solo si es cierto."""
     img = photo_fill(photo, FEED)
     img.alpha_composite(gradient(FEED, SHADE, 0, 205, 0.22))
-    img.alpha_composite(gradient((FEED[0], 260), SHADE, 0, 120, 0.0).transpose(Image.FLIP_TOP_BOTTOM), (0, 0))
+    img.alpha_composite(gradient((FEED[0], 300), SHADE, 0, 130, 0.0).transpose(Image.FLIP_TOP_BOTTOM), (0, 0))
     _top(img, TYPE_LABEL.get(otype), TYPE_COLOR.get(otype, CLAY))
     d = ImageDraw.Draw(img)
+    if badge:
+        pill(d, 60, 132, badge, man(22), PEACH, INK, 24, h=52, track=0.1)
     size = 118 if max(len(x) for x in hook["lines"]) <= 13 else 100
     f = sora(size)
     while max(d.textlength(x, font=f) for x in hook["lines"]) > FEED[0] - 150 and size > 70:
@@ -412,4 +415,132 @@ def guide_closing(kicker: str, lines: list[str], hl: list[str], sub: str, cta: s
         y += 46
     d.line([62, y + 120, FEED[0] - 62, y + 120], fill="#3a4a3d", width=2)
     d.text((62, y + 170), cta, font=man(36), fill=PEACH)
+    return to_jpeg(img)
+
+
+# ───────────────────────────── carrusel visual y resumen semanal ─────────────────────────────
+
+def details_visual(opp: dict[str, Any], photo, stats: list[tuple[str, str]], summary: str) -> bytes:
+    """Diapositiva 2 con foto arriba, título y resumen, y cifras en fichas de color."""
+    otype = opp.get("type") or "YOUTH_EXCHANGE"
+    color = TYPE_COLOR.get(otype, CLAY)
+    img = Image.new("RGBA", FEED, PAPER)
+    band = 520
+    if photo is not None:
+        ph = ImageOps.fit(photo.convert("RGB"), (FEED[0], band), Image.LANCZOS, centering=(0.5, 0.3)).convert("RGBA")
+        img.paste(ph, (0, 0))
+    else:
+        img.paste(Image.new("RGBA", (FEED[0], band), color), (0, 0))
+    img.alpha_composite(gradient((FEED[0], 260), SHADE, 0, 130, 0.0).transpose(Image.FLIP_TOP_BOTTOM), (0, 0))
+    lockup(img, 60, 54, 50)
+    d = ImageDraw.Draw(img)
+    if has_flag(opp.get("country_code")):
+        _flag(img, FEED[0] - 62 - 84, 58, 84, 56, opp["country_code"])
+        d = ImageDraw.Draw(img)
+    pill(d, 62, band - 70, "DE QUÉ VA", man(22), color, WHITE, 22, h=50)
+    lines, tf = fit(d, opp.get("title") or "", lambda sz: sora(sz, "Bold"), 56, 38, FEED[0] - 124, 2)
+    y = band + 40
+    for ln in lines:
+        d.text((62, y), ln, font=tf, fill=INK)
+        y += round(tf.size * 1.14)
+    y += 10
+    body = man(29, "Medium")
+    text_lines = wrap(d, summary, body, FEED[0] - 124)
+    room = max(2, (FEED[1] - 60 - 210 - 30 - y) // 42)
+    if len(text_lines) > room:
+        last = text_lines[room - 1]
+        while d.textlength(last + "…", font=body) > FEED[0] - 124 and " " in last:
+            last = last.rsplit(" ", 1)[0]
+        text_lines = text_lines[:room - 1] + [last.rstrip(" ,.;:") + "…"]
+    for ln in text_lines:
+        d.text((62, y), ln, font=body, fill="#3d4a3f")
+        y += 42
+    stats = stats[:3]
+    if stats:
+        gap, top = 18, FEED[1] - 60 - 210
+        cw = (FEED[0] - 124 - gap * (len(stats) - 1)) / len(stats)
+        for n, (num, lab) in enumerate(stats):
+            bx = 62 + n * (cw + gap)
+            d.rounded_rectangle([bx, top, bx + cw, top + 190], radius=28, fill=color if n == 0 else INK2)
+            nf = sora(76 if len(num) <= 4 else 54 if len(num) <= 7 else 42)
+            d.text((bx + cw / 2, top + 82), num, font=nf, fill=WHITE, anchor="mm")
+            d.text((bx + cw / 2, top + 150), lab, font=man(26, "SemiBold"), fill=PEACH if n else WHITE, anchor="mm")
+    d.text((FEED[0] - 60, FEED[1] - 26), "2/3", font=man(20, "SemiBold"), fill=MUTED, anchor="rs")
+    return to_jpeg(img)
+
+
+def _mosaic(photos: list, size: tuple[int, int], gap: int = 8, bg: str = INK2) -> Image.Image:
+    """Collage 3 arriba + 2 abajo (o lo que haya)."""
+    w, h = size
+    out = Image.new("RGBA", size, bg)
+    photos = [p for p in photos if p is not None][:5] or [None]
+    rows = [photos[:3], photos[3:5]] if len(photos) > 3 else [photos]
+    rh = (h - gap * (len(rows) - 1)) // len(rows)
+    for r, row in enumerate(rows):
+        cw = (w - gap * (len(row) - 1)) // len(row)
+        for c, ph in enumerate(row):
+            tile = photo_fill(ph, (cw, rh), fallback=CLAY)
+            out.paste(tile, (c * (cw + gap), r * (rh + gap)))
+    return out
+
+
+def summary_cover_v2(photos: list, week_label: str, count: int) -> bytes:
+    img = Image.new("RGBA", FEED, INK2)
+    img.paste(_mosaic(photos, (FEED[0], 700)), (0, 0))
+    img.alpha_composite(gradient((FEED[0], 700), SHADE, 30, 235, 0.35), (0, 0))
+    img.alpha_composite(gradient((FEED[0], 260), SHADE, 0, 140, 0.0).transpose(Image.FLIP_TOP_BOTTOM), (0, 0))
+    lockup(img, 60, 54, 50)
+    d = ImageDraw.Draw(img)
+    d.text((62, 720), f"La semana en Corradi · {week_label}", font=man(34), fill=PEACH)
+    y = marker_lines(img, 58, 790, ["Lo más", "visto"], sora(170), WHITE, hl_words=["visto"])
+    ImageDraw.Draw(img).text((64, y + 6), f"Las {count} oportunidades que más habéis mirado", font=man(34, "SemiBold"),
+                             fill=SOFT)
+    _swipe(img)
+    return to_jpeg(img)
+
+
+def summary_slide(photo, rank: int, hook: dict[str, Any], title: str, otype: str, closes: str, page: str) -> bytes:
+    """Una oportunidad del top: foto a sangre, número de puesto enorme, gancho y plazo."""
+    img = photo_fill(photo, FEED)
+    img.alpha_composite(gradient(FEED, SHADE, 10, 225, 0.3))
+    img.alpha_composite(gradient((FEED[0], 420), SHADE, 0, 150, 0.0).transpose(Image.FLIP_TOP_BOTTOM), (0, 0))
+    d = ImageDraw.Draw(img)
+    d.text((54, 40), f"#{rank}", font=sora(230), fill=WHITE)
+    lab = TYPE_LABEL.get(otype, "")
+    if lab:
+        f = man(20)
+        pill(d, FEED[0] - 60 - tracked_w(d, lab, f, 0.12) - 44, 70, lab, f, TYPE_COLOR.get(otype, CLAY), WHITE, 22,
+             h=44, track=0.12)
+    f = sora(108)
+    while max(d.textlength(x, font=f) for x in hook["lines"]) > FEED[0] - 140 and f.size > 64:
+        f = sora(f.size - 6)
+    tl, tf = fit(d, title, lambda sz: man(sz, "SemiBold"), 32, 26, FEED[0] - 124, 2)
+    block = round(f.size * 1.04) * len(hook["lines"]) + 30 + len(tl) * 42 + 100
+    y = FEED[1] - 90 - block
+    y = marker_lines(img, 60, y, hook["lines"], f, WHITE, hl_words=hook.get("hl", ()))
+    d = ImageDraw.Draw(img)
+    y += 18
+    for ln in tl:
+        d.text((64, y), ln, font=tf, fill=SOFT)
+        y += 42
+    if closes:
+        pill(d, 64, y + 22, f"PLAZO {closes.upper()}", man(24), CLAY, WHITE, 24, h=56)
+    d.text((FEED[0] - 60, FEED[1] - 50), page, font=man(22, "SemiBold"), fill=WHITE, anchor="rs")
+    return to_jpeg(img)
+
+
+def summary_closing(new_count: int, open_count: int, page: str) -> bytes:
+    img = Image.new("RGBA", FEED, CLAY)
+    lockup(img, 60, 54, 50, disc=INK2)
+    d = ImageDraw.Draw(img)
+    d.text((62, 300), "Y esto es solo el principio", font=man(40), fill=PEACH)
+    for n, (num, lab) in enumerate(((str(new_count), "oportunidades nuevas esta semana"),
+                                    (str(open_count), "abiertas ahora mismo"))):
+        y = 390 + n * 250
+        d.text((58, y), num, font=sora(170), fill=WHITE)
+        d.text((64, y + 190), lab, font=man(34, "SemiBold"), fill=WHITE)
+    d.line([62, 960, FEED[0] - 62, 960], fill="#c47a64", width=2)
+    d.text((62, 1010), "Todas en el link de la bio", font=sora(56, "Bold"), fill=WHITE)
+    d.text((62, 1090), "Guárdalo y etiqueta a tu +1", font=man(34, "SemiBold"), fill=PEACH)
+    d.text((FEED[0] - 60, FEED[1] - 50), page, font=man(22, "SemiBold"), fill=WHITE, anchor="rs")
     return to_jpeg(img)
