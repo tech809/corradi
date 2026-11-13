@@ -178,9 +178,19 @@ async def _create_and_publish(image_url: str, extra: dict) -> str:
 
 
 async def publish_story(opp: dict[str, Any]) -> str:
-    """Publica solo la story, para recuperarla sin duplicar el post del feed."""
-    _, story_url = image_urls(opp["identifier"])
+    """Story de una oportunidad con el diseño del piloto automático (`app/ig_auto`)."""
+    from app.ig_auto import autopilot
+
+    story_url = await autopilot.story_for_opportunity(opp)
     return await _create_and_publish(story_url, {"media_type": "STORIES"})
+
+
+def feed_per_opportunity() -> bool:
+    """Desde 2026-11-13 cada oportunidad sale solo en stories; el feed lo lleva el piloto
+    automático (`app/scheduler/ig_autopilot.py`). `IG_FEED_PER_OPPORTUNITY=1` vuelve al
+    modo antiguo (post + story + Reel por oportunidad)."""
+    import os
+    return os.getenv("IG_FEED_PER_OPPORTUNITY", "0") == "1"
 
 
 async def publish_opportunity(opp: dict[str, Any]) -> tuple[str, str | None]:
@@ -188,6 +198,11 @@ async def publish_opportunity(opp: dict[str, Any]) -> tuple[str, str | None]:
     si falló (un fallo de story NO revierte el post del feed, mismo criterio que tur-app)."""
     if not is_configured():
         raise RuntimeError("Instagram no configurado (falta token/business_id/image_base_url)")
+
+    if not feed_per_opportunity():
+        story_id = await publish_story(opp)
+        log.info("Publicado en Instagram (story): %s (%s)", story_id, opp["identifier"])
+        return story_id, story_id
 
     post_url, _ = image_urls(opp["identifier"])
     caption = build_caption(opp)

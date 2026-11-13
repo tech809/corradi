@@ -246,7 +246,8 @@ async def _publish_instagram_now(opp: dict[str, Any]) -> None:
     try:
         ig_media_id, ig_story_id = await instagram.publish_opportunity(opp)
         await repo.mark_instagram_published(queue_id, ig_media_id, ig_story_id)
-        await _publish_reel_background(opp)
+        if instagram.feed_per_opportunity():
+            await _publish_reel_background(opp)
     except instagram.InstagramTokenExpired:
         from app import instagram_auth
 
