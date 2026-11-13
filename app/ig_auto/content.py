@@ -298,6 +298,44 @@ def pick_featured(rows: list[dict[str, Any]], today: date, used_ids: set, recent
     return max(fresh, key=lambda r: featured_score(r, today, views.get(r["id"], 0)))
 
 
+def pick_most_viewed(rows: list[dict[str, Any]], today: date, used_ids: set, week_views: dict,
+                     all_views: dict, min_days: int = 3) -> dict[str, Any] | None:
+    """La oportunidad más vista de la semana que aún no ha salido en el feed; si nadie la ha
+    visto, la mejor según `featured_score`. Debe tener fechas, país, admitir España y
+    quedarle al menos `min_days` de plazo."""
+    cands = []
+    for r in rows:
+        dl = _d(r.get("application_deadline"))
+        if not dl or (dl - today).days < min_days or r["id"] in used_ids:
+            continue
+        if not (days(r) and r.get("country_code") and eligible_from_spain(r)):
+            continue
+        cands.append(r)
+    if not cands:
+        return None
+    return max(cands, key=lambda r: (week_views.get(r["id"], 0),
+                                     featured_score(r, today, all_views.get(r["id"], 0))))
+
+
+def summary_items(rows: list[dict[str, Any]], today: date, week_views: dict, n: int = 5) -> list[dict[str, Any]]:
+    """Las `n` oportunidades abiertas más vistas de la semana (con plazo por delante)."""
+    seen = [r for r in rows if week_views.get(r["id"]) and _d(r.get("application_deadline"))
+            and _d(r["application_deadline"]) >= today]
+    seen.sort(key=lambda r: -week_views[r["id"]])
+    return [{"title": r["title"], "type": r.get("type"), "country_code": r.get("country_code"),
+             "closes": short_date(r["application_deadline"]), "deadline": _d(r["application_deadline"])}
+            for r in seen[:n]]
+
+
+def caption_summary(items: list[dict[str, Any]], new_count: int, cta: str) -> str:
+    lines = ["📊 La semana en Corradi", "", f"✨ {new_count} oportunidades nuevas esta semana.", "",
+             "Las más vistas:"]
+    for it in items:
+        lines.append(f"{pub._flag(it.get('country_code')) or '🌍'} {it['title']} · plazo {it['closes']}")
+    lines += ["", "👉 Todas en el link de la bio.", "", cta, "", BASE_TAGS]
+    return "\n".join(lines)
+
+
 def lastcall_items(rows: list[dict[str, Any]], today: date) -> list[dict[str, Any]]:
     out = []
     for r in rows:

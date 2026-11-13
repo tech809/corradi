@@ -126,3 +126,43 @@ def test_new_opportunities_go_to_stories_only(monkeypatch):
     monkeypatch.setattr(instagram, "_create_and_publish", create)
     assert asyncio.run(instagram.publish_opportunity(OPP)) == ("S1", "S1")
     assert calls == ["story"]
+
+
+def test_most_viewed_of_the_week_skips_already_featured():
+    rows = [OPP, {**OPP, "id": "p2", "country_code": "IT"}, {**OPP, "id": "p3", "type": "VOLUNTEERING"}]
+    week = {"p1": 40, "p2": 25, "p3": 30}
+    assert C.pick_most_viewed(rows, TODAY, set(), week, {})["id"] == "p1"
+    assert C.pick_most_viewed(rows, TODAY, {"p1"}, week, {})["id"] == "p3"     # cualquier tipo
+    assert C.pick_most_viewed(rows, TODAY, {"p1", "p2", "p3"}, week, {}) is None
+    closing = {**OPP, "id": "p4", "application_deadline": date(2026, 11, 14)}
+    assert C.pick_most_viewed([closing], TODAY, set(), {"p4": 99}, {}) is None   # plazo < 3 días
+
+
+def test_summary_items_and_cover():
+    rows = [{**OPP, "id": f"p{i}", "title": f"Proyecto {i}"} for i in range(7)]
+    items = C.summary_items(rows, TODAY, {f"p{i}": i for i in range(7)})
+    assert [i["title"] for i in items] == ["Proyecto 6", "Proyecto 5", "Proyecto 4", "Proyecto 3", "Proyecto 2"]
+    assert "Las más vistas" in C.caption_summary(items, 12, "¿Te animas?")
+    for bg in ("clay", "ink", "sage"):
+        assert _size(D.summary_cover(12, 220, "7 – 13 nov", ["FR", "IT"], bg)) == D.FEED
+    assert _size(D.lastcall_list(items, "2/2", heading="Las más vistas de la semana")) == D.FEED
+
+
+def test_feed_is_one_piece_a_day_except_friday():
+    assert all(len(k) == 1 for d, k in CALENDAR.items() if d != 4)
+    assert CALENDAR[4] == ["lastcall", "reel_lastcall"] and CALENDAR[6] == ["summary"]
+    assert "guide" not in [k for ks in CALENDAR.values() for k in ks]
+
+
+def test_every_new_opportunity_gets_a_reel(monkeypatch):
+    from app import pipeline
+    from app.ig_auto import autopilot
+    calls = []
+
+    async def reel(opp):
+        calls.append(opp["id"])
+
+    monkeypatch.delenv("IG_FEED_PER_OPPORTUNITY", raising=False)
+    monkeypatch.setattr(autopilot, "reel_for_opportunity", reel)
+    asyncio.run(pipeline._publish_reel_background(OPP))
+    assert calls == ["p1"]

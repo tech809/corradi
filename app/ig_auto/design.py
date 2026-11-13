@@ -313,15 +313,36 @@ def lastcall_cover(count: int, flag_codes: list[str], bg: str = "clay") -> bytes
     return to_jpeg(img)
 
 
-def lastcall_list(items: list[dict[str, Any]], page: str) -> bytes:
+def summary_cover(new_count: int, open_count: int, week_label: str, flag_codes: list[str], bg: str = "ink") -> bytes:
+    base, fg, accent = BACKGROUNDS[bg]
+    img = Image.new("RGBA", FEED, base)
+    lockup(img, 60, 54, 50, fg=fg, disc=INK2 if bg == "clay" else CLAY)
+    d = ImageDraw.Draw(img)
+    d.text((62, 300), week_label, font=man(40), fill=accent)
+    y = marker_lines(img, 58, 370, ["La semana", "en Corradi"], sora(132), fg if bg != "clay" else WHITE,
+                     hl=CLAY if bg != "clay" else INK2, hl_words=["corradi"])
+    d = ImageDraw.Draw(img)
+    for n, (num, lab) in enumerate(((str(new_count), "nuevas"), (str(open_count), "abiertas ahora"))):
+        x = 62 + n * 420
+        d.text((x, y + 60), num, font=sora(120), fill=WHITE if bg == "clay" else accent)
+        d.text((x + 4, y + 215), lab, font=man(34, "SemiBold"), fill=fg)
+    flags(img, 64, y + 300, list(dict.fromkeys(flag_codes))[:7], 96, 64, 20)
+    _swipe(img, dark=bg in ("clay", "ink"))
+    return to_jpeg(img)
+
+
+def lastcall_list(items: list[dict[str, Any]], page: str, heading: str = "") -> bytes:
     """Hasta 5 por diapositiva: bandera, tipo, título y fecha de cierre."""
     img = Image.new("RGBA", FEED, PAPER)
     _top(img, dark=False, page=page)
     d = ImageDraw.Draw(img)
-    y = 180
+    y, card, step = 180, 200, 220
+    if heading:
+        d.text((62, 150), heading, font=man(32), fill=CLAY)
+        y, card, step = 210, 192, 210
     for it in items[:5]:
         color = TYPE_COLOR.get(it["type"], CLAY)
-        d.rounded_rectangle([62, y, FEED[0] - 62, y + 200], radius=26, fill=WHITE, outline=RULE, width=2)
+        d.rounded_rectangle([62, y, FEED[0] - 62, y + card], radius=26, fill=WHITE, outline=RULE, width=2)
         if has_flag(it.get("country_code")):
             _flag(img, 92, y + 30, 66, 44, it.get("country_code"))
         d = ImageDraw.Draw(img)
@@ -332,7 +353,7 @@ def lastcall_list(items: list[dict[str, Any]], page: str) -> bytes:
             d.text((92, ty), ln, font=tf, fill=INK)
             ty += round(tf.size * 1.2)
         d.text((FEED[0] - 92, y + 52), it["closes"], font=sora(34), fill=CLAY, anchor="rm")
-        y += 220
+        y += step
     return to_jpeg(img)
 
 

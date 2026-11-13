@@ -1,14 +1,12 @@
 """Piloto automático de Instagram: planifica, genera, publica, mide y aprende. Sin humanos.
 
-Calendario (hora local, la hora exacta la decide el experimento):
-    lunes     carrusel de oportunidad destacada
-    martes    Reel de oportunidad destacada
-    miércoles guía para guardar
-    jueves    carrusel de oportunidad destacada
-    viernes   carrusel «Última llamada» + Reel «Última llamada»
-    sábado    Reel de oportunidad destacada
-    domingo   guía para guardar
-Además, cada oportunidad nueva sale como story (lo hace `pipeline` al publicarse).
+Feed (una pieza al día; la hora exacta la decide el experimento):
+    lunes a jueves y sábado  carrusel de la oportunidad más vista de la semana que aún no
+                             haya salido en el feed (si no hay vistas, la mejor valorada)
+    viernes                  carrusel «Última llamada» + Reel «Última llamada»
+    domingo                  carrusel «La semana en Corradi» (nuevas, abiertas, más vistas)
+Además, cada oportunidad que se publica sale al momento como story y como Reel (este solo
+en la pestaña de Reels, no en la cuadrícula). Lo lanza `pipeline` al publicarse.
 
 Cada ejecución (cron cada 30 min): planifica el día si no lo está, publica lo que toque,
 y una vez al día refresca métricas y guarda los seguidores. Los lunes manda un informe.
@@ -36,9 +34,10 @@ from app.publisher import instagram as ig
 log = logging.getLogger("corradi.ig_auto")
 
 CALENDAR: dict[int, list[str]] = {
-    0: ["carousel_opp"], 1: ["reel_opp"], 2: ["guide"], 3: ["carousel_opp"],
-    4: ["lastcall", "reel_lastcall"], 5: ["reel_opp"], 6: ["guide"],
+    0: ["carousel_opp"], 1: ["carousel_opp"], 2: ["carousel_opp"], 3: ["carousel_opp"],
+    4: ["lastcall", "reel_lastcall"], 5: ["carousel_opp"], 6: ["summary"],
 }
+SLOT_PREDICATE = "kind NOT IN ('reel_project', 'pinned_intro')"
 LOCK_ID = 2026111301
 MAX_ATTEMPTS = 3
 LATE_LIMIT = timedelta(hours=8)     # si el cron estuvo caído más de esto, se salta el hueco
@@ -68,10 +67,10 @@ async def open_rows(today: date) -> list[dict[str, Any]]:
                     "AND (application_deadline IS NULL OR application_deadline >= %s)", (today,))
 
 
-async def views_by_project() -> dict[Any, int]:
+async def views_by_project(days: int = 30) -> dict[Any, int]:
     try:
         rows = await _q("SELECT project_id, SUM(count)::int n FROM project_interactions "
-                        "WHERE kind='view' AND day >= current_date - 30 GROUP BY project_id")
+                        "WHERE kind='view' AND day >= current_date - %s GROUP BY project_id", (days,))
     except Exception:  # noqa: BLE001 - tabla opcional
         return {}
     return {r["project_id"]: r["n"] for r in rows}
@@ -89,7 +88,7 @@ async def plan_day(day: date, rng: random.Random | None = None) -> list[dict[str
         at = datetime.combine(day, time(variant["hour"], minute), tz())
         rows = await _q(
             "INSERT INTO ig_autopilot (kind, slot_date, planned_at, variant) VALUES (%s, %s, %s, %s::jsonb) "
-            "ON CONFLICT (kind, slot_date) DO NOTHING RETURNING *",
+            f"ON CONFLICT (kind, slot_date) WHERE {SLOT_PREDICATE} DO NOTHING RETURNING *",
             (kind, day, at, json.dumps(variant)),
         )
         planned += rows
@@ -117,11 +116,12 @@ def _photo(opp: dict[str, Any], size):
 
 
 async def _featured(today: date, hist: list[dict[str, Any]]) -> dict[str, Any] | None:
-    rows = [r for r in await open_rows(today) if r.get("type") in ("YOUTH_EXCHANGE", "TRAINING_COURSE")]
+    """La más vista de la semana que no haya salido en el feed en 60 días."""
     since = today - timedelta(days=60)
-    used = {h["project_id"] for h in hist if h.get("project_id") and h["slot_date"] >= since}
-    recent = [h["variant"].get("country") for h in reversed(hist) if h.get("variant", {}).get("country")][:3]
-    return C.pick_featured(rows, today, used, recent, await views_by_project())
+    used = {h["project_id"] for h in hist if h.get("project_id") and h["slot_date"] >= since
+            and h["kind"] in ("carousel_opp", "reel_opp") and h["status"] in ("published", "planned")}
+    return C.pick_most_viewed(await open_rows(today), today, used, await views_by_project(7),
+                              await views_by_project(30))
 
 
 def _cta(rng: random.Random) -> str:
@@ -157,6 +157,21 @@ async def build(row: dict[str, Any], today: date, rng: random.Random) -> dict[st
         )
         return {"type": "reel", "video": url, "cover_ms": round(cover_s * 1000), "caption": caption,
                 "project_id": opp["id"], "variant": variant}
+
+    if kind == "summary":
+        rows = await open_rows(today)
+        items = C.summary_items(rows, today, await views_by_project(7))
+        if len(items) < 3:
+            return None
+        new_count = (await _q("SELECT count(*)::int n FROM projects WHERE published_telegram "
+                              "AND created >= now() - interval '7 days'"))[0]["n"]
+        start = today - timedelta(days=6)
+        label = f"{start.day} {C.MES[start.month - 1]} – {today.day} {C.MES[today.month - 1]}"
+        slides = [D.summary_cover(new_count, len(rows), label, [i["country_code"] for i in items],
+                                  variant.get("bg", "ink")),
+                  D.lastcall_list(items, "2/2", heading="Las más vistas de la semana")]
+        return {"type": "carousel", "urls": [graph.save_image(s) for s in slides],
+                "caption": C.caption_summary(items, new_count, _cta(rng)), "variant": variant}
 
     if kind == "guide":
         used = [h["ref"] for h in hist if h["kind"] == "guide" and h.get("ref") and h["status"] == "published"]
@@ -287,6 +302,35 @@ async def send_report() -> None:
     target = cfg.instagram_alert_telegram_id or (cfg.admin_telegram_ids[0] if cfg.admin_telegram_ids else None)
     if target:
         await pub.send_chunked_dm(target, await report())
+
+
+async def reel_for_opportunity(opp: dict[str, Any]) -> str | None:
+    """Reel de una oportunidad recién publicada (solo pestaña de Reels). Prueba gancho y
+    música como variantes y queda registrado para medirlo."""
+    if not (opp.get("country_code") and days_or_none(opp)):
+        log.info("Sin Reel para %s: faltan fechas o país", opp.get("identifier"))
+        return None
+    rng = random.Random()
+    variant = learn.choose("reel_project", await history(), rng)
+    hook = C.hook(opp, variant["hook"])
+    dl = opp.get("application_deadline")
+    path, url = graph.video_path(hashlib.md5(f"p-{opp['id']}".encode()).hexdigest()[:16])
+    photo = await asyncio.to_thread(_photo, opp, D.STORY)
+    cover_s = await asyncio.to_thread(
+        video.reel_opportunity, photo, hook, C.stats(opp), C.summary(opp)[:160],
+        C.short_date(dl) if dl else "Abierta", path, variant["music"], rng.randint(0, 10**6),
+    )
+    media_id, permalink = await graph.publish_reel(url, C.caption_opportunity(opp, hook, _cta(rng)),
+                                                   round(cover_s * 1000), share_to_feed=False)
+    now = datetime.now(tz())
+    await _q("INSERT INTO ig_autopilot (kind, slot_date, planned_at, project_id, variant, status, media_id, "
+             "permalink, published_at) VALUES ('reel_project', %s, %s, %s, %s::jsonb, 'published', %s, %s, %s)",
+             (now.date(), now, opp["id"], json.dumps(variant), media_id, permalink, now), fetch=False)
+    return media_id
+
+
+def days_or_none(opp: dict[str, Any]) -> int | None:
+    return C.days(opp)
 
 
 async def story_for_opportunity(opp: dict[str, Any]) -> str:

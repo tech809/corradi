@@ -24,6 +24,10 @@ DIMENSIONS: dict[str, dict[str, list[Any]]] = {
     "reel_opp": {"hook": ["afirmacion", "pregunta"], "hour": [13, 19, 21],
                  "music": ["house", "lofi", "afro", "dembow", "synthpop", "indie"]},
     "guide": {"bg": ["sage", "clay", "ink", "paper"], "hour": [12, 19, 21]},
+    "summary": {"bg": ["clay", "ink", "sage"], "hour": [11, 13, 19]},
+    # Reel de cada oportunidad nueva (sale al publicarse, solo en la pestaña de Reels)
+    "reel_project": {"hook": ["afirmacion", "pregunta"],
+                     "music": ["house", "lofi", "afro", "dembow", "synthpop", "indie"]},
     "lastcall": {"bg": ["clay", "ink"], "hour": [12, 18]},
     "reel_lastcall": {"bg": ["clay", "ink"], "hour": [19, 21],
                       "music": ["house", "afro", "dembow", "synthpop", "indie"]},

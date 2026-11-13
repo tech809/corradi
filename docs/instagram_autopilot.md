@@ -4,20 +4,24 @@ Desde el 13 de noviembre de 2026 la cuenta @corradierasmus funciona sola. Nadie 
 
 ## Qué publica
 
-| Día | Pieza | Formato |
-|---|---|---|
-| Lunes y jueves | Oportunidad destacada | Carrusel de 3: gancho → de qué va → plazo y pasos |
-| Martes y sábado | Oportunidad destacada | Reel de 10 s con música generada |
-| Miércoles y domingo | Guía para guardar | Carrusel de 3 (rota entre las de `content.GUIDES`) |
-| Viernes | Última llamada | Carrusel + Reel con las YE/TC que cierran en 7 días |
-| Cada oportunidad nueva | Story | La lanza `pipeline` al publicar en Telegram |
+**Cada oportunidad que se publica en el canal** sale al momento en Instagram como **story** y como **Reel**. El Reel va solo a la pestaña de Reels, no a la cuadrícula. Los lanza `pipeline` (`autopilot.story_for_opportunity` y `autopilot.reel_for_opportunity`).
 
-Desde esta versión ya no hay post de feed ni Reel por cada oportunidad. Para volver al modo antiguo, pon `IG_FEED_PER_OPPORTUNITY=1` en `.env`.
+**Feed: una pieza al día** (decidido con el usuario el 13-nov-2026):
+
+| Día | Pieza |
+|---|---|
+| Lunes a jueves y sábado | Carrusel de la **oportunidad más vista de la semana** que no haya salido en el feed en 60 días; si no hay vistas, la mejor valorada (`content.pick_most_viewed`) |
+| Viernes | Última llamada: carrusel + Reel con las YE/TC que cierran en 7 días |
+| Domingo | Carrusel «La semana en Corradi»: nuevas, abiertas y las 5 más vistas |
+
+**Las guías** (`content.GUIDES`) quedaron fuera del calendario porque el usuario no quiere repetir lo mismo cada semana. El código sigue ahí por si se usan de forma puntual.
+
+Para volver al modo antiguo (post de feed + story + Reel por oportunidad con el diseño viejo), pon `IG_FEED_PER_OPPORTUNITY=1`.
 
 ## Reglas que no hay que romper (no hay revisión humana)
 
 - **En las imágenes solo van datos estructurados:** tipo, país, ciudad, fechas, duración calculada de las fechas, plazo, plazas y edades. Nada sacado de texto libre de la IA en portadas, como «todo cubierto».
-- **Destacadas:** solo YE/TC abiertas, con plazo a 7 días o más, que admiten residentes en España y con fechas. No se repite oportunidad en 60 días y se evita repetir país.
+- **Destacadas:** abiertas, con plazo a 3 días o más, que admiten residentes en España y con fechas. No se repite oportunidad en el feed en 60 días.
 - **Las guías usan solo datos estables del programa** escritos en `content.GUIDES`. No añadas cifras sin comprobarlas en la Guía del Programa.
 - **Música:** generada por código en `music.py`, en 6 estilos (house, lofi, afro, dembow, synthpop, indie). No se descarga nada, así que no hay problemas de derechos.
 - **No hacer:** anuncios de pago, seguir o dejar de seguir en masa, mensajes directos, ni prometer nada que no esté en la ficha.

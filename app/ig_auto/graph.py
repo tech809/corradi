@@ -76,10 +76,11 @@ async def publish_carousel(image_urls: list[str], caption: str) -> tuple[str, st
     return await _publish(parent["id"])
 
 
-async def publish_reel(video_url: str, caption: str, cover_ms: int) -> tuple[str, str | None]:
+async def publish_reel(video_url: str, caption: str, cover_ms: int,
+                      share_to_feed: bool = True) -> tuple[str, str | None]:
     container = await ig._post(f"{cfg.instagram_business_id}/media", {
         "media_type": "REELS", "video_url": video_url, "caption": caption,
-        "share_to_feed": "true", "thumb_offset": str(cover_ms),
+        "share_to_feed": "true" if share_to_feed else "false", "thumb_offset": str(cover_ms),
     })
     return await _publish(container["id"])
 

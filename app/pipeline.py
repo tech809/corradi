@@ -194,7 +194,11 @@ async def _publish_reel_background(opp: dict[str, Any]) -> None:
     comentario donde se lanza esta tarea. Un fallo aquí no tiene ningún efecto en el resto
     del pipeline (Telegram y el feed/story de Instagram ya se publicaron)."""
     try:
-        await instagram.publish_reel(opp)
+        if instagram.feed_per_opportunity():
+            await instagram.publish_reel(opp)
+        else:
+            from app.ig_auto import autopilot
+            await autopilot.reel_for_opportunity(opp)
     except instagram.InstagramTokenExpired:
         from app import instagram_auth
 
@@ -246,8 +250,7 @@ async def _publish_instagram_now(opp: dict[str, Any]) -> None:
     try:
         ig_media_id, ig_story_id = await instagram.publish_opportunity(opp)
         await repo.mark_instagram_published(queue_id, ig_media_id, ig_story_id)
-        if instagram.feed_per_opportunity():
-            await _publish_reel_background(opp)
+        await _publish_reel_background(opp)
     except instagram.InstagramTokenExpired:
         from app import instagram_auth
 
