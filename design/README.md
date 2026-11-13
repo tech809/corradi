@@ -44,6 +44,7 @@ Los SVG con texto usan estas fuentes del sistema. Si se abren en un equipo sin G
 | Canal de Telegram, foto | `png/telegram-channel-640.png` | |
 | Canal de WhatsApp, foto | `png/whatsapp-channel-640.png` | |
 | Bot de Telegram, foto (BotFather → `/setuserpic`) | `png/telegram-bot-640.png` | Versión distinta: fondo tinta y burbuja de chat, para que se reconozca que es el bot |
+| Bot de difusión a WhatsApp (@corradi_erasmus_whatsapp_bot), foto (BotFather → `/setuserpic`) | `png/telegram-relay-bot-640.png` | Fondo salvia y dos hojas superpuestas: es el bot que manda los textos para copiar y pegar en WhatsApp |
 | Bot de Telegram, imagen de descripción (BotFather → `/setdescriptionpic`, si tu versión de BotFather lo ofrece) | `png/telegram-bot-description-640x360.png` | Se ve antes de pulsar «Iniciar» |
 | Firma de email, presentaciones, documentos | `png/corradi-logo-horizontal@2x.png` (fondo claro) o `png/corradi-logo-horizontal-white@2x.png` (fondo oscuro) | Fondo transparente |
 | Cartelería, redes en formato vertical | `png/corradi-logo-stacked.png` | |

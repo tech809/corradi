@@ -105,6 +105,24 @@ def bot_avatar(size=640):
     return svg(size, size, body + bubble, bg=INK)
 
 
+def relay_avatar(size=640):
+    """Bot de difusión (@corradi_erasmus_whatsapp_bot): manda los textos listos para copiar y
+    pegar en WhatsApp. Fondo salvia (ni arcilla del canal ni tinta del bot), símbolo tinta y
+    dos hojas arcilla superpuestas, el gesto de «copiar»."""
+    s = size * 0.50 / 200
+    body = mark(INK, scale=s, tx=size * 0.145, ty=size * 0.22)
+    w = size * 0.2
+    h, r, off, sw = w * 1.18, w * 0.16, w * 0.28, w * 0.11
+    x, y = size * 0.525, size * 0.49
+    back = f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{SAGE}" stroke="{CLAY}" stroke-width="{sw}"/>'
+    fx, fy = x + off, y + off
+    front = f'<rect x="{fx}" y="{fy}" width="{w}" height="{h}" rx="{r}" fill="{CLAY}" stroke="{SAGE}" stroke-width="{sw}"/>'
+    lines = "".join(
+        f'<rect x="{fx + w * .2}" y="{fy + h * (.28 + i * .2)}" width="{w * (.6 if i < 2 else .38)}" '
+        f'height="{w * .09}" rx="{w * .045}" fill="{WHITE}"/>' for i in range(3))
+    return svg(size, size, body + back + front + lines, bg=SAGE)
+
+
 def bot_banner(w=640, h=360):
     """Imagen de descripción del bot (Telegram la muestra antes de pulsar «Iniciar»)."""
     dsc = disc(150, 180, 92)
@@ -148,6 +166,7 @@ def build_catalog():
     add("whatsapp-channel-640", full_bleed(640, CLAY, WHITE, pad=0.52), 640, 640)
     add("telegram-bot-640", bot_avatar(640), 640, 640)
     add("telegram-bot-description-640x360", bot_banner(), 640, 360)
+    add("telegram-relay-bot-640", relay_avatar(640), 640, 640)
     add("og-share-1200x630", og_image(), 1200, 630)
     # Web
     add("favicon", circle_icon(64, CLAY, WHITE, pad=0.62), 64, 64)
