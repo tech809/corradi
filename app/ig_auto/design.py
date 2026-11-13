@@ -356,12 +356,12 @@ def guide_cards(heading: str, cards: list[tuple[str, str]], footnote: str, page:
     d = ImageDraw.Draw(img)
     d.text((62, 180), heading, font=man(32), fill=CLAY)
     y = 250
-    card_h = 230 if len(cards) <= 3 else 180
+    card_h = 230 if len(cards) <= 3 else 205
     for title, sub in cards[:4]:
         d.rounded_rectangle([62, y, FEED[0] - 62, y + card_h], radius=28, fill=WHITE, outline=RULE, width=2)
         d.text((104, y + 40), title, font=sora(46, "Bold"), fill=INK)
         sf = man(29, "Medium")
-        for n, ln in enumerate(wrap(d, sub, sf, FEED[0] - 210)[:2 if card_h > 200 else 1]):
+        for n, ln in enumerate(wrap(d, sub, sf, FEED[0] - 210)[:2]):
             d.text((104, y + 112 + n * 42), ln, font=sf, fill="#3d4a3f")
         y += card_h + 26
     if footnote:
