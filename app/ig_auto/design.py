@@ -226,7 +226,14 @@ def details(opp: dict[str, Any], stats: list[tuple[str, str]], summary: str) -> 
         y += round(tf.size * 1.14)
     y += 18
     body = man(31, "Medium")
-    for ln in wrap(d, summary, body, FEED[0] - 124)[:5]:
+    lines = wrap(d, summary, body, FEED[0] - 124)
+    if len(lines) > 5:
+        lines = lines[:5]
+        last = lines[-1]
+        while d.textlength(last + "…", font=body) > FEED[0] - 124 and " " in last:
+            last = last.rsplit(" ", 1)[0]
+        lines[-1] = last.rstrip(" ,.;:") + "…"
+    for ln in lines:
         d.text((62, y), ln, font=body, fill="#3d4a3f")
         y += 45
     y = max(y + 36, 760)
