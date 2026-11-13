@@ -541,7 +541,7 @@ async def mark_published(project_id, message_id: int | None = None) -> None:
 
 # ── Contadores de la web (visitas + publicadas) ──────────────────────────────
 async def bump_visit() -> dict[str, int]:
-    """Suma 1 a las visitas (contador acumulado + desglose del día de hoy) y devuelve las
+    """Suma 1 a las visitas (contador acumulado + desglose diario y horario) y devuelve las
     visitas y el total histórico de publicadas."""
     async with get_pool().connection() as conn:
         cur = await conn.execute(
@@ -552,6 +552,10 @@ async def bump_visit() -> dict[str, int]:
         await conn.execute(
             "INSERT INTO daily_visits (day, count) VALUES (current_date, 1) "
             "ON CONFLICT (day) DO UPDATE SET count = daily_visits.count + 1"
+        )
+        await conn.execute(
+            "INSERT INTO hourly_visits (hour, count) VALUES (date_trunc('hour', now()), 1) "
+            "ON CONFLICT (hour) DO UPDATE SET count = hourly_visits.count + 1"
         )
         cur = await conn.execute("SELECT value FROM counters WHERE key = 'published'")
         row = await cur.fetchone()
@@ -918,22 +922,20 @@ async def country_breakdown_all(limit: int = 10) -> list[dict[str, Any]]:
             return await cur.fetchall()
 
 
-async def monthly_counts(months: int = 12) -> list[dict[str, Any]]:
-    """Oportunidades publicadas por mes, últimos `months` meses (incluido el actual) —
-    alimenta las barras de la línea de tiempo. `generate_series` rellena los meses sin
-    ninguna publicación con 0 en vez de saltárselos (una barra a cero también es dato)."""
+async def monthly_counts() -> list[dict[str, Any]]:
+    """Todos los meses desde la primera publicación, incluidos los meses a cero."""
     async with get_pool().connection() as conn:
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
                 "SELECT to_char(month, 'YYYY-MM') AS month, coalesce(n, 0) AS n FROM "
-                "generate_series(date_trunc('month', now()) - (%s || ' months')::interval, "
+                "generate_series(coalesce((SELECT date_trunc('month', min(created)) FROM projects "
+                "WHERE published_telegram = TRUE), date_trunc('month', now())), "
                 "date_trunc('month', now()), '1 month') AS month "
                 "LEFT JOIN ("
                 "  SELECT date_trunc('month', created) AS month, count(*) AS n FROM projects "
                 "  WHERE published_telegram = TRUE GROUP BY 1"
                 ") p USING (month) "
                 "ORDER BY month",
-                (months - 1,),
             )
             return await cur.fetchall()
 
@@ -987,6 +989,19 @@ async def daily_visits_since(days: int = 400) -> list[dict[str, Any]]:
                 "LEFT JOIN daily_visits v ON v.day = d.day::date "
                 "ORDER BY d.day",
                 (days - 1,),
+            )
+            return await cur.fetchall()
+
+
+async def hourly_visits_last_24h() -> list[dict[str, Any]]:
+    """24 horas de calendario hasta la actual, con huecos rellenados a cero."""
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT h.hour, coalesce(v.count, 0) AS n FROM "
+                "generate_series(date_trunc('hour', now()) - interval '23 hours', "
+                "date_trunc('hour', now()), interval '1 hour') AS h(hour) "
+                "LEFT JOIN hourly_visits v ON v.hour = h.hour ORDER BY h.hour"
             )
             return await cur.fetchall()
 

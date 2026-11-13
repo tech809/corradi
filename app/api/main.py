@@ -910,11 +910,27 @@ async def api_stats(response: Response) -> dict[str, Any]:
     return data
 
 
+_HOURLY_STATS_TTL_S = 60
+_hourly_stats_cache: tuple[float, list[dict[str, Any]]] | None = None
+
+
+@app.get("/api/stats/visits-hourly")
+async def api_stats_visits_hourly(response: Response) -> dict[str, Any]:
+    """Visitas agregadas por hora. Se actualiza como máximo una vez por minuto."""
+    global _hourly_stats_cache
+    response.headers["Cache-Control"] = "public, max-age=60"
+    now = time.monotonic()
+    if _hourly_stats_cache is None or now - _hourly_stats_cache[0] >= _HOURLY_STATS_TTL_S:
+        rows = await repo.hourly_visits_last_24h()
+        _hourly_stats_cache = (now, [{"hour": row["hour"].isoformat(), "n": row["n"]} for row in rows])
+    return {"hours": _hourly_stats_cache[1]}
+
+
 async def _build_stats() -> dict[str, Any]:
     total = await repo.count_total_published()
     open_n = await repo.count_open()
     countries = await repo.country_breakdown_all(limit=40)
-    months = await repo.monthly_counts(months=12)
+    months = await repo.monthly_counts()
     organisers = await repo.organiser_breakdown(limit=200)
     visits = await repo.daily_visits_since(days=400)
     total_visits = await repo.get_total_visits()

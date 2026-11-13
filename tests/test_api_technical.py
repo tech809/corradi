@@ -98,6 +98,25 @@ def test_api_stats_drops_closed_and_is_cached(client, monkeypatch):
     assert calls["n"] == 1  # la segunda sale de la caché en proceso
 
 
+def test_hourly_visits_endpoint_returns_aggregate_and_uses_short_cache(client, monkeypatch):
+    from datetime import datetime, timezone
+
+    calls = {"n": 0}
+
+    async def hourly():
+        calls["n"] += 1
+        return [{"hour": datetime(2026, 11, 13, 10, tzinfo=timezone.utc), "n": 4}]
+
+    monkeypatch.setattr(main, "_hourly_stats_cache", None)
+    monkeypatch.setattr(repo, "hourly_visits_last_24h", hourly)
+    first = client.get("/api/stats/visits-hourly")
+    second = client.get("/api/stats/visits-hourly")
+    assert first.status_code == 200
+    assert first.headers["cache-control"] == "public, max-age=60"
+    assert first.json() == {"hours": [{"hour": "2026-11-13T10:00:00+00:00", "n": 4}]}
+    assert second.json() == first.json() and calls["n"] == 1
+
+
 def test_project_page_404_for_missing_and_200_for_closed(client, monkeypatch):
     rows = {"CORRADI-2025-0001": _row("CORRADI-2025-0001", status="closed",
                                       application_deadline=date(2025, 1, 1))}
