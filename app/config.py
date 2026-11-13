@@ -141,6 +141,21 @@ class Config:
     # sirve tal cual por GET /ig/{id}/reel.mp4) — volumen `media_data` en docker-compose.
     media_dir: str = os.getenv("MEDIA_DIR", "/data/media")
 
+    # Caché en disco de la tarjeta de GET /share/{id}/story.png (app/api/share_cache.py).
+    # Por defecto dentro del volumen `media_data`, así sobrevive a reinicios del contenedor.
+    # Si la carpeta no se puede crear, la ruta sigue funcionando sin caché en disco.
+    share_cache_dir: str = os.getenv("SHARE_CACHE_DIR", "").strip() or os.path.join(
+        os.getenv("MEDIA_DIR", "/data/media"), "cache", "share",
+    )
+    share_cache_max_files: int = int(os.getenv("SHARE_CACHE_MAX_FILES", "500"))
+    share_cache_max_mb: int = int(os.getenv("SHARE_CACHE_MAX_MB", "150"))
+    # Una entrada más vieja que esto se vuelve a renderizar aunque la clave coincida: acota
+    # lo que la clave no ve (la foto remota cambió o falló su descarga y se usó la de reserva).
+    share_cache_ttl_hours: int = int(os.getenv("SHARE_CACHE_TTL_HOURS", "24"))
+    # "jpeg" (por defecto, ~230 KB) o "png" (~1-1,3 MB, el formato de antes).
+    share_image_format: str = os.getenv("SHARE_IMAGE_FORMAT", "jpeg").strip().lower()
+    share_jpeg_quality: int = int(os.getenv("SHARE_JPEG_QUALITY", "85"))
+
     # Tope de fichas que van a la franja de mediodía (12-13h, hora aleatoria dentro de ella)
     # por pasada del escaneo diario de SALTO — a partir de aquí, lo que siga pasando el
     # filtro se reserva para la franja de la tarde (17-18h) en vez de la de mediodía (ver
@@ -160,6 +175,22 @@ class Config:
     world_submission_bot_token: str = os.getenv("WORLD_SUBMISSION_BOT_TOKEN", "")
     world_telegram_channel_id: str = os.getenv("WORLD_TELEGRAM_CHANNEL_ID", "")
     world_telegram_channel_username: str = os.getenv("WORLD_TELEGRAM_CHANNEL_USERNAME", "")
+
+    # App móvil (Expo, iOS + Android, bundle/paquete eu.proactivefuture.corradi).
+    # Token de acceso de Expo: solo hace falta si se activa "enhanced push security" en el
+    # panel de Expo. Vacío = se llama a la Push API sin cabecera Authorization.
+    expo_access_token: str = os.getenv("EXPO_ACCESS_TOKEN", "")
+    # Enlaces universales (iOS) y App Links (Android). Vacíos = los ficheros de
+    # /.well-known/ dan 404, como si no existieran.
+    apple_team_id: str = os.getenv("APPLE_TEAM_ID", "").strip()
+    android_cert_sha256: list[str] = field(default_factory=lambda: [
+        x.strip().upper() for x in os.getenv("ANDROID_CERT_SHA256", "").split(",") if x.strip()
+    ])
+    # Banner «Descarga la app» de la web. Vacíos = no se pinta nada (hasta publicar las apps).
+    app_store_url: str = os.getenv("APP_STORE_URL", "").strip()
+    play_store_url: str = os.getenv("PLAY_STORE_URL", "").strip()
+    # ID numérico de la App Store: emite <meta name="apple-itunes-app"> (Smart App Banner de Safari).
+    app_store_id: str = os.getenv("APP_STORE_ID", "").strip()
 
 
 cfg = Config()

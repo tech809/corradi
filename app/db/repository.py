@@ -1236,3 +1236,105 @@ async def mark_instagram_failed(queue_id: int, error: str) -> None:
             "last_error = %s, updated = now() WHERE id = %s",
             (error[:2000], queue_id),
         )
+
+
+# ── Notificaciones push de la app móvil (0024_push_devices.sql) ──────────────
+# Sin cuentas: solo token anónimo de Expo + plataforma + tipos + marcas de tiempo.
+
+async def upsert_push_device(token: str, platform: str, types: list[str], daily_digest: bool) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "INSERT INTO push_devices (token, platform, types, daily_digest) VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (token) DO UPDATE SET platform = EXCLUDED.platform, types = EXCLUDED.types, "
+            "daily_digest = EXCLUDED.daily_digest, last_seen_at = now()",
+            (token, platform, types, daily_digest),
+        )
+
+
+async def delete_push_devices(tokens: list[str]) -> int:
+    if not tokens:
+        return 0
+    async with get_pool().connection() as conn:
+        cur = await conn.execute("DELETE FROM push_devices WHERE token = ANY(%s)", (list(tokens),))
+        return cur.rowcount
+
+
+async def list_push_digest_devices() -> list[dict[str, Any]]:
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT token, platform, types FROM push_devices WHERE daily_digest = TRUE ORDER BY created_at"
+            )
+            return await cur.fetchall()
+
+
+async def last_push_digest_at() -> datetime | None:
+    async with get_pool().connection() as conn:
+        cur = await conn.execute("SELECT max(sent_at) FROM push_digest_runs")
+        return (await cur.fetchone())[0]
+
+
+async def record_push_digest_run(sent_at: datetime, project_count: int, device_count: int) -> None:
+    async with get_pool().connection() as conn:
+        await conn.execute(
+            "INSERT INTO push_digest_runs (sent_at, project_count, device_count) VALUES (%s, %s, %s)",
+            (sent_at, project_count, device_count),
+        )
+
+
+async def delete_push_devices_not_seen_since(pairs: list[tuple[str, datetime]]) -> int:
+    """Borra tokens (token, enviado_en) que Expo dio por DeviceNotRegistered en un recibo,
+    salvo los que la app ha vuelto a registrar después de ese envío (last_seen_at posterior):
+    el recibo llega tarde y no debe tumbar un alta nueva del mismo token."""
+    if not pairs:
+        return 0
+    tokens = [t for t, _ in pairs]
+    sent = [s for _, s in pairs]
+    async with get_pool().connection() as conn:
+        cur = await conn.execute(
+            "DELETE FROM push_devices d USING unnest(%s::text[], %s::timestamptz[]) AS t(token, sent_at) "
+            "WHERE d.token = t.token AND d.last_seen_at <= t.sent_at",
+            (tokens, sent),
+        )
+        return cur.rowcount
+
+
+# ── Tickets push pendientes de recibo (0027_push_tickets.sql) ─────────────────
+
+async def save_push_tickets(tickets: list[tuple[str, str]], created_at: datetime) -> None:
+    """Apunta (ticket_id, token) de cada mensaje que Expo aceptó, para consultar su recibo."""
+    if not tickets:
+        return
+    async with get_pool().connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.executemany(
+                "INSERT INTO push_tickets (ticket_id, token, created_at) VALUES (%s, %s, %s) "
+                "ON CONFLICT (ticket_id) DO NOTHING",
+                [(ticket_id, token, created_at) for ticket_id, token in tickets],
+            )
+
+
+async def list_push_tickets_before(before: datetime) -> list[dict[str, Any]]:
+    async with get_pool().connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "SELECT ticket_id, token, created_at FROM push_tickets WHERE created_at <= %s "
+                "ORDER BY created_at",
+                (before,),
+            )
+            return await cur.fetchall()
+
+
+async def delete_push_tickets(ticket_ids: list[str]) -> int:
+    if not ticket_ids:
+        return 0
+    async with get_pool().connection() as conn:
+        cur = await conn.execute("DELETE FROM push_tickets WHERE ticket_id = ANY(%s)", (list(ticket_ids),))
+        return cur.rowcount
+
+
+async def purge_push_tickets(before: datetime) -> int:
+    """Tickets sin recibo pasado el plazo (Expo borra los recibos a las 24 h): ya no sirven."""
+    async with get_pool().connection() as conn:
+        cur = await conn.execute("DELETE FROM push_tickets WHERE created_at < %s", (before,))
+        return cur.rowcount

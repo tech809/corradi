@@ -160,3 +160,47 @@ def test_mapa_trailing_slash_redirects(client):
     response = client.get("/mapa/?o=CORRADI-2026-0001", follow_redirects=False)
     assert response.status_code == 301
     assert response.headers["location"] == "/mapa?o=CORRADI-2026-0001"
+
+
+def test_api_map_etag_and_304(client, monkeypatch):
+    rows = [_row()]
+
+    async def list_open():
+        return rows
+    monkeypatch.setattr(repo, "list_open", list_open)
+    first = client.get("/api/map")
+    assert first.status_code == 200
+    assert first.headers["cache-control"] == "public, max-age=60"
+    etag = first.headers["etag"]
+    assert etag.startswith('"') and not etag.startswith("W/")
+    # Misma respuesta -> mismo ETag; con If-None-Match, 304 sin cuerpo.
+    assert client.get("/api/map").headers["etag"] == etag
+    not_modified = client.get("/api/map", headers={"If-None-Match": etag})
+    assert not_modified.status_code == 304
+    assert not_modified.content == b""
+    assert not_modified.headers["etag"] == etag
+    assert not_modified.headers["cache-control"] == "public, max-age=60"
+    # Cualquier campo serializado que cambie cambia el ETag.
+    rows[0] = _row(summary="Otro resumen")
+    changed = client.get("/api/map", headers={"If-None-Match": etag})
+    assert changed.status_code == 200 and changed.headers["etag"] != etag
+
+
+@pytest.mark.parametrize("variant", [
+    "{e}", "W/{e}", "{e_gzip}", "W/{e_gzip}", "{e_zstd}", '"otro", {e_gzip}', "*",
+])
+def test_api_map_accepts_caddy_encoded_etags(client, monkeypatch, variant):
+    async def list_open():
+        return [_row()]
+    monkeypatch.setattr(repo, "list_open", list_open)
+    etag = client.get("/api/map").headers["etag"]
+    header = variant.format(e=etag, e_gzip=etag[:-1] + '-gzip"', e_zstd=etag[:-1] + '-zstd"')
+    assert client.get("/api/map", headers={"If-None-Match": header}).status_code == 304
+
+
+def test_api_map_etag_mismatch_returns_body(client, monkeypatch):
+    async def list_open():
+        return [_row()]
+    monkeypatch.setattr(repo, "list_open", list_open)
+    r = client.get("/api/map", headers={"If-None-Match": '"distinto-gzip"'})
+    assert r.status_code == 200 and r.json()["count"] == 1

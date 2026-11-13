@@ -7,6 +7,7 @@ una columna a `projects`, no se filtra sola. Los datos de quien envía la oportu
 """
 from __future__ import annotations
 
+import asyncio
 import csv
 import hashlib
 import html
@@ -18,20 +19,25 @@ from contextlib import asynccontextmanager
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import (
+    FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse,
+)
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app import geo
 from app import pipeline
 from app.domain.project import clean_contact, is_last_minute
 from app.eligibility import parse_eligibility_label
+from app.api import app_banner
 from app.api import auth
 from app.api import landing
+from app.api import share_cache
 from app.config import cfg
 from app.db import repository as repo
 from app.db import world_repository as world_repo
@@ -206,11 +212,33 @@ def _file_etag(path: Path) -> str:
 @app.get("/", include_in_schema=False)
 async def discover(request: Request) -> Response:
     path = _STATIC / "discover.html"
+    if _app_banner_enabled():
+        # Con banner de la app la página ya no es el fichero tal cual: ETag del contenido.
+        return _html_with_etag(request, _with_app_banner(path.read_text(encoding="utf-8")))
     etag = _file_etag(path)
     headers = {"Cache-Control": "no-cache", "ETag": etag}
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
     return FileResponse(path, media_type="text/html", headers=headers)
+
+
+def _app_banner_enabled() -> bool:
+    return app_banner.is_enabled(cfg.app_store_url, cfg.play_store_url, cfg.app_store_id)
+
+
+def _with_app_banner(content: str) -> str:
+    """Banner «Descarga la app» + meta apple-itunes-app (solo si hay variables, ver app_banner)."""
+    if not _app_banner_enabled():
+        return content
+    return app_banner.inject(content, cfg.app_store_url, cfg.play_store_url, cfg.app_store_id)
+
+
+def _html_with_etag(request: Request, content: str) -> Response:
+    etag = '"' + hashlib.md5(content.encode()).hexdigest() + '"'
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return HTMLResponse(content, headers=headers)
 
 
 @app.get("/organizaciones", include_in_schema=False)
@@ -406,11 +434,7 @@ async def project_page(identifier: str, request: Request) -> Response:
     content = _project_page_html(template, row, f"{origin}/proyecto/{identifier}", origin)
     if row is None:
         return HTMLResponse(content, status_code=404, headers={"Cache-Control": "no-cache"})
-    etag = '"' + hashlib.md5(content.encode()).hexdigest() + '"'
-    headers = {"Cache-Control": "no-cache", "ETag": etag}
-    if request.headers.get("if-none-match") == etag:
-        return Response(status_code=304, headers=headers)
-    return HTMLResponse(content, headers=headers)
+    return _html_with_etag(request, _with_app_banner(content))
 
 
 @app.get("/oportunidades/{country_slug}", include_in_schema=False)
@@ -451,8 +475,31 @@ async def opportunity_media(filename: str) -> FileResponse:
     )
 
 
+# Sufijos que el `encode` de Caddy añade a un ETag fuerte al comprimir ("abc" -> "abc-gzip").
+# Caddy los quita del If-None-Match solo si la petición usa la MISMA codificación; si el
+# cliente cambia de Accept-Encoding (o guarda el ETag del 304, que Caddy no toca) llegaría
+# con o sin sufijo, así que aquí se aceptan ambas variantes.
+_ENCODING_ETAG_SUFFIXES = ("-gzip", "-zstd", "-br")
+
+
+def _bare_etag(tag: str) -> str:
+    tag = tag.strip().removeprefix("W/")
+    for suffix in _ENCODING_ETAG_SUFFIXES:
+        if tag.endswith(suffix + '"'):
+            return tag[: -len(suffix) - 1] + '"'
+    return tag
+
+
+def _etag_matches(if_none_match: str | None, etag: str) -> bool:
+    """If-None-Match con comparación débil (RFC 9110 §13.1.2): varias etiquetas, W/, "*" y
+    los sufijos de codificación de Caddy."""
+    if not if_none_match:
+        return False
+    return any(t.strip() == "*" or _bare_etag(t) == etag for t in if_none_match.split(","))
+
+
 @app.get("/api/map")
-async def map_data(response: Response) -> dict[str, Any]:
+async def map_data(request: Request) -> Response:
     """Datos del mapa: TODAS las oportunidades abiertas, tengan coordenadas o no.
 
     Antes se filtraban las que no tenían lat/lon y desaparecían sin dejar rastro. Ahora
@@ -462,19 +509,26 @@ async def map_data(response: Response) -> dict[str, Any]:
     # 60s de caché: absorbe un pico de tráfico (si el canal manda 3.000 personas de golpe,
     # la BD recibe ~1 consulta por minuto en vez de 3.000) y una oportunidad nueva tarda
     # como mucho un minuto en aparecer, que para este caso de uso es instantáneo.
-    response.headers["Cache-Control"] = "public, max-age=60"
-
     rows = await repo.list_open()
     results = [_serialize_map(r) for r in rows]
     located = sum(1 for r in results if r["latitude"] is not None and r["longitude"] is not None)
-    return {
+    response = JSONResponse(jsonable_encoder({
         "count": len(results),
         "located": located,
         "unlocated": len(results) - located,
         "generated": datetime.now().date().isoformat(),
         "channel": cfg.telegram_channel_username or None,
         "results": results,
-    }
+    }))
+    # ETag fuerte = hash del JSON tal cual sale: cambia con cualquier campo serializado, sin
+    # tener que mantener una firma aparte. Hashear ~1 MB cuesta milisegundos. La app manda
+    # If-None-Match y, si nada cambió, recibe un 304 sin cuerpo en vez del megabyte entero.
+    etag = '"' + hashlib.sha256(response.body).hexdigest()[:32] + '"'
+    headers = {"Cache-Control": "public, max-age=60", "ETag": etag}
+    if _etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=headers)
+    response.headers.update(headers)
+    return response
 
 
 @app.post("/api/visit")
@@ -543,15 +597,20 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _chat_rate_limited(ip: str) -> bool:
+def _window_limited(store: dict[str, list[float]], ip: str, per_hour: int, per_day: int) -> bool:
+    """Ventana deslizante por IP en memoria (hora + día). Compartida por el chat y el push."""
     now = time.monotonic()
-    hits = [t for t in _chat_hits.get(ip, ()) if now - t < _CHAT_WINDOW_DAY]
+    hits = [t for t in store.get(ip, ()) if now - t < _CHAT_WINDOW_DAY]
     hour_hits = [t for t in hits if now - t < _CHAT_WINDOW_HOUR]
-    limited = len(hour_hits) >= cfg.chat_rate_limit_per_hour or len(hits) >= cfg.chat_rate_limit_per_day
+    limited = len(hour_hits) >= per_hour or len(hits) >= per_day
     if not limited:
         hits.append(now)
-    _chat_hits[ip] = hits
+    store[ip] = hits
     return limited
+
+
+def _chat_rate_limited(ip: str) -> bool:
+    return _window_limited(_chat_hits, ip, cfg.chat_rate_limit_per_hour, cfg.chat_rate_limit_per_day)
 
 
 class ChatRequest(BaseModel):
@@ -961,21 +1020,44 @@ async def instagram_story_image(identifier: str) -> Response:
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 
+_share_cache = share_cache.ShareImageCache(
+    cfg.share_cache_dir, cfg.share_cache_max_files, cfg.share_cache_max_mb, cfg.share_cache_ttl_hours,
+)
+
+
 @app.get("/share/{identifier}/story.png", include_in_schema=False)
-async def share_story_image(identifier: str) -> Response:
-    """Tarjeta vertical para compartir una oportunidad desde la web o el mapa."""
+async def share_story_image(identifier: str, request: Request) -> Response:
+    """Tarjeta vertical para compartir una oportunidad desde la web, el mapa o la app.
+
+    Cacheada en disco (app/api/share_cache.py) y con ETag = clave de caché: renderizarla
+    son segundos. Se sirve como JPEG por defecto (SHARE_IMAGE_FORMAT) aunque la ruta acabe
+    en .png — es casi toda foto; el Content-Type siempre es el de los bytes servidos."""
     row = await repo.get_by_identifier(identifier)
     if not row:
         raise HTTPException(status_code=404, detail="Oportunidad no encontrada")
-    png = instagram_card.render_share(row, instagram.days_left_label(row))
-    return Response(
-        content=png,
-        media_type="image/png",
-        headers={
-            "Cache-Control": "public, max-age=3600",
-            "Content-Disposition": f'inline; filename="corradi-{identifier}.png"',
-        },
-    )
+    fmt = "png" if cfg.share_image_format == "png" else "jpeg"
+    label = instagram.days_left_label(row)
+    key = share_cache.cache_key(row, label, fmt, cfg.share_jpeg_quality)
+    etag = share_cache.etag_for(key)
+    ext = "png" if fmt == "png" else "jpg"
+    headers = {
+        "Cache-Control": "public, max-age=3600",
+        "ETag": etag,
+        "Content-Disposition": f'inline; filename="corradi-{identifier}.{ext}"',
+    }
+    if share_cache.etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=headers)
+
+    async def render() -> bytes:
+        # En un hilo: _compose descarga la foto con httpx síncrono y Pillow tarda segundos;
+        # en el bucle de eventos bloquearía todas las demás peticiones mientras tanto.
+        return await asyncio.to_thread(
+            instagram_card.render_share, row, label,
+            image_format=fmt.upper(), jpeg_quality=cfg.share_jpeg_quality,
+        )
+
+    data = await _share_cache.get_or_render(key, fmt, render)
+    return Response(content=data, media_type=f"image/{fmt}", headers=headers)
 
 
 @app.get("/ig/{identifier}/reel.mp4", include_in_schema=False)
@@ -1055,6 +1137,7 @@ async def sitemap_xml() -> Response:
         f"  <url><loc>{origin}/guia</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>",
         f"  <url><loc>{origin}/quienes-somos</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>",
         f"  <url><loc>{origin}/estadisticas</loc><changefreq>daily</changefreq><priority>0.5</priority></url>",
+        f"  <url><loc>{origin}/privacidad-app</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>",
     ]
     seen_ids: set[str] = set()
     for r in rows:
@@ -1087,6 +1170,134 @@ async def sitemap_xml() -> Response:
         + "\n".join(urls) + "\n</urlset>\n"
     )
     return Response(content=xml, media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})
+
+
+# ── App móvil (Expo, iOS + Android) ─────────────────────────────────────────────────────
+# La app no tiene cuentas: lo único que guarda el servidor es el token push anónimo de
+# Expo + plataforma + tipos elegidos + marcas de tiempo (0024_push_devices.sql), para el
+# resumen diario de app/scheduler/push_digest.py.
+
+APP_PACKAGE = "eu.proactivefuture.corradi"
+_PUSH_TYPES = ("YOUTH_EXCHANGE", "TRAINING_COURSE", "VOLUNTEERING")
+# Formato de token de Expo (`ExponentPushToken[...]`, y la variante `ExpoPushToken[...]`):
+# lo de dentro de los corchetes es alfanumérico; se admite también - y _ y una longitud
+# acotada para no guardar basura de tamaño arbitrario.
+_EXPO_TOKEN_RE = re.compile(r"^Expo(?:nent)?PushToken\[[A-Za-z0-9_-]{8,200}\]$")
+# Anti-abuso, misma ventana por IP en memoria que el chat. La app solo vuelve a registrarse
+# cuando cambia el token o las preferencias, pero muchos usuarios reales comparten IP (NAT
+# de operadora, wifi de campus o de una asociación), así que el límite es holgado: frena a
+# quien rellene la tabla con tokens falsos sin cortar a un grupo detrás de la misma IP.
+_push_hits: dict[str, list[float]] = {}
+_PUSH_RATE_LIMIT_PER_HOUR = 120
+_PUSH_RATE_LIMIT_PER_DAY = 600
+
+
+def _check_expo_token(value: str) -> str:
+    if not _EXPO_TOKEN_RE.fullmatch(value):
+        raise ValueError("token push de Expo no válido")
+    return value
+
+
+class PushRegister(BaseModel):
+    token: str = Field(max_length=230)
+    platform: Literal["ios", "android"]
+    types: list[Literal["YOUTH_EXCHANGE", "TRAINING_COURSE", "VOLUNTEERING"]] = Field(
+        default_factory=list, max_length=3,
+    )
+    daily_digest: bool = True
+
+    @field_validator("token")
+    @classmethod
+    def _valid_token(cls, value: str) -> str:
+        return _check_expo_token(value)
+
+    @field_validator("types")
+    @classmethod
+    def _dedupe(cls, value: list[str]) -> list[str]:
+        # Orden fijo y sin repetidos: lo que se guarda no depende de cómo lo mande la app.
+        return [t for t in _PUSH_TYPES if t in value]
+
+
+class PushUnregister(BaseModel):
+    token: str = Field(max_length=230)
+
+    @field_validator("token")
+    @classmethod
+    def _valid_token(cls, value: str) -> str:
+        return _check_expo_token(value)
+
+
+def _push_guard(request: Request) -> None:
+    if _window_limited(_push_hits, _client_ip(request), _PUSH_RATE_LIMIT_PER_HOUR, _PUSH_RATE_LIMIT_PER_DAY):
+        raise HTTPException(status_code=429, detail="Demasiadas solicitudes seguidas")
+
+
+@app.post("/api/push/register")
+async def push_register(payload: PushRegister, request: Request) -> dict[str, str]:
+    """Alta o actualización del token push de la app (idempotente: la app lo llama cuando
+    cambia el token o sus preferencias). `types` vacío = todos los tipos."""
+    _push_guard(request)
+    await repo.upsert_push_device(payload.token, payload.platform, payload.types, payload.daily_digest)
+    return {"ok": "1"}
+
+
+@app.post("/api/push/unregister")
+async def push_unregister(payload: PushUnregister, request: Request) -> dict[str, str]:
+    """Baja: borra el token (la app lo llama al desactivar las notificaciones). Responde
+    igual exista o no, para no revelar qué tokens están dados de alta."""
+    _push_guard(request)
+    await repo.delete_push_devices([payload.token])
+    return {"ok": "1"}
+
+
+_SHA256_FINGERPRINT_RE = re.compile(r"^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$")
+_WELL_KNOWN_HEADERS = {"Cache-Control": "public, max-age=3600"}
+
+
+@app.get("/.well-known/apple-app-site-association", include_in_schema=False)
+async def apple_app_site_association() -> Response:
+    """Enlaces universales de iOS: /proyecto/* y el enlace corto /AAAA-NNNN abren la app si
+    está instalada. Sin extensión, JSON y sin redirecciones (requisito de Apple). Sin
+    APPLE_TEAM_ID, 404."""
+    team = cfg.apple_team_id
+    if not re.fullmatch(r"[A-Z0-9]{10}", team):
+        raise HTTPException(status_code=404)
+    body = {"applinks": {"details": [{
+        "appIDs": [f"{team}.{APP_PACKAGE}"],
+        "components": [
+            {"/": "/proyecto/*", "comment": "Ficha de una oportunidad"},
+            # Enlace corto de Telegram/WhatsApp (/AAAA-NNNN, ver _SHORT_ID_RE y @enlace_corto
+            # del Caddyfile). AASA no admite clases de caracteres: `?` es «un carácter
+            # cualquiera», así que la app debe comprobar que son dígitos (y si no, abrir web).
+            {"/": "/????-????", "comment": "Enlace corto a una oportunidad"},
+        ],
+    }]}}
+    return Response(json.dumps(body), media_type="application/json", headers=_WELL_KNOWN_HEADERS)
+
+
+@app.get("/.well-known/assetlinks.json", include_in_schema=False)
+async def android_asset_links() -> Response:
+    """Digital Asset Links de Android (App Links). Huellas de ANDROID_CERT_SHA256; las mal
+    formadas se ignoran. Sin ninguna válida, 404."""
+    prints = [p for p in cfg.android_cert_sha256 if _SHA256_FINGERPRINT_RE.fullmatch(p)]
+    if not prints:
+        raise HTTPException(status_code=404)
+    body = [{
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {"namespace": "android_app", "package_name": APP_PACKAGE, "sha256_cert_fingerprints": prints},
+    }]
+    return Response(json.dumps(body), media_type="application/json", headers=_WELL_KNOWN_HEADERS)
+
+
+@app.get("/privacidad-app", include_in_schema=False)
+async def privacidad_app_page(request: Request) -> Response:
+    """Política de privacidad de la app móvil (enlace para App Store y Google Play)."""
+    path = _STATIC / "privacidad-app.html"
+    etag = _file_etag(path)
+    headers = {"Cache-Control": "no-cache", "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return FileResponse(path, media_type="text/html", headers=headers)
 
 
 def _short_link_page(row: dict[str, Any], origin: str) -> str:

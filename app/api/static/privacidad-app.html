@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacidad de la app · Corradi</title>
+<meta name="description" content="Política de privacidad de la app móvil de Corradi: qué datos se guardan en tu móvil, qué guarda el servidor para el resumen diario y cómo borrarlo.">
+<meta name="theme-color" content="#f7f0e2">
+<link rel="canonical" href="https://mapa.proactivefuture.eu/privacidad-app">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2"><link rel="icon" type="image/x-icon" href="/assets/favicon.ico?v=2">
+<link rel="stylesheet" href="/assets/atlas-pages.css?v=20261105a">
+<style>
+.priv-hero{padding:84px 0 40px}
+.priv-hero h1{margin-top:24px;max-width:18ch}
+.priv-date{margin:18px 0 0;font-size:14px;color:var(--muted)}
+.priv{max-width:760px;padding-bottom:96px}
+.priv h2{margin:48px 0 14px;font-size:clamp(26px,3vw,34px)}
+.priv p,.priv li{font-size:17px;line-height:1.7}
+.priv ul{padding-left:22px}
+.priv li{margin-bottom:8px}
+.priv .card{margin-top:20px}
+.priv .card p{margin:0}
+.priv a{color:var(--clay2)}
+@media(max-width:640px){.priv-hero{padding-top:46px}.priv p,.priv li{font-size:16px}}
+</style>
+<link rel="stylesheet" href="/assets/site-nav.css?v=20261105e"></head>
+<body>
+<!--
+  PENDIENTE DE REVISIÓN LEGAL: este texto debe revisarlo quien lleve los asuntos legales en
+  Proactive Future antes de enlazarlo en App Store / Google Play (en particular la base
+  jurídica del tratamiento, las transferencias internacionales a Expo y los plazos).
+  No se menciona el registro técnico de acceso de Caddy (docker/Caddyfile: access.log con IP,
+  fecha y ruta de cada petición, rotado por tamaño), común a la web y a la app: decidir si
+  debe constar.
+  Describe el funcionamiento real del código a fecha 2026-11-13: si cambia lo que guarda
+  la app o el servidor, hay que actualizar esta página y su fecha.
+-->
+<div id="site-nav"></div><script src="/assets/site-nav.js?v=20261106b"></script>
+
+<main>
+<section class="priv-hero"><div class="wrap">
+  <span class="kicker">Privacidad</span>
+  <h1>Privacidad de la app de Corradi</h1>
+  <p class="lead">La app no tiene cuentas, ni analítica, ni publicidad, ni seguimiento. Casi todo se queda en tu móvil; el servidor solo guarda lo imprescindible para mandarte el resumen diario si lo activas.</p>
+  <p class="priv-date">Última actualización: <time datetime="2026-11-13">13 de noviembre de 2026</time></p>
+</div></section>
+
+<section class="wrap priv">
+  <h2>Quién es responsable</h2>
+  <p>El responsable del tratamiento es <strong>Proactive Future</strong>, la organización que impulsa Corradi. Para cualquier duda sobre privacidad o para ejercer tus derechos, escríbenos a <a href="mailto:tech@proactivefuture.eu">tech@proactivefuture.eu</a>.</p>
+
+  <h2>Lo que no hacemos</h2>
+  <ul>
+    <li>No hay registro ni cuentas de usuario: no te pedimos nombre, correo ni teléfono.</li>
+    <li>No usamos herramientas de analítica ni de medición de uso.</li>
+    <li>No mostramos publicidad.</li>
+    <li>No te seguimos entre apps ni webs, ni compartimos datos con terceros con fines comerciales.</li>
+  </ul>
+
+  <h2>Lo que se guarda solo en tu móvil</h2>
+  <p>Estos datos se guardan en el almacenamiento local de la app, en tu dispositivo. No se envían a nuestro servidor:</p>
+  <ul>
+    <li>Los proyectos que has visto y los que has guardado.</li>
+    <li>Los recordatorios de fechas límite que hayas creado.</li>
+    <li>Tus preferencias dentro de la app.</li>
+  </ul>
+  <p>Se borran si borras los datos de la app o la desinstalas.</p>
+
+  <h2>Lo que se guarda en nuestro servidor</h2>
+  <p>Solo si activas las notificaciones, el servidor guarda:</p>
+  <ul>
+    <li>El <strong>token de notificaciones</strong> anónimo que genera el servicio de notificaciones para tu instalación de la app. No contiene tu nombre ni tu número, y no lo asociamos a ninguna identidad.</li>
+    <li>La <strong>plataforma</strong> (iOS o Android).</li>
+    <li>Los <strong>tipos de proyecto</strong> que has elegido (intercambios juveniles, cursos de formación, voluntariado) y si quieres recibir el resumen diario.</li>
+    <li>La <strong>fecha</strong> en que se dio de alta y la última vez que la app lo actualizó.</li>
+  </ul>
+  <p>Lo usamos <strong>únicamente</strong> para enviarte el resumen diario de proyectos nuevos que encajan con los tipos que elegiste.</p>
+  <div class="card"><p><strong>Cuándo se borra.</strong> En cuanto desactivas las notificaciones en la app, o cuando el servicio de notificaciones nos indica que el token ya no es válido (por ejemplo, porque desinstalaste la app o le quitaste el permiso de notificaciones).</p></div>
+
+  <h2>Cómo llegan las notificaciones</h2>
+  <p>Las notificaciones se envían a través de <strong>Expo</strong> (expo.dev), el servicio de notificaciones que usa la app, que a su vez las entrega mediante <strong>Apple Push Notification service</strong> (en iPhone y iPad) o <strong>Firebase Cloud Messaging de Google</strong> (en Android). Para ello, estos servicios reciben el token y el contenido de la notificación (el número de proyectos nuevos y sus títulos).</p>
+
+  <h2>Datos de los proyectos</h2>
+  <p>La información de las oportunidades Erasmus+ que muestra la app es pública: es la misma que se publica en <a href="/">mapa.proactivefuture.eu</a>. Consultarla no requiere darnos ningún dato personal.</p>
+
+  <h2>Tus derechos</h2>
+  <p>Puedes dejar de recibir notificaciones y borrar el token del servidor en cualquier momento desactivándolas en la app. También puedes escribirnos a <a href="mailto:tech@proactivefuture.eu">tech@proactivefuture.eu</a> para ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad, y tienes derecho a presentar una reclamación ante la Agencia Española de Protección de Datos (<a href="https://www.aepd.es" target="_blank" rel="noopener">aepd.es</a>).</p>
+
+  <h2>Cambios en esta política</h2>
+  <p>Si cambia lo que guarda la app o el servidor, actualizaremos esta página y su fecha de última actualización.</p>
+</section>
+</main>
+
+<div id="site-footer"></div>
+</body>
+</html>

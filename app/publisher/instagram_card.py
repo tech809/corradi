@@ -235,6 +235,7 @@ def _clock_icon(d: ImageDraw.ImageDraw, cx: float, cy: float, r: float, color, w
 def _compose(
     opp: dict[str, Any], size: tuple[int, int], pill_label: str, scale: float,
     pill_icon: str = "clock", cta_text: str = "TODA LA INFO EN EL LINK DE LA BIO",
+    image_format: str = "PNG", jpeg_quality: int = 85,
 ) -> bytes:
     W, H = size
     otype = opp.get("type") or "YOUTH_EXCHANGE"
@@ -379,7 +380,12 @@ def _compose(
     d.text((inner_x + s(17), deadline_y + s(10)), deadline, font=deadline_f, fill=WHITE)
 
     buf = io.BytesIO()
-    img.save(buf, "PNG", optimize=True)
+    if image_format == "JPEG":
+        # Para /share/*: la tarjeta es casi toda foto, y el PNG pesa ~1 MB y tarda ~2 s
+        # solo en el `optimize`; un JPEG q85 se ve igual y pesa ~230 KB.
+        img.convert("RGB").save(buf, "JPEG", quality=jpeg_quality, optimize=True, progressive=True)
+    else:
+        img.save(buf, "PNG", optimize=True)
     return buf.getvalue()
 
 
@@ -391,9 +397,13 @@ def render_story(opp: dict[str, Any], pill_label: str) -> bytes:
     return _compose(opp, STORY_SIZE, pill_label, scale=1.56, pill_icon="clock")
 
 
-def render_share(opp: dict[str, Any], pill_label: str) -> bytes:
-    """Story compartible desde web/móvil, sin la referencia exclusiva a Instagram."""
+def render_share(
+    opp: dict[str, Any], pill_label: str, image_format: str = "PNG", jpeg_quality: int = 85,
+) -> bytes:
+    """Story compartible desde web/móvil, sin la referencia exclusiva a Instagram.
+    `image_format`: "PNG" (por defecto) o "JPEG"."""
     return _compose(
         opp, STORY_SIZE, pill_label, scale=1.56, pill_icon="clock",
         cta_text="DESCUBRE EL PROYECTO EN CORRADI",
+        image_format=image_format, jpeg_quality=jpeg_quality,
     )

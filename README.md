@@ -28,6 +28,7 @@ sin intervención humana en el día a día.
 - [Configuración (`.env`)](#configuración-env)
 - [Reenvío a WhatsApp (bot de difusión)](#reenvío-a-whatsapp-bot-de-difusión)
 - [Resumen semanal](#resumen-semanal)
+- [App móvil (push y enlaces)](#app-móvil-push-y-enlaces)
 - [Bandera de país](#bandera-de-país-en-cada-post)
 - [Calidad de extracción](#calidad-de-extracción--aprendido-con-mensajes-reales)
 - [Qué está aparcado (WhatsApp Business API)](#qué-está-aparcado-whatsapp-business-api)
@@ -197,7 +198,8 @@ corradi/
     │   └── twilio_webhook.py        # ⚠️ aparcado (entrada por WhatsApp)
     └── scheduler/
         ├── expire_projects.py       # expira cada noche lo vencido (sin mensajes)
-        └── weekly_summary.py        # resumen semanal de los domingos
+        ├── weekly_summary.py        # resumen semanal de los domingos
+        └── push_digest.py           # resumen push diario de la app móvil (19:30)
 ```
 
 ## Puesta en marcha
@@ -535,6 +537,48 @@ mismo, y el top de países y temáticas de lo publicado esa semana:
 ```bash
 crontab -l   # 30 20 * * 0 docker exec corradi-bot python -m app.scheduler.weekly_summary
 make weekly-summary   # probarlo a mano
+```
+
+## App móvil (push y enlaces)
+
+La app (Expo, iOS + Android, `eu.proactivefuture.corradi`) no tiene cuentas: guarda todo en
+el móvil. En el servidor solo vive el token push anónimo de Expo + plataforma + tipos
+elegidos + marcas de tiempo (`push_devices`, migración `0024_push_devices.sql`).
+
+- `POST /api/push/register` `{token, platform, types, daily_digest}`: alta/actualización
+  (idempotente). Solo tokens `ExponentPushToken[...]`/`ExpoPushToken[...]`, `platform`
+  `ios|android`, `types` ⊂ {`YOUTH_EXCHANGE`, `TRAINING_COURSE`, `VOLUNTEERING`} (vacío =
+  todos). Lo demás, 422. Rate-limit por IP en memoria, como el chat (120/hora y 600/día
+  por IP, compartido con `unregister`: holgado porque muchos usuarios comparten IP).
+- `POST /api/push/unregister` `{token}`: borra el token.
+- `GET /.well-known/apple-app-site-association` (con `APPLE_TEAM_ID`) y
+  `GET /.well-known/assetlinks.json` (con `ANDROID_CERT_SHA256`): enlaces universales /
+  App Links para `/proyecto/*`. Sin la variable, 404.
+- `GET /privacidad-app`: política de privacidad para las tiendas (pendiente de revisión legal).
+- Banner «Descarga la app» en `/` y `/proyecto/*` solo si hay `APP_STORE_URL` y/o
+  `PLAY_STORE_URL`; `APP_STORE_ID` añade `<meta name="apple-itunes-app">`.
+
+`app/scheduler/push_digest.py` manda cada día «Hay N proyectos nuevos para ti» con las
+oportunidades abiertas del mapa creadas desde el último resumen (la primera vez, últimas
+24 h), filtradas por los tipos de cada dispositivo. El cuerpo lleva hasta 2 títulos limpios
+(sin emoji, «|» → «·», en tipo frase si venían en mayúsculas) y «y N más». `data` lleva
+`{screen: "nuevos", ids: [...]}` con los identificadores que cuenta esa notificación (máx.
+50), para que la app enseñe justo eso. Sin novedades no sale nada. Cada pasada queda en
+`push_digest_runs`.
+
+Bajas: los tokens que Expo da por `DeviceNotRegistered` en el ticket se borran al momento;
+el resto llega en el recibo (~15 min después; Expo lo guarda solo 24 h). Cada ticket
+aceptado se apunta en `push_tickets` (migración `0027_push_tickets.sql`, aplicar a mano) y
+`--receipts-only` consulta los recibos de más de 15 min, borra los tokens muertos (salvo
+que la app los haya vuelto a registrar después del envío), registra los demás errores y
+limpia los tickets procesados y los de más de 48 h. Como el siguiente resumen llega cuando
+los recibos ya han caducado, hace falta su propia línea de cron, 20 min después del resumen
+(cada resumen también lo intenta al arrancar).
+
+```bash
+crontab -l   # 30 19 * * * docker exec corradi-bot python -m app.scheduler.push_digest
+             # 50 19 * * * docker exec corradi-bot python -m app.scheduler.push_digest --receipts-only
+python -m app.scheduler.push_digest --dry-run   # calcula sin enviar ni registrar
 ```
 
 ## Bandera de país en cada post
