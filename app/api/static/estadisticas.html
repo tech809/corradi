@@ -28,11 +28,6 @@
 .mini .card{padding:24px}
 .mini h3{font-size:20px}
 .note{font-size:12px;color:var(--muted);margin:16px 0 0}
-.hour-grid{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:5px;height:155px;align-items:end;border-bottom:1px solid var(--rule);padding:8px 0 0}
-.hour-bar{height:max(3px,var(--h));background:var(--clay);border-radius:4px 4px 0 0;position:relative;min-width:0}
-.hour-bar.current{background:var(--ink)}
-.hour-bar:hover{background:var(--clay2)}
-.hour-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:8px}
 .month-scroll{overflow-x:auto;scrollbar-color:var(--rule) transparent}
 .month-scroll .chart{max-width:none}
 .topic-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
@@ -44,7 +39,7 @@
 .tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--clay2)}
 #dotMap{height:420px;border-radius:10px;overflow:hidden;border:1px solid var(--rule);background:#efe7d8}#dotMap .leaflet-tile-pane{filter:grayscale(1) sepia(.35) brightness(1.04) contrast(.9)}.org-tools{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 @media(max-width:1020px){.mini{grid-template-columns:1fr 1fr}.topic-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:640px){.stats-hero{padding-top:44px}.mini{grid-template-columns:1fr}.big-card{padding:22px 16px}.topic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hour-grid{gap:3px}}
+@media(max-width:640px){.stats-hero{padding-top:44px}.mini{grid-template-columns:1fr}.big-card{padding:22px 16px}.topic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <link rel="stylesheet" href="/assets/site-nav.css?v=20261105e"></head>
 <body>
@@ -69,11 +64,6 @@
       <div class="seg" role="group" aria-label="Periodo" id="visitRange"><button type="button" data-d="30" aria-pressed="false">30 días</button><button type="button" data-d="90" aria-pressed="true">90 días</button><button type="button" data-d="0" aria-pressed="false">Todo</button></div>
     </div>
     <svg class="chart" id="visitChart" viewBox="0 0 1000 300" role="img" aria-label="Visitas diarias"></svg>
-  </div>
-  <div class="card reveal" style="margin-top:22px">
-    <div class="chart-head"><div><h3>Visitas en las últimas 24 horas</h3><p class="sub">Una barra por hora; la hora actual todavía está en curso.</p></div><span class="stamp" id="hourUpdated"></span></div>
-    <div id="hourChart" role="img" aria-label="Visitas al mapa por hora durante las últimas 24 horas"><p class="empty">Cargando visitas por hora…</p></div>
-    <p class="note">Recuento disponible desde que empezamos a registrar las visitas por hora. Se actualiza cada minuto.</p>
   </div>
   <div class="g2" style="margin-top:22px">
     <div class="card reveal"><h3>Convocatorias publicadas por mes</h3><p class="sub">Desde que el catálogo empezó a funcionar.</p><div class="month-scroll"><svg class="chart" id="monthChart" viewBox="0 0 600 260" role="img" aria-label="Publicaciones por mes"></svg></div></div>
@@ -145,25 +135,6 @@ Promise.all([fetch("/api/stats").then(function(r){return r.json()}),fetch("/api/
   var S=res[0],open=(res[1].results||[]).filter(function(o){return o.type&&o.application_deadline&&o.application_deadline>=TODAY});
   kpis(S,open);visits(S);months(S);clicks(S);catalog(open);interest(S);destinations(S);orgs(S);observe();
 }).catch(function(){$("#kpis").innerHTML='<p class="empty">No se han podido cargar los datos.</p>'});
-function loadHourly(){
-  fetch("/api/stats/visits-hourly").then(function(r){if(!r.ok)throw Error(r.status);return r.json()}).then(function(data){drawHourly(data.hours||[])})
-  .catch(function(){if(!$("#hourChart .hour-grid"))$("#hourChart").innerHTML='<p class="empty">No se han podido cargar las visitas por hora.</p>'});
-}
-loadHourly();
-setInterval(function(){if(!document.hidden)loadHourly()},60000);
-document.addEventListener("visibilitychange",function(){if(!document.hidden)loadHourly()});
-
-function drawHourly(hours){
-  if(!hours.length){$("#hourChart").innerHTML='<p class="empty">Todavía no hay datos por hora.</p>';return}
-  var max=Math.max.apply(null,hours.map(function(h){return h.n}).concat([1]));
-  var total=hours.reduce(function(n,h){return n+h.n},0);
-  var fmt=function(h){return new Date(h.hour).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})};
-  $("#hourChart").innerHTML='<div class="hour-grid">'+hours.map(function(h,i){var label=fmt(h),partial=i===hours.length-1;
-    return '<div class="hour-bar'+(partial?' current':'')+'" style="--h:'+Math.max(2,h.n/max*100)+'%" title="'+label+' · '+nf(h.n)+' visitas'+(partial?' (hora en curso)':'')+'" aria-label="'+label+': '+nf(h.n)+' visitas"></div>'
-  }).join("")+'</div><div class="hour-labels"><span>'+fmt(hours[0])+'</span><span>'+fmt(hours[Math.floor(hours.length/2)])+'</span><span>'+fmt(hours[hours.length-1])+'</span></div><p class="note"><b>'+nf(total)+'</b> visitas en las horas mostradas · <b>'+nf(hours[hours.length-1].n)+'</b> en la hora actual</p>';
-  $("#hourUpdated").textContent='Actualizado a las '+new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
-}
-
 function sumRange(v,from,to){var s=0;for(var i=Math.max(0,from);i<to;i++)s+=v[i].n;return s}
 function kpis(S,open){
   var v=S.daily_visits||[],L=v.length,last=sumRange(v,L-30,L),prev=sumRange(v,L-60,L-30),pct=prev?Math.round((last-prev)/prev*100):null;

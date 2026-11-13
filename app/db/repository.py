@@ -541,7 +541,7 @@ async def mark_published(project_id, message_id: int | None = None) -> None:
 
 # ── Contadores de la web (visitas + publicadas) ──────────────────────────────
 async def bump_visit() -> dict[str, int]:
-    """Suma 1 a las visitas (contador acumulado + desglose diario y horario) y devuelve las
+    """Suma 1 a las visitas (contador acumulado + desglose del día de hoy) y devuelve las
     visitas y el total histórico de publicadas."""
     async with get_pool().connection() as conn:
         cur = await conn.execute(
@@ -552,10 +552,6 @@ async def bump_visit() -> dict[str, int]:
         await conn.execute(
             "INSERT INTO daily_visits (day, count) VALUES (current_date, 1) "
             "ON CONFLICT (day) DO UPDATE SET count = daily_visits.count + 1"
-        )
-        await conn.execute(
-            "INSERT INTO hourly_visits (hour, count) VALUES (date_trunc('hour', now()), 1) "
-            "ON CONFLICT (hour) DO UPDATE SET count = hourly_visits.count + 1"
         )
         cur = await conn.execute("SELECT value FROM counters WHERE key = 'published'")
         row = await cur.fetchone()
@@ -989,19 +985,6 @@ async def daily_visits_since(days: int = 400) -> list[dict[str, Any]]:
                 "LEFT JOIN daily_visits v ON v.day = d.day::date "
                 "ORDER BY d.day",
                 (days - 1,),
-            )
-            return await cur.fetchall()
-
-
-async def hourly_visits_last_24h() -> list[dict[str, Any]]:
-    """24 horas de calendario hasta la actual, con huecos rellenados a cero."""
-    async with get_pool().connection() as conn:
-        async with conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(
-                "SELECT h.hour, coalesce(v.count, 0) AS n FROM "
-                "generate_series(date_trunc('hour', now()) - interval '23 hours', "
-                "date_trunc('hour', now()), interval '1 hour') AS h(hour) "
-                "LEFT JOIN hourly_visits v ON v.hour = h.hour ORDER BY h.hour"
             )
             return await cur.fetchall()
 
